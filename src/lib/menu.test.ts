@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock @tauri-apps/api/menu
@@ -244,7 +244,7 @@ describe('buildAppMenu — 菜单构建', () => {
     it('t 函数被调用时传入 menu.about 键', async () => {
       await buildAppMenu()
       expect(mockI18n.t).toHaveBeenCalledWith('menu.about', {
-        appName: 'Tauri Template',
+        appName: 'Tauri-Desktop-Software-Template',
       })
     })
 
@@ -256,7 +256,7 @@ describe('buildAppMenu — 菜单构建', () => {
     it('t 函数被调用时传入 menu.quit 键', async () => {
       await buildAppMenu()
       expect(mockI18n.t).toHaveBeenCalledWith('menu.quit', {
-        appName: 'Tauri Template',
+        appName: 'Tauri-Desktop-Software-Template',
       })
     })
   })
@@ -363,7 +363,7 @@ describe('菜单 action 处理器', () => {
 
       expect(mockAlert).toHaveBeenCalledTimes(1)
       const alertText = mockAlert.mock.calls[0]?.[0] as string
-      expect(alertText).toContain('Tauri Template')
+      expect(alertText).toContain('Tauri-Desktop-Software-Template')
       expect(alertText).toContain('0.1.0')
       expect(alertText).toContain('Tauri v2 + React + TypeScript')
     })

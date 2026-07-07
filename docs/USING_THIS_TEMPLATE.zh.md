@@ -44,8 +44,8 @@ npm run tauri:dev
 | `.github/workflows/release.yml` | 工作流名称、发布名称                                                |
 | `AGENTS.md`                     | 概述部分中的应用名称/描述                                           |
 | `README.md`                     | 将模板引用替换为您的应用                                            |
-| `docs/SECURITY.md`              | 替换 `YOUR_SECURITY_EMAIL` 占位符                                   |
-| `docs/CONTRIBUTING.md`          | 替换 `YOUR_USERNAME/YOUR_REPO` 占位符                               |
+| `docs/SECURITY.zh.md`           | 替换 `YOUR_SECURITY_EMAIL` 占位符                                   |
+| `docs/CONTRIBUTING.zh.md`       | 替换 `YOUR_USERNAME/YOUR_REPO` 占位符                               |
 
 ### 需要替换的占位符
 
@@ -57,7 +57,7 @@ npm run tauri:dev
 | `YOUR_USERNAME`        | `tauri.conf.json`（更新端点 URL）          | 您的 GitHub 用户名                 |
 | `YOUR_REPO`            | `tauri.conf.json`（更新端点 URL）          | 您的 GitHub 仓库名称               |
 | `YOUR_PUBLIC_KEY_HERE` | `tauri.conf.json`（更新公钥）              | `tauri signer generate` 生成的公钥 |
-| `YOUR_SECURITY_EMAIL`  | `docs/SECURITY.md`                         | 您的安全联系邮箱                   |
+| `YOUR_SECURITY_EMAIL`  | `docs/SECURITY.zh.md`                      | 您的安全联系邮箱                   |
 | `Danny Smith`          | `package.json`（author、copyright）        | 您的真实姓名                       |
 | `com.tauri-app.app`    | `tauri.conf.json`（identifier）            | `com.yourusername.your-app-name`   |
 | `tauri-app`            | `tauri.conf.json`（productName、窗口标题） | 您的应用显示名称                   |

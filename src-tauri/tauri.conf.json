@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "Tauri-Desktop-Software-Template",
   "version": "0.1.0",
-  "identifier": "com.tauri-app.app",
+  "identifier": "com.zlh12331.tauri-desktop-software-template",
   "build": {
     "removeUnusedCommands": true,
     "beforeDevCommand": "npm run dev",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "tauri-app",
+        "title": "Tauri-Desktop-Software-Template",
         "width": 1200,
         "height": 800,
         "minWidth": 1000,
@@ -46,11 +46,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "TauriTemplate",
+    "publisher": "zlh12331",
     "category": "DeveloperTool",
-    "shortDescription": "A Tauri React template application",
-    "longDescription": "A modern Tauri React template with comprehensive boilerplate code, TypeScript, Tailwind CSS, and shadcn/ui components.",
-    "copyright": "Copyright © 2025 TauriTemplate. All rights reserved.",
+    "shortDescription": "A type-safe desktop app template",
+    "longDescription": "A production-hardened desktop app template built with Tauri v2, React 19, TypeScript 6, and Rust.",
+    "copyright": "Copyright © 2025 zlh12331. All rights reserved.",
     "macOS": {
       "frameworks": [],
       "minimumSystemVersion": "10.15",
@@ -74,7 +74,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest/download/latest.json"
+        "https://github.com/zlh12331/Tauri-Desktop-Software-Template/releases/latest/download/latest.json"
       ],
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFNThFRTRCQzEwMzE2NEIKUldSTEZnUEJTKzVZbmtjdGFaWm5zRytoRnBUS0NuSG9VVlhWZmZOc3I5aFlhdXgxUS9XKzRxdmEK"

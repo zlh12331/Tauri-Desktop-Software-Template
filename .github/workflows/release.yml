@@ -1,4 +1,4 @@
-name: 'Release Tauri Template App'
+﻿name: 'Release Tauri-Desktop-Software-Template'
 
 on:
   push:
@@ -181,9 +181,9 @@ jobs:
           # Windows code signing (optional - configured via tauri.conf.json certificateThumbprint)
         with:
           tagName: ${{ github.ref_name || inputs.version }}
-          releaseName: 'Tauri Template App ${{ github.ref_name || inputs.version }}'
+          releaseName: 'Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}'
           releaseBody: |
-            ## Tauri Template App ${{ github.ref_name || inputs.version }}
+            ## Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}
 
             ### Installation Instructions
             - **macOS**: Download the `.dmg` file and drag to Applications folder

@@ -1,5 +1,5 @@
 {
-  "app.name": "Tauri 模板",
+  "app.name": "Tauri-Desktop-Software-Template",
 
   "menu.about": "关于 {{appName}}",
   "menu.checkForUpdates": "检查更新...",

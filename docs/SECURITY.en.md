@@ -13,7 +13,7 @@
 
 Do not report security vulnerabilities through public GitHub issues.
 
-**Contact**: See `SECURITY.md` in the repository root or open a private security advisory on GitHub
+**Contact**: Open a private security advisory on GitHub or see `SECURITY.md` in the repository root
 
 Include:
 

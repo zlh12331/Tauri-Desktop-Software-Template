@@ -32,7 +32,7 @@ Most Tauri starters give you a "hello world" and leave the hard parts to you. Th
 ## Quick Start
 
 ```bash
-git clone --depth 1 https://github.com/your-username/Tauri-Desktop-Software-Template.git my-app
+git clone --depth 1 https://github.com/zlh12331/Tauri-Desktop-Software-Template.git my-app
 cd my-app
 npm install
 npm run tauri:dev

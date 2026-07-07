@@ -1,8 +1,8 @@
 [package]
-name = "tauri-app"
+name = "tauri-desktop-software-template"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A type-safe, production-hardened desktop app template"
+authors = ["zlh12331"]
 edition = "2024"
 rust-version = "1.93"
 license = "Apache-2.0"

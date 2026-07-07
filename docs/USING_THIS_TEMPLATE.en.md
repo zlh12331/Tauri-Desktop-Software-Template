@@ -44,8 +44,8 @@ npm run tauri:dev
 | `.github/workflows/release.yml` | Workflow name, release name                                                    |
 | `AGENTS.md`                     | Overview section with app name/description                                     |
 | `README.md`                     | Replace template references with your app                                      |
-| `docs/SECURITY.md`              | Replace `YOUR_SECURITY_EMAIL` placeholder                                      |
-| `docs/CONTRIBUTING.md`          | Replace `YOUR_USERNAME/YOUR_REPO` placeholder                                  |
+| `docs/SECURITY.en.md`           | Replace `YOUR_SECURITY_EMAIL` placeholder                                      |
+| `docs/CONTRIBUTING.en.md`       | Replace `YOUR_USERNAME/YOUR_REPO` placeholder                                  |
 
 ### Placeholder Values to Replace
 
@@ -57,7 +57,7 @@ The following placeholder strings appear in configuration files. Search and repl
 | `YOUR_USERNAME`        | `tauri.conf.json` (updater endpoint URL)      | Your GitHub username                    |
 | `YOUR_REPO`            | `tauri.conf.json` (updater endpoint URL)      | Your GitHub repository name             |
 | `YOUR_PUBLIC_KEY_HERE` | `tauri.conf.json` (updater pubkey)            | Public key from `tauri signer generate` |
-| `YOUR_SECURITY_EMAIL`  | `docs/SECURITY.md`                            | Your security contact email             |
+| `YOUR_SECURITY_EMAIL`  | `docs/SECURITY.en.md`                         | Your security contact email             |
 | `Danny Smith`          | `package.json` (author, copyright)            | Your real name                          |
 | `com.tauri-app.app`    | `tauri.conf.json` (identifier)                | `com.yourusername.your-app-name`        |
 | `tauri-app`            | `tauri.conf.json` (productName, window title) | Your app's display name                 |

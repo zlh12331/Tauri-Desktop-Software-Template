@@ -18,7 +18,7 @@ import { notifications } from '@/lib/notifications'
 import { executeCommand } from '@/lib/commands/registry'
 import type { CommandContext } from '@/lib/commands/types'
 
-const APP_NAME = 'Tauri Template'
+const APP_NAME = 'Tauri-Desktop-Software-Template'
 
 /**
  * Build and set the application menu with translated labels.

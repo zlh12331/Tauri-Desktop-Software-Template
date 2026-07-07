@@ -33,7 +33,7 @@ export default defineConfig(async ({ mode }) => {
       sentryDsn &&
         sentryVitePlugin({
           org: 'sentry',
-          project: 'tauri-template',
+          project: 'tauri-desktop-software-template',
           authToken: process.env.SENTRY_AUTH_TOKEN, // needed for source map upload
           // Source maps: generate hidden maps in production, upload to Sentry.
           sourcemaps: {

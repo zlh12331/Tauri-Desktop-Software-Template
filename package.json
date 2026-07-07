@@ -1,10 +1,10 @@
 {
-  "name": "tauri-app",
+  "name": "tauri-desktop-software-template",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "author": "Danny Smith",
-  "copyright": "Copyright © 2025 Danny Smith. All rights reserved.",
+  "author": "zlh12331",
+  "copyright": "Copyright © 2025 zlh12331. All rights reserved.",
   "license": "Apache-2.0",
   "overrides": {
     "typescript-eslint": {

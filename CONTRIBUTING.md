@@ -1,4 +1,4 @@
-# Contributing to Tauri Template
+# Contributing to Tauri-Desktop-Software-Template
 
 Thank you for your interest in contributing! This document covers the development workflow and standards.
 
