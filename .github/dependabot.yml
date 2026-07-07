@@ -1,0 +1,60 @@
+version: 2
+updates:
+  # npm dependencies
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      react:
+        patterns:
+          - react
+          - react-dom
+          - '@types/react*'
+      radix:
+        patterns:
+          - '@radix-ui/*'
+      tauri:
+        patterns:
+          - '@tauri-apps/*'
+      dev:
+        patterns:
+          - '@vitejs/*'
+          - '@testing-library/*'
+          - 'eslint*'
+          - typescript-eslint
+          - vitest
+          - '@playwright/*'
+
+  # Rust dependencies
+  - package-ecosystem: cargo
+    directory: /src-tauri
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - rust
+    commit-message:
+      prefix: chore(deps)
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: chore(deps)
