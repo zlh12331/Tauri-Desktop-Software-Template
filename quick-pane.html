@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quick Pane</title>
+    <script>
+      // Inline blocking script: applies theme class BEFORE first paint to prevent FOUC.
+      ;(function () {
+        try {
+          var theme = localStorage.getItem('ui-theme') || 'system'
+          var isDark =
+            theme === 'dark' ||
+            (theme === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var root = document.documentElement
+          root.classList.remove('light', 'dark')
+          root.classList.add(isDark ? 'dark' : 'light')
+        } catch (_) {
+          document.documentElement.classList.add('light')
+        }
+      })()
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/quick-pane-main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "tauri-app",
+  "version": "0.1.0",
+  "identifier": "com.tauri-app.app",
+  "build": {
+    "removeUnusedCommands": true,
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "tauri-app",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 1000,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "maximized": false,
+        "center": true,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "transparent": false,
+        "shadow": true,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' tauri: ipc: http://ipc.localhost http://127.0.0.1:9000 https://127.0.0.1:9000"
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true,
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "TauriTemplate",
+    "category": "DeveloperTool",
+    "shortDescription": "A Tauri React template application",
+    "longDescription": "A modern Tauri React template with comprehensive boilerplate code, TypeScript, Tailwind CSS, and shadcn/ui components.",
+    "copyright": "Copyright © 2025 TauriTemplate. All rights reserved.",
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-",
+      "providerShortName": null,
+      "entitlements": null,
+      "exceptionDomain": ""
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.sectigo.com"
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["tauri-app"]
+      }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFNThFRTRCQzEwMzE2NEIKUldSTEZnUEJTKzVZbmtjdGFaWm5zRytoRnBUS0NuSG9VVlhWZmZOc3I5aFlhdXgxUS9XKzRxdmEK"
+    }
+  }
+}

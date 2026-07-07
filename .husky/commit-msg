@@ -1,0 +1,2 @@
+# Commit-msg hook: validates commit message follows Conventional Commits
+npx --no -- commitlint --edit "$1"

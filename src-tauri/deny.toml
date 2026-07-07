@@ -1,0 +1,65 @@
+# cargo-deny configuration
+#
+# Run `cargo deny check` to validate all four domains below.
+# Based on codex-main's deny.toml, adapted for this project.
+
+[advisories]
+# Vulnerability database: https://rustsec.org/advisories/
+# Ignored advisories should include a `reason` field explaining why and
+# when the ignore can be removed.
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/RustSec/advisory-db"]
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Allow only permissive and weak copyleft licenses.
+# Strong copyleft (GPL, AGPL) and non-commercial licenses are denied.
+version = 2
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "MPL-2.0",
+    "OpenSSL",
+    "Zlib",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "BSL-1.0",
+    "Unlicense",
+]
+# Confidence threshold for license detection
+confidence-threshold = 0.8
+
+[[licenses.exceptions]]
+# Some crates don't have a standard SPDX license expression.
+# Add exceptions here with a `reason` field.
+
+[bans]
+# Warn on multiple versions of the same crate in the dependency tree.
+multiple-versions = "warn"
+# Allow wildcard dependencies (e.g. `*`).
+wildcards = "allow"
+# Highlight all duplicate versions in output.
+highlight = "all"
+# Allow specific crates that are known to have duplicate versions.
+# Each entry should include a `reason` field.
+allow = []
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+# Deny crates from unknown registries or git sources.
+unknown-registry = "deny"
+unknown-git = "deny"
+# Require git sources to be pinned to a specific revision.
+required-git-spec = "rev"
+# Only allow crates from crates.io.
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

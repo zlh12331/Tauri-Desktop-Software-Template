@@ -1,0 +1,8 @@
+# Pre-push hook: run full test suite before pushing to remote
+echo "Running unit tests (Vitest)..."
+npm run test:run || { echo "❌ Unit tests failed. Push aborted."; exit 1; }
+
+echo "Running E2E tests (Playwright)..."
+npm run e2e || { echo "❌ E2E tests failed. Push aborted."; exit 1; }
+
+echo "✅ All tests passed. Proceeding with push."

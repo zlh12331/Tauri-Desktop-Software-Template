@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+  <!--
+    Windows application manifest with Common-Controls v6 dependency.
+
+    This manifest is embedded into ALL targets (binaries AND test binaries)
+    via embed_resource::compile_for_everything() in build.rs, which outputs
+    `cargo:rustc-link-arg` (applies to all targets).
+
+    tauri_build::try_build() is called with WindowsAttributes::new_without_app_manifest()
+    so tauri-build compiles only icons/version info (via cargo:rustc-link-arg-bins,
+    binary targets only) and does NOT embed a manifest — avoiding duplicate
+    manifest resources.
+
+    Without this manifest, test binaries crash with STATUS_ENTRYPOINT_NOT_FOUND
+    (0xc0000139) because comctl32.dll v5 lacks entry points that Tauri/WebView2
+    dependencies expect. tauri-build's default compile() only links resources
+    to binary targets, leaving test binaries without a manifest.
+  -->
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"
+      />
+    </dependentAssembly>
+  </dependency>
+</assembly>
