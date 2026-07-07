@@ -11,7 +11,17 @@ version = 2
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/RustSec/advisory-db"]
 yanked = "deny"
-ignore = []
+# Skip unmaintained/unsound checks: many are transitive deps of
+# Tauri/GTK with no safe upgrade available (e.g. unic-*, glib 0.18).
+unmaintained = "none"
+unsound = "none"
+ignore = [
+    # quick-xml 0.39.4 is pulled in by wayland-scanner (Linux-only build-time dep).
+    # It parses Wayland protocol XML (trusted, hardcoded input — not user-supplied).
+    # The runtime quick-xml (via plist) has been updated to 0.41.0 (plist 1.10.0).
+    { id = "RUSTSEC-2026-0194", reason = "wayland-scanner build-time only; trusted XML input" },
+    { id = "RUSTSEC-2026-0195", reason = "wayland-scanner build-time only; trusted XML input" },
+]
 
 [licenses]
 # Allow only permissive and weak copyleft licenses.
@@ -32,13 +42,19 @@ allow = [
     "Unicode-DFS-2016",
     "BSL-1.0",
     "Unlicense",
+    # Permissive data license used by webpki-root-certs / webpki-roots
+    # for bundled root CA certificate data.
+    "CDLA-Permissive-2.0",
 ]
 # Confidence threshold for license detection
 confidence-threshold = 0.8
 
+# tauri-nspanel ships MIT/Apache-2.0 license files but does not declare
+# a license expression in its Cargo.toml manifest.
 [[licenses.exceptions]]
-# Some crates don't have a standard SPDX license expression.
-# Add exceptions here with a `reason` field.
+allow = ["MIT", "Apache-2.0"]
+name = "tauri-nspanel"
+version = "2.1.0"
 
 [bans]
 # Warn on multiple versions of the same crate in the dependency tree.
@@ -62,4 +78,4 @@ unknown-git = "deny"
 required-git-spec = "rev"
 # Only allow crates from crates.io.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+allow-git = ["https://github.com/ahkohd/tauri-nspanel"]

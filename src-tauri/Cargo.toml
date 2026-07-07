@@ -67,7 +67,7 @@ tauri-plugin-window-state = "2"
 
 # macOS-only: NSPanel for native panel behavior (fullscreen overlay, click-outside dismiss)
 [target.'cfg(target_os = "macos")'.dependencies]
-tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "a3122e894383aa068ec5365a42994e3ac94ba1b6" }
 
 # Optimize for smaller binary size in release builds
 [profile.release]

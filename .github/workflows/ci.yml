@@ -49,7 +49,7 @@ jobs:
 
       - name: Rust security audit
         working-directory: src-tauri
-        run: cargo audit
+        run: cargo audit --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
 
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
