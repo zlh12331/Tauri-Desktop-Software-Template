@@ -1,7 +1,7 @@
 name: Bug Report
 description: Report something that isn't working as expected
-title: "[Bug]: "
-labels: ["bug"]
+title: '[Bug]: '
+labels: ['bug']
 body:
   - type: markdown
     attributes:
@@ -12,7 +12,7 @@ body:
     attributes:
       label: Bug Description
       description: A clear description of what the bug is.
-      placeholder: "When I do X, Y happens instead of Z..."
+      placeholder: 'When I do X, Y happens instead of Z...'
     validations:
       required: true
   - type: textarea
@@ -48,7 +48,7 @@ body:
     id: version
     attributes:
       label: App Version
-      placeholder: "e.g. 0.1.0"
+      placeholder: 'e.g. 0.1.0'
     validations:
       required: true
   - type: textarea

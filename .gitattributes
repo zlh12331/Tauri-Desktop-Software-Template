@@ -1,0 +1,43 @@
+# Normalize line endings across platforms — Prettier requires LF (endOfLine: 'lf')
+# https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings
+
+# Default: auto-detect text files and normalize to LF in the repo
+* text=auto eol=lf
+
+# Text files — explicit LF
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.json      text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.toml      text eol=lf
+*.rs        text eol=lf
+*.sh        text eol=lf
+
+# Windows-only scripts — keep CRLF
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+*.ps1       text eol=crlf
+
+# Binary assets — never touch
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.icns      binary
+*.woff      binary
+*.woff2     binary
+*.ttf       binary
+*.eot       binary
+*.otf       binary
+*.mp3       binary
+*.mp4       binary
+*.wav       binary
+*.zip       binary
+*.gz        binary
