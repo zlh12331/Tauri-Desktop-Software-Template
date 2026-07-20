@@ -18,11 +18,11 @@
 
 ### 2.1 被禁用的 3 条 WCAG 规则及根因
 
-| 规则 | 根因 | 文件 |
-| --- | --- | --- |
-| `color-contrast` | 浅色主题 `--muted-foreground: oklch(0.556 0 0)`，对白色背景对比度仅 4.47:1，低于 WCAG AA 普通文本要求的 4.5:1 | `src/theme-variables.css` |
-| `button-name` | 3 个 `SelectTrigger` 仅有 `<SelectValue />` 占位，无可访问名称（既无 `aria-label` 也未通过 `<label htmlFor>` 关联） | `AppearancePane.tsx`、`AdvancedPane.tsx` |
-| `autocomplete-valid` | API Key 输入框 `autoComplete="api-key"`，但 `api-key` 不是 WHATWG 规范定义的合法 autocomplete token | `ApiConfigForm.tsx` |
+| 规则                 | 根因                                                                                                                | 文件                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `color-contrast`     | 浅色主题 `--muted-foreground: oklch(0.556 0 0)`，对白色背景对比度仅 4.47:1，低于 WCAG AA 普通文本要求的 4.5:1       | `src/theme-variables.css`                |
+| `button-name`        | 3 个 `SelectTrigger` 仅有 `<SelectValue />` 占位，无可访问名称（既无 `aria-label` 也未通过 `<label htmlFor>` 关联） | `AppearancePane.tsx`、`AdvancedPane.tsx` |
+| `autocomplete-valid` | API Key 输入框 `autoComplete="api-key"`，但 `api-key` 不是 WHATWG 规范定义的合法 autocomplete token                 | `ApiConfigForm.tsx`                      |
 
 ### 2.2 设计权衡
 

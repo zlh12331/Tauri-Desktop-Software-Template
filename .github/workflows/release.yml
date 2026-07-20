@@ -1,4 +1,4 @@
-name: 'Release Tauri-Desktop-Software-Template'
+name: Release
 
 on:
   push:
@@ -16,6 +16,7 @@ env:
 
 jobs:
   quality:
+    name: Code Quality
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
@@ -27,7 +28,9 @@ jobs:
           cache: 'npm'
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -82,21 +85,22 @@ jobs:
         run: npm run ast:lint
 
   publish-tauri:
+    name: Publish (${{ matrix.platform }})
+    needs: quality
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest'
-            args: '--bundles app,dmg'
-          - platform: 'windows-latest'
-            args: '--bundles msi'
-          - platform: 'ubuntu-22.04'
-            args: '--bundles appimage'
+          - platform: macos-latest
+            args: --bundles app,dmg
+          - platform: windows-latest
+            args: --bundles msi
+          - platform: ubuntu-22.04
+            args: --bundles appimage
 
     runs-on: ${{ matrix.platform }}
-    needs: quality
     steps:
       - uses: actions/checkout@v7
 
@@ -107,7 +111,9 @@ jobs:
           cache: 'npm'
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
@@ -167,18 +173,14 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Updater signing (required for auto-updates)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS code signing (optional - set secrets to enable)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # macOS notarization (optional - set secrets to enable)
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Windows code signing (optional - configured via tauri.conf.json certificateThumbprint)
         with:
           tagName: ${{ github.ref_name || inputs.version }}
           releaseName: 'Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}'
