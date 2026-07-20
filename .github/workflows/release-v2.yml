@@ -137,37 +137,6 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Import Windows code signing certificate
-        if: matrix.platform == 'windows-latest' && secrets.WINDOWS_CERTIFICATE != ''
-        env:
-          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
-          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
-        run: |
-          $certPath = Join-Path $env:RUNNER_TEMP "code-signing.pfx"
-          [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($env:WINDOWS_CERTIFICATE)) | Out-File -FilePath $certPath -Encoding ASCII -NoNewline
-          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certPath, $env:WINDOWS_CERTIFICATE_PASSWORD)
-          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store("My", "LocalMachine")
-          $store.Open("ReadWrite")
-          $store.Add($cert)
-          $store.Close()
-          Write-Host "Certificate imported. Thumbprint: $($cert.Thumbprint)"
-          echo "WINDOWS_CERTIFICATE_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
-
-      - name: Import macOS code signing certificate
-        if: matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE != ''
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          certPath="$RUNNER_TEMP/code-signing.p12"
-          echo "$APPLE_CERTIFICATE" | base64 --decode > "$certPath"
-          security create-keychain -p "tauri-keychain" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "tauri-keychain" build.keychain
-          security import "$certPath" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "tauri-keychain" build.keychain
-          echo "APPLE_CERTIFICATE_IMPORTED=true" >> $GITHUB_ENV
-
       - name: Build and release
         uses: tauri-apps/tauri-action@v1
         env:
@@ -199,15 +168,3 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
-
-      - name: Cleanup Windows certificate
-        if: matrix.platform == 'windows-latest' && always()
-        run: |
-          if (Test-Path (Join-Path $env:RUNNER_TEMP "code-signing.pfx")) {
-            Remove-Item (Join-Path $env:RUNNER_TEMP "code-signing.pfx") -Force
-          }
-
-      - name: Cleanup macOS keychain
-        if: matrix.platform == 'macos-latest' && always()
-        run: |
-          security delete-keychain build.keychain 2>/dev/null || true
