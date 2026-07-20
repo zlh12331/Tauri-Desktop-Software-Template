@@ -2,12 +2,8 @@ import { useLayoutEffect, useState, useRef, useCallback } from 'react'
 import { emit } from '@tauri-apps/api/event'
 import { ThemeProviderContext, type Theme } from '@/lib/theme-context'
 import { usePreferences } from '@/queries/preferences'
-import {
-  applyThemeClass,
-  isValidTheme,
-  readStoredTheme,
-  writeStoredTheme,
-} from '@/lib/theme'
+import { useThemeApplier } from '@/hooks/use-theme-applier'
+import { isValidTheme, readStoredTheme, writeStoredTheme } from '@/lib/theme'
 
 interface ThemeProviderProps {
   children: React.ReactNode
@@ -57,20 +53,8 @@ export function ThemeProvider({
     }
   }, [preferences?.theme, setTheme])
 
-  // Apply theme class to DOM — useLayoutEffect runs BEFORE browser paint,
-  // preventing the flash of incorrect theme (FOUC).
-  useLayoutEffect(() => {
-    applyThemeClass(theme)
-
-    if (theme !== 'system') return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      applyThemeClass(e.matches ? 'dark' : 'light')
-    }
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme])
+  // Apply theme class to DOM via shared hook (prevents FOUC)
+  useThemeApplier(theme)
 
   const value = {
     theme,

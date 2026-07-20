@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'motion/react'
 import { emit, listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
@@ -6,7 +6,8 @@ import { commands } from '@/lib/tauri-bindings'
 import i18n from '@/i18n/config'
 import { logger } from '@/lib/logger'
 import { scaleFadeVariants, gentleSpring } from '@/lib/animations'
-import { applyThemeClass, isValidTheme, readStoredTheme } from '@/lib/theme'
+import { isValidTheme, readStoredTheme } from '@/lib/theme'
+import { useThemeApplier } from '@/hooks/use-theme-applier'
 import type { Theme } from '@/lib/theme-context'
 
 /** Dismiss the quick pane window, logging any errors */
@@ -23,26 +24,15 @@ async function dismissQuickPane() {
  * Theme is synced with the main window via Tauri events (theme-changed).
  * The inline script in quick-pane.html applies the theme before first paint
  * to prevent FOUC. This component then keeps the DOM class in sync via
- * useLayoutEffect and event listeners.
+ * the shared useThemeApplier hook.
  */
 export default function QuickPaneApp() {
   const [text, setText] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const [theme, setTheme] = useState<Theme>(() => readStoredTheme())
 
-  // Apply theme class before paint and react to theme changes
-  useLayoutEffect(() => {
-    applyThemeClass(theme)
-
-    if (theme !== 'system') return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      applyThemeClass(e.matches ? 'dark' : 'light')
-    }
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme])
+  // Apply theme class before paint and react to theme changes (shared hook)
+  useThemeApplier(theme)
 
   // Listen for theme changes from the main window
   useEffect(() => {

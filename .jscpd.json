@@ -10,7 +10,8 @@
     "**/*.test.{ts,tsx}",
     "**/*.spec.{ts,tsx}",
     "**/test/**",
-    "src/components/ui/**"
+    "src/components/ui/**",
+    "src-tauri/tests/**"
   ],
   "minLines": 10,
   "minTokens": 50,
