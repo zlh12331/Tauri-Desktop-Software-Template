@@ -1,6 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/quick-pane-main.tsx", "e2e/fixtures.ts", "vite.config.ts"],
+  "entry": [
+    "src/quick-pane-main.tsx",
+    "e2e/fixtures.ts",
+    "vite.config.ts",
+    "src/lib/error-codes.ts"
+  ],
   "project": ["src/**/*.{ts,tsx}", "e2e/**/*.{ts,tsx}"],
   "ignore": ["src/components/ui/**", "**/index.ts", "e2e/global.d.ts"],
   "ignoreDependencies": [
