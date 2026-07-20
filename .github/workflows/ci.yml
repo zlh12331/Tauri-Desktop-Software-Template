@@ -252,5 +252,9 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build Tauri app
-        run: npm run tauri build
+      # CI 验证只编译 Rust + 前端，不生成安装包。
+      # 完整 bundle 需要 TAURI_SIGNING_PRIVATE_KEY（updater.pubkey 已配置），
+      # 该密钥仅在 release 流水线中提供。使用 --no-bundle 跳过签名步骤，
+      # 同时仍能验证跨平台编译是否通过。
+      - name: Build Tauri app (compile check)
+        run: npx tauri build --no-bundle
