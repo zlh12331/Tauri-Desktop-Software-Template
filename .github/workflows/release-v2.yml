@@ -83,3 +83,10 @@ jobs:
 
       - name: Architecture rules (ast-grep)
         run: npm run ast:lint
+
+  publish-tauri:
+    name: Publish
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'test'
