@@ -244,18 +244,21 @@ mod tests {
     // is_macos / is_windows / is_linux — 正向用例
     // =========================================================================
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn is_windows_returns_true_on_windows() {
         // This test runs on Windows, so is_windows() should return true
         assert!(is_windows(), "is_windows() should be true on Windows");
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn is_macos_returns_false_on_windows() {
         // This test runs on Windows, so is_macos() should return false
         assert!(!is_macos(), "is_macos() should be false on Windows");
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn is_linux_returns_false_on_windows() {
         // This test runs on Windows, so is_linux() should return false
@@ -266,6 +269,7 @@ mod tests {
     // current_platform — 正向用例
     // =========================================================================
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn current_platform_returns_windows_on_windows() {
         assert_eq!(current_platform(), "windows");
