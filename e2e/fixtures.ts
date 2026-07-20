@@ -22,12 +22,6 @@ export const test = base.extend<{
     const analyzeA11y = async (page: Page) => {
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-        // Pre-existing component issues in shadcn/ui:
-        // - color-contrast: text-muted-foreground (#777777 on #ffffff = 4.47:1)
-        // - button-name: Select trigger buttons lack aria-label
-        // - autocomplete-valid: API key input uses autocomplete="api-key"
-        // These require component-level fixes, not test changes.
-        .disableRules(['color-contrast', 'button-name', 'autocomplete-valid'])
         .analyze()
 
       const violations = results.violations

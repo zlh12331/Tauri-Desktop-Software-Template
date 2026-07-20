@@ -90,7 +90,7 @@ export function AdvancedPane() {
           description={t('preferences.advanced.dropdownDescription')}
         >
           <Select value={exampleDropdown} onValueChange={setExampleDropdown}>
-            <SelectTrigger>
+            <SelectTrigger aria-label={t('preferences.advanced.dropdown')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -82,7 +82,7 @@ export function AppearancePane() {
             onValueChange={handleLanguageChange}
             disabled={savePreferences.isPending}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t('preferences.appearance.language')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -109,7 +109,7 @@ export function AppearancePane() {
             onValueChange={handleThemeChange}
             disabled={savePreferences.isPending}
           >
-            <SelectTrigger>
+            <SelectTrigger aria-label={t('preferences.appearance.colorTheme')}>
               <SelectValue
                 placeholder={t('preferences.appearance.selectTheme')}
               />

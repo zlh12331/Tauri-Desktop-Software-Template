@@ -113,7 +113,7 @@ export function ApiConfigForm() {
                     placeholder={t(
                       'preferences.advanced.apiConfig.apiKeyPlaceholder'
                     )}
-                    autoComplete="api-key"
+                    autoComplete="off"
                     {...field}
                   />
                 </FormControl>
