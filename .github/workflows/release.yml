@@ -1,4 +1,4 @@
-﻿name: 'Release Tauri-Desktop-Software-Template'
+name: 'Release Tauri-Desktop-Software-Template'
 
 on:
   push:
