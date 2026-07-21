@@ -9,7 +9,8 @@
   "overrides": {
     "typescript-eslint": {
       "typescript": "$typescript"
-    }
+    },
+    "brace-expansion": "^1.1.16"
   },
   "engines": {
     "node": ">=20.0.0"
