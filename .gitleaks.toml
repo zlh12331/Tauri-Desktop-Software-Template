@@ -1,0 +1,13 @@
+# gitleaks configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake API keys used as test fixtures (never real credentials)"
+paths = [
+  '''src/lib/schemas/api-config\.test\.ts''',
+]
