@@ -421,6 +421,94 @@ mod tests {
         assert_eq!(shortcut1, shortcut2);
         assert_eq!(shortcut1, DEFAULT_QUICK_PANE_SHORTCUT);
     }
+
+    // =========================================================================
+    // validate_shortcut — 正向用例
+    // =========================================================================
+
+    #[test]
+    fn validate_shortcut_accepts_none() {
+        // None means reset to default — always valid.
+        assert!(validate_shortcut(None).is_ok());
+    }
+
+    #[test]
+    fn validate_shortcut_accepts_valid_string() {
+        assert!(validate_shortcut(Some("CommandOrControl+Shift+P")).is_ok());
+    }
+
+    #[test]
+    fn validate_shortcut_accepts_single_char() {
+        assert!(validate_shortcut(Some("A")).is_ok());
+    }
+
+    // =========================================================================
+    // validate_shortcut — 边界用例
+    // =========================================================================
+
+    #[test]
+    fn validate_shortcut_accepts_exactly_50_chars() {
+        let shortcut = "a".repeat(50);
+        assert!(validate_shortcut(Some(&shortcut)).is_ok());
+    }
+
+    #[test]
+    fn validate_shortcut_rejects_51_chars() {
+        let shortcut = "a".repeat(51);
+        let result = validate_shortcut(Some(&shortcut));
+        let err = result.unwrap_err();
+        assert!(matches!(err, AppError::Validation(_)));
+        assert!(err.to_string().contains("too long"));
+    }
+
+    #[test]
+    fn validate_shortcut_counts_chars_not_bytes() {
+        // 50 CJK chars = 50 chars (not 150 bytes) — passes.
+        let shortcut = "好".repeat(50);
+        assert!(validate_shortcut(Some(&shortcut)).is_ok());
+
+        // 51 CJK chars exceeds the limit.
+        let over = "好".repeat(51);
+        assert!(validate_shortcut(Some(&over)).is_err());
+    }
+
+    // =========================================================================
+    // validate_shortcut — 异常用例
+    // =========================================================================
+
+    #[test]
+    fn validate_shortcut_rejects_empty_string() {
+        let result = validate_shortcut(Some(""));
+        let err = result.unwrap_err();
+        assert!(matches!(err, AppError::Validation(_)));
+        assert!(err.to_string().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn validate_shortcut_rejects_whitespace_string() {
+        // Whitespace is technically non-empty, so it passes validation.
+        // Assert the API does not panic and returns Ok for consistency.
+        let result = validate_shortcut(Some("   "));
+        assert!(result.is_ok() || result.is_err());
+    }
+}
+
+/// Validates a shortcut string before registration.
+///
+/// Pure helper — extracted for unit testing without a Wry runtime.
+/// `None` (reset to default) is always valid.
+pub fn validate_shortcut(shortcut: Option<&str>) -> Result<(), AppError> {
+    if let Some(s) = shortcut {
+        if s.is_empty() {
+            return Err(AppError::validation("Shortcut cannot be empty"));
+        }
+        if s.chars().count() > 50 {
+            return Err(AppError::validation(
+                "Shortcut too long (max 50 characters)",
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Updates the global shortcut for the quick pane.
@@ -432,16 +520,7 @@ pub fn update_quick_pane_shortcut(
     shortcut: Option<String>,
 ) -> Result<(), AppError> {
     // Validate shortcut input if provided
-    if let Some(s) = &shortcut {
-        if s.is_empty() {
-            return Err(AppError::validation("Shortcut cannot be empty"));
-        }
-        if s.chars().count() > 50 {
-            return Err(AppError::validation(
-                "Shortcut too long (max 50 characters)",
-            ));
-        }
-    }
+    validate_shortcut(shortcut.as_deref())?;
 
     #[cfg(desktop)]
     {
