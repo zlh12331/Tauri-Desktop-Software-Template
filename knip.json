@@ -15,10 +15,15 @@
     "@tauri-apps/plugin-opener",
     "@tauri-apps/plugin-shell",
     "@tauri-apps/plugin-store",
-    "@tauri-apps/plugin-window-state"
+    "@tauri-apps/plugin-window-state",
+    "brace-expansion"
   ],
   "ignoreBinaries": [
     "git-cliff",
+    "MIT",
+    "MIT-0",
+    "FSL-1.1-MIT",
+    "CC-BY-4.0",
     "ISC",
     "Apache-2.0",
     "BSD-2-Clause",
