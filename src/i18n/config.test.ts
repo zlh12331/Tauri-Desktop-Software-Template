@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Mock i18next — capture the languageChanged handler for direct testing
@@ -15,6 +15,8 @@ const mockOn = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
 const mockOff = vi.fn()
 const mockChangeLanguage = vi.fn().mockResolvedValue(undefined)
 const mockT = vi.fn((key: string) => key)
+const mockHasResourceBundle = vi.fn().mockReturnValue(false)
+const mockAddResourceBundle = vi.fn()
 
 vi.mock('i18next', () => ({
   default: {
@@ -25,8 +27,8 @@ vi.mock('i18next', () => ({
     changeLanguage: mockChangeLanguage,
     t: mockT,
     language: 'en',
-    hasResourceBundle: vi.fn().mockReturnValue(false),
-    addResourceBundle: vi.fn(),
+    hasResourceBundle: mockHasResourceBundle,
+    addResourceBundle: mockAddResourceBundle,
   },
 }))
 
@@ -177,29 +179,56 @@ describe('i18n/config — isRTL', () => {
 })
 
 describe('i18n/config — loadLanguageAsync', () => {
+  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
   beforeEach(() => {
     vi.clearAllMocks()
+    mockHasResourceBundle.mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    warnSpy.mockClear()
   })
 
   it('已加载的语言不会重复加载', async () => {
-    // Mock hasResourceBundle to return true (already loaded)
-    const mockI18n = vi.mocked(
-      (await import('i18next')).default.hasResourceBundle
-    )
-    mockI18n.mockReturnValueOnce(true)
+    mockHasResourceBundle.mockReturnValueOnce(true)
 
     await loadLanguageAsync('zh')
 
-    // addResourceBundle should NOT be called since bundle already exists
-    const { default: i18nInstance } = await import('i18next')
-    expect(i18nInstance.addResourceBundle).not.toHaveBeenCalled()
+    expect(mockAddResourceBundle).not.toHaveBeenCalled()
   })
 
   it('不支持的语言代码不会触发加载', async () => {
     await loadLanguageAsync('ja')
 
-    const { default: i18nInstance } = await import('i18next')
-    expect(i18nInstance.addResourceBundle).not.toHaveBeenCalled()
+    expect(mockAddResourceBundle).not.toHaveBeenCalled()
+  })
+
+  it('正向：加载支持的语言并注册资源包', async () => {
+    await loadLanguageAsync('zh')
+
+    expect(mockAddResourceBundle).toHaveBeenCalledTimes(1)
+    expect(mockAddResourceBundle).toHaveBeenCalledWith(
+      'zh',
+      'translation',
+      expect.any(Object),
+      true,
+      true
+    )
+  })
+
+  it('异常：动态加载失败时打印警告且不抛出', async () => {
+    // addResourceBundle throws -> the catch branch logs a warning
+    mockAddResourceBundle.mockImplementationOnce(() => {
+      throw new Error('bundle corrupt')
+    })
+
+    await expect(loadLanguageAsync('zh')).resolves.toBeUndefined()
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('zh'),
+      expect.any(Error)
+    )
   })
 })
 
