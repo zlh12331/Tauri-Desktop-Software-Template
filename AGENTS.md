@@ -17,7 +17,7 @@ This repository is a template with sensible defaults for building Tauri React ap
 
 **CRITICAL:** Follow these strictly:
 
-0. **Use npm only**: This project uses `npm`, NOT `pnpm`. `packageManager` + `.npmrc` `engine-strict=true` hard-enforce this — `pnpm install` fails, and installs fail on Node < 20.
+0. **Use npm only**: This project uses `npm`, NOT `pnpm`. `packageManager` + `.npmrc` `engine-strict=true` hard-enforce this — `pnpm install` fails, and installs fail on Node < 24.
 1. **Read Before Editing**: Always read files first to understand context
 2. **Follow Established Patterns**: Use patterns from this file and `docs/developer`
 3. **Senior Architect Mindset**: Consider performance, maintainability, testability
@@ -134,6 +134,15 @@ i18n.t('key')                 // Or call directly for occasional use
 - **Translations**: All strings in `/locales/*.json`
 - **RTL Support**: Use CSS logical properties (`text-start` not `text-left`)
 - **Adding strings**: See `docs/developer/i18n-patterns.en.md`
+- **i18n validation** (`npm run i18n:check` = `i18n:extract:check` +
+  `i18n:status` + `i18n:fallback`, in `check:all` + CI):
+  - i18next-cli `extract` / `extract --ci` — sync new `t()` keys to catalogs,
+    fail on drift. Never remove `preservePatterns: ['commands.*']` +
+    `removeUnusedKeys: false` (they stop extract from DELETING dynamic keys)
+  - i18next-cli `status` — missing translations + dangling `t()` refs
+  - `scripts/check-i18n.mjs` (fallback) — tool blind spots only: full key-set
+    parity incl. dynamic keys, `{{var}}` placeholder alignment across locale
+    values. Do not move these checks to the tool (verified it misses them)
 
 ### Documentation & Versions
 

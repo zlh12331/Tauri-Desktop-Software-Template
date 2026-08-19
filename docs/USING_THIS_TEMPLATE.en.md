@@ -8,7 +8,7 @@ This document is specific to the template and should be deleted once you're comf
 
 Before you begin, install:
 
-- **Node.js** (v20+) - [nodejs.org](https://nodejs.org/)
+- **Node.js** (v24+) - [nodejs.org](https://nodejs.org/)
 - **Rust** (latest stable) - [rustup.rs](https://rustup.rs/)
 - **Platform dependencies**:
   - **macOS**: `xcode-select --install`

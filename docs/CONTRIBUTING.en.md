@@ -8,7 +8,7 @@ Thank you for your interest in contributing!
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v20+)
+- [Node.js](https://nodejs.org/) (v24+)
 - [Rust](https://rustup.rs/) (latest stable)
 - Familiarity with React, TypeScript, and Rust
 

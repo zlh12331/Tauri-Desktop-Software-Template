@@ -42,7 +42,7 @@ The app opens at `http://localhost:1420` (dev) or launches as a desktop window (
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v20+
+- [Node.js](https://nodejs.org/) v24+
 - [Rust](https://rustup.rs/) 1.93+ (edition 2024)
 - Platform-specific dependencies — see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 

@@ -6,24 +6,29 @@ import type { AppCommand } from './types'
 // can be asserted on pure wiring (registry implementation is covered elsewhere).
 // ---------------------------------------------------------------------------
 const mocks = vi.hoisted(() => {
+  // Test fixtures use FAKE translation keys (not present in en.json) on
+  // purpose — they exercise generic wiring, not real i18n. Cast because
+  // labelKey is typed against en.json (compile-time key check).
+  const fakeLabelKey = 'commands.mock.label' as AppCommand['labelKey']
+
   const navCmd: AppCommand = {
     id: 'nav-test',
-    labelKey: 'commands.nav.label',
+    labelKey: fakeLabelKey,
     execute: vi.fn(),
   }
   const winCmd: AppCommand = {
     id: 'win-test',
-    labelKey: 'commands.win.label',
+    labelKey: fakeLabelKey,
     execute: vi.fn(),
   }
   const notifCmd: AppCommand = {
     id: 'notif-test',
-    labelKey: 'commands.notif.label',
+    labelKey: fakeLabelKey,
     execute: vi.fn(),
   }
   const appCmd: AppCommand = {
     id: 'app-test',
-    labelKey: 'commands.app.label',
+    labelKey: fakeLabelKey,
     execute: vi.fn(),
   }
   return {

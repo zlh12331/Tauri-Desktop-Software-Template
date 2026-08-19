@@ -1,35 +1,32 @@
 #!/usr/bin/env node
 /**
- * i18n catalog consistency checker.
+ * i18n FALLBACK checker — covers ONLY what i18next-cli cannot.
  *
- * Hard constraint for the AI-driven workflow. Verifies three invariants:
+ * i18next-cli analyzes keys that are STATICALLY referenced in code:
+ *   - `extract` / `extract --ci` — syncs static keys, guards drift
+ *   - `status` — missing translations + dangling `t()` references
  *
- *   1. Every language file has the SAME key set as `en.json`
- *      (missing translations / orphaned keys → fail)
- *   2. Every STATIC `t('key')` / `i18n.t('key')` reference in src/ resolves
- *      to a key that exists in `en.json` (dangling reference → fail)
- *   3. `en.json` key names are not duplicated as both a leaf and a parent
- *      (e.g. `preferences.appearance.theme` AND
- *      `preferences.appearance.theme.light` cannot coexist — a real bug
- *      class i18next-parser warned about)
+ * It deliberately ignores dynamic keys (e.g. `t(command.labelKey)`) and
+ * never inspects the translated VALUES. This script owns those two blind
+ * spots (empirically verified i18next-cli misses them):
  *
- * Dynamic references (e.g. `t(command.labelKey)`, `t(\`commands.group.${x}\`)`)
- * are NOT statically resolvable, so they are excluded from check #2 — the
- * same limitation that made i18next-parser destructive on this codebase.
+ *   1. FULL key-set parity between every locale and `en.json` — including
+ *      dynamic/unreferenced keys. Deleting `commands.*` from zh.json passes
+ *      `extract --ci` AND `status` (both only know static refs), but breaks
+ *      the UI at runtime. Only this script catches it.
+ *   2. `{{var}}` placeholder alignment across locale VALUES — e.g. en uses
+ *      `{{message}}` but zh accidentally drops a brace. i18next-cli only
+ *      checks the code call-site, never the translated strings.
  *
  * Exit code 0 = consistent, 1 = violations found (CI fails).
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, extname } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, extname, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { dirname } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 
-// ---------------------------------------------------------------------------
-// Locale loading
-// ---------------------------------------------------------------------------
 const localesDir = join(root, 'locales')
 const langFiles = readdirSync(localesDir).filter(
   f => extname(f) === '.json' && !f.endsWith('.parsed.json')
@@ -62,19 +59,18 @@ function flatten(obj, prefix = '', out = new Map()) {
 const enFlat = flatten(catalogs.get('en'))
 const enKeys = new Set(enFlat.keys())
 
-// ---------------------------------------------------------------------------
-// Check 1: key-set parity across languages
-// ---------------------------------------------------------------------------
 let errors = 0
+
+// ---------------------------------------------------------------------------
+// Check 1: FULL key-set parity across all locales (incl. dynamic keys)
+// ---------------------------------------------------------------------------
 for (const [lang, cat] of catalogs) {
   if (lang === 'en') continue
-  const flat = flatten(cat)
-  const keys = new Set(flat.keys())
-
+  const keys = new Set(flatten(cat).keys())
   const missing = [...enKeys].filter(k => !keys.has(k))
   const extra = [...keys].filter(k => !enKeys.has(k))
   if (missing.length || extra.length) {
-    console.error(`✖ [${lang}.json] key set differs from en.json:`)
+    console.error(`✖ [${lang}.json] full key set differs from en.json:`)
     for (const k of missing) console.error(`    MISSING: ${k}`)
     for (const k of extra) console.error(`    EXTRA:   ${k}`)
     errors++
@@ -82,76 +78,40 @@ for (const [lang, cat] of catalogs) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 2: static t() references must resolve
+// Check 2: {{var}} interpolation placeholders align across locales
 // ---------------------------------------------------------------------------
-function walk(dir) {
-  let files = []
-  for (const e of readdirSync(dir, { withFileTypes: true })) {
-    const p = join(dir, e.name)
-    if (e.isDirectory()) {
-      if (e.name === 'node_modules' || e.name === 'ui' || e.name === 'test')
-        continue
-      files = files.concat(walk(p))
-    } else if (/\.(ts|tsx)$/.test(e.name)) {
-      files.push(p)
-    }
-  }
-  return files
-}
-
-const srcFiles = walk(join(root, 'src'))
-const staticRefs = new Set()
-
-for (const f of srcFiles) {
-  // Skip test files — they may reference keys for assertions only
-  if (/\.(test|spec)\.(ts|tsx)$/.test(f)) continue
-  const c = readFileSync(f, 'utf8')
-  // t('key'), t("key")
-  const re = /\bt\s*\(\s*(['"])([^'"]+)\1\s*[,)]/g
+const PLACEHOLDER_RE = /\{\{\s*([\w]+)\s*\}\}/g
+function extractPlaceholders(value) {
+  const set = new Set()
   let m
-  while ((m = re.exec(c))) staticRefs.add(m[2])
-  // i18n.t('key')
-  const re2 = /i18n\.t\s*\(\s*(['"])([^'"]+)\1\s*[,)]/g
-  while ((m = re2.exec(c))) staticRefs.add(m[2])
+  while ((m = PLACEHOLDER_RE.exec(value))) set.add(m[1])
+  return set
 }
 
-const dangling = [...staticRefs].filter(k => !enKeys.has(k))
-if (dangling.length) {
-  console.error(
-    `✖ ${dangling.length} static t() reference(s) not found in en.json:`
-  )
-  for (const k of dangling) console.error(`    ${k}`)
-  errors++
-}
-
-// ---------------------------------------------------------------------------
-// Check 3: leaf-vs-parent key collisions (e.g. `a.b` string + `a.b.c` map)
-// ---------------------------------------------------------------------------
-function collectPaths(obj, prefix = '') {
-  const paths = new Set()
-  for (const [k, v] of Object.entries(obj)) {
-    const key = prefix ? `${prefix}.${k}` : k
-    if (v && typeof v === 'object' && !Array.isArray(v)) {
-      collectPaths(v, key).forEach(x => paths.add(x))
-    }
-    paths.add(key)
-  }
-  return paths
-}
-const collisions = []
 for (const [lang, cat] of catalogs) {
-  const paths = collectPaths(cat)
-  for (const p of paths) {
-    // If `p` is also a full key (leaf) and has children, it collides
-    if (enFlat.has(p) && paths.has(`${p}.`)) {
-      collisions.push(`${lang}.json: "${p}" is both a value and a parent`)
+  if (lang === 'en') continue
+  const flat = flatten(cat)
+  for (const [key, enVal] of enFlat) {
+    const zhVal = flat.get(key)
+    if (typeof enVal !== 'string' || typeof zhVal !== 'string') continue
+    const enSet = extractPlaceholders(enVal)
+    const zhSet = extractPlaceholders(zhVal)
+    if (enSet.size === 0 && zhSet.size === 0) continue
+    const missingInZh = [...enSet].filter(p => !zhSet.has(p))
+    const extraInZh = [...zhSet].filter(p => !enSet.has(p))
+    if (missingInZh.length || extraInZh.length) {
+      console.error(`✖ [${lang}.json] "${key}" placeholder mismatch vs en:`)
+      if (missingInZh.length)
+        console.error(
+          `    MISSING placeholders in ${lang}: ${missingInZh.join(', ')}`
+        )
+      if (extraInZh.length)
+        console.error(
+          `    EXTRA placeholders in ${lang}:   ${extraInZh.join(', ')}`
+        )
+      errors++
     }
   }
-}
-if (collisions.length) {
-  console.error('✖ key structure collisions:')
-  for (const c of collisions) console.error(`    ${c}`)
-  errors++
 }
 
 // ---------------------------------------------------------------------------
@@ -159,9 +119,11 @@ if (collisions.length) {
 // ---------------------------------------------------------------------------
 if (errors === 0) {
   console.log(
-    `✓ i18n consistent: ${catalogs.size} locales, ${enKeys.size} keys, ${staticRefs.size} static refs`
+    `✓ i18n fallback ok: ${catalogs.size} locales, ${enKeys.size} keys, placeholders aligned`
   )
 } else {
-  console.error(`\n✖ ${errors} category/categories of i18n violations found`)
+  console.error(
+    `\n✖ ${errors} category/categories of i18n fallback violations found`
+  )
   process.exit(1)
 }

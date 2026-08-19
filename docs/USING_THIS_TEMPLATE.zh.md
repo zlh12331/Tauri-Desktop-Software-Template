@@ -8,7 +8,7 @@
 
 开始之前，请安装以下工具：
 
-- **Node.js**（v20+）- [nodejs.org](https://nodejs.org/)
+- **Node.js**（v24+）- [nodejs.org](https://nodejs.org/)
 - **Rust**（最新稳定版）- [rustup.rs](https://rustup.rs/)
 - **平台依赖**：
   - **macOS**：`xcode-select --install`

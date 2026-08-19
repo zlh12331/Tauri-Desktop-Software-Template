@@ -290,20 +290,30 @@ t('preferences.title') // 正常工作
 
 ## 自动校验（硬约束）
 
-三层机制以程序化方式强制 i18n 一致性——AI 生成的改动无法静默漂移：
+四层机制以程序化方式强制 i18n 一致性——AI 生成的改动无法静默漂移。每层职责独立，互不重叠。
 
-1. **类型安全键**（编译期）：`i18n.d.ts` 从 `en.json` 推导 `t()` 的键类型，缺失键即 TypeScript 错误。
+| 层                 | 职责                 | 实现                                                                        |
+| ------------------ | -------------------- | --------------------------------------------------------------------------- |
+| 1. 编译期类型      | 键拼写错误即 TS 报错 | `src/i18n/i18n.d.ts`（`typeof en`）+ `AppCommand.labelKey: keyof typeof en` |
+| 2. 提取同步        | 目录与源码保持同步   | i18next-cli `extract` / `extract --ci`                                      |
+| 3. 翻译状态        | 缺失翻译 + 悬空引用  | i18next-cli `status`                                                        |
+| 4. 兜底盲区        | 工具看不到的部分     | `scripts/check-i18n.mjs`                                                    |
+| 5. 禁止 JSX 硬编码 | 所有可见文本走 `t()` | ESLint `i18next/no-literal-string`                                          |
 
-2. **目录一致性**（`npm run i18n:check`，CI）：`scripts/check-i18n.mjs` 在以下情况失败：
-   - 语言文件的键集合与 `en.json` 不一致（缺失/多余键）
-   - 静态 `t('key')` 引用无法在 `en.json` 中解析
-   - 同一键既是叶子值又是父节点（如 `a.b` 字符串与 `a.b.c` 映射并存）
+**第 1 层——类型安全键**（编译期）：`i18n.d.ts` 从 `en.json` 推导 `t()` 的键类型，缺失键即 TS 错误。数据驱动键字段同样类型化——`AppCommand.labelKey: keyof typeof en`（见 `src/lib/commands/types.ts`），因此 `commands.*` 键的拼写错误会直接构建失败，即使 UI 通过 `t(command.labelKey)` 间接读取。**手写的原因**：i18next-cli `types` 生成的 `{ en: {...} }` 结构与项目 `{ translation: {...} }` 命名空间布局不匹配（已实证：`t()` 会变成 `never`）。
 
-   动态引用（`t(command.labelKey)`、模板字符串）被有意排除——它们无法静态解析。
+**第 2 层——提取漂移守卫**（CI，`npm run i18n:extract:check` → `i18next-cli extract --ci`）：若重新执行 `extract` 会改动任何翻译文件则失败。代码新增 `t('key')` → 此守卫强制你运行 `npm run i18n:extract` 同步目录。**安全的前提**是 `preservePatterns: ['commands.*']` + `removeUnusedKeys: false` 保护动态引用的 `commands.*` 键——没有它们 extract 会删除这些键。**切勿移除这两个配置项。**
 
-3. **禁止 JSX 硬编码文本**（ESLint）：`i18next/no-literal-string`（`jsxTextOnly`）禁止 JSX 中的字面文本；所有用户可见字符串必须通过 `t()`。dev-only 调试面板与测试夹具已豁免。
+**第 3 层——翻译状态**（CI，`npm run i18n:status` → `i18next-cli status`）：某语言缺少代码引用键的翻译，或 `t('key')` 无法在 `en.json` 解析时失败。
 
-本地运行：`npm run i18n:check`（已纳入 `check:all` 与 CI）。
+**第 4 层——兜底盲区**（CI，`npm run i18n:fallback` → `scripts/check-i18n.mjs`）：i18next-cli 只识别代码静态引用的键，且从不检查翻译值，因此会漏掉：
+
+- **跨语言全量键集合一致**（含动态键 `t(command.labelKey)`）。已实证：从 `zh.json` 删除 `commands.*` 后，`extract --ci` 与 `status` 都放行，但运行时会破坏 UI。
+- **翻译值中 `{{var}}` 占位符跨语言对齐**（如 en `{{message}}` 与 zh `{message}`）。
+
+本地运行：`npm run i18n:check`（= `i18n:extract:check` + `i18n:status` + `i18n:fallback`，已纳入 `check:all` 与 CI）。
+
+按需命令：`npm run i18n:extract`（补全新键）、`npm run i18n:rename -- <旧> <新>`（全局重命名键）。未采用：`sync`（会用英文填充 zh 空值）、`lint`（与 ESLint 重叠）、`instrument`/`localize`/`locize-*`（批量改写/云服务）。
 
 ## 在 React 之外使用翻译
 

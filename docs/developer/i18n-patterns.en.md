@@ -290,26 +290,54 @@ t('preferences.title') // ✅ Works
 
 ## Automatic Validation (Hard Constraint)
 
-Three layers enforce i18n consistency programmatically — AI-generated changes
-cannot silently drift:
+Four layers enforce i18n consistency programmatically — AI-generated changes
+cannot silently drift. Each layer owns a distinct concern; nothing overlaps.
 
-1. **Type-safe keys** (compile time): `i18n.d.ts` types `t()` from `en.json`,
-   so a missing key is a TypeScript error.
+| Layer                   | Concern                              | Implementation                                                              |
+| ----------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| 1. Compile-time types   | key typos are TS errors              | `src/i18n/i18n.d.ts` (`typeof en`) + `AppCommand.labelKey: keyof typeof en` |
+| 2. Extraction sync      | catalogs stay in sync with source    | i18next-cli `extract` / `extract --ci`                                      |
+| 3. Translation status   | missing translations + dangling refs | i18next-cli `status`                                                        |
+| 4. Fallback blind spots | what the tool cannot see             | `scripts/check-i18n.mjs`                                                    |
+| 5. No hardcoded JSX     | all visible text via `t()`           | ESLint `i18next/no-literal-string`                                          |
 
-2. **Catalog consistency** (`npm run i18n:check`, CI): `scripts/check-i18n.mjs`
-   fails when:
-   - a language file's key set differs from `en.json` (missing/extra keys)
-   - a static `t('key')` reference does not resolve in `en.json`
-   - a key is both a leaf and a parent (e.g. `a.b` string + `a.b.c` map)
+**Layer 1 — Type-safe keys** (compile time): `i18n.d.ts` types `t()` from
+`en.json`, so a missing key is a TypeScript error. Data-driven key fields are
+typed too — `AppCommand.labelKey: keyof typeof en` (see
+`src/lib/commands/types.ts`), so a typo in a `commands.*` key fails the build
+even though the UI reads it via `t(command.labelKey)`. Hand-written because
+i18next-cli `types` generates `{ en: {...} }`-shaped resources that mismatch
+this project's `{ translation: {...} }` namespace layout (verified: `t()`
+becomes `never`).
 
-   Dynamic references (`t(command.labelKey)`, template literals) are
-   intentionally excluded — they are not statically resolvable.
+**Layer 2 — Extraction drift guard** (CI, `npm run i18n:extract:check` →
+`i18next-cli extract --ci`): fails if running `extract` would change any
+catalog. Add a `t('key')` → this guard forces you to run `npm run i18n:extract`
+to sync catalogs. Safe because `preservePatterns: ['commands.*']` +
+`removeUnusedKeys: false` protect the dynamically-referenced `commands.*`
+keys — without them extract DELETES those keys. Never remove those settings.
 
-3. **No hardcoded JSX text** (ESLint): `i18next/no-literal-string` with
-   `jsxTextOnly` bans literal text in JSX; all user-visible strings must go
-   through `t()`. Dev-only panels and test fixtures are exempted.
+**Layer 3 — Translation status** (CI, `npm run i18n:status` → `i18next-cli
+status`): fails when a locale is missing a translation for a code-referenced
+key, or a `t('key')` does not resolve in `en.json`.
 
-Run locally: `npm run i18n:check` (included in `check:all` and CI).
+**Layer 4 — Fallback blind spots** (CI, `npm run i18n:fallback` →
+`scripts/check-i18n.mjs`): i18next-cli only sees STATICALLY referenced keys and
+never inspects translated VALUES, so it misses:
+
+- **full key-set parity** incl. dynamic keys (`t(command.labelKey)`). Verified:
+  removing `commands.*` from `zh.json` passes both `extract --ci` AND `status`,
+  but breaks the UI at runtime.
+- **`{{var}}` placeholder alignment** across locale values (e.g. en `{{message}}`
+  vs zh `{message}`).
+
+Run locally: `npm run i18n:check` (= `i18n:extract:check` + `i18n:status` +
+`i18n:fallback`, included in `check:all` and CI).
+
+On-demand: `npm run i18n:extract` (add new keys), `npm run i18n:rename -- <old>
+<new>` (rename a key everywhere). Not used: `sync` (fills empty zh values with
+English), `lint` (overlaps ESLint), `instrument`/`localize`/`locize-*` (bulk
+rewrites / cloud).
 
 ## Using Translations Outside React
 

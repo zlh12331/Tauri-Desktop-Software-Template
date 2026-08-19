@@ -10,10 +10,16 @@
     "typescript-eslint": {
       "typescript": "$typescript"
     },
-    "brace-expansion": "^1.1.16"
+    "eslint-plugin-react": {
+      "minimatch": {
+        "brace-expansion": "^1.1.16"
+      }
+    },
+    "react": "19.2.8",
+    "react-dom": "$react"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "packageManager": "npm@11.17.0",
   "scripts": {
@@ -55,7 +61,12 @@
     "task:rename-done": "node scripts/complete-task.js --rename-existing",
     "knip": "knip --include files,dependencies,unlisted,binaries,unresolved",
     "jscpd": "jscpd",
-    "i18n:check": "node scripts/check-i18n.mjs",
+    "i18n:extract": "i18next-cli extract",
+    "i18n:extract:check": "i18next-cli extract --ci",
+    "i18n:status": "i18next-cli status",
+    "i18n:rename": "i18next-cli rename-key",
+    "i18n:fallback": "node scripts/check-i18n.mjs",
+    "i18n:check": "npm run i18n:extract:check && npm run i18n:status && npm run i18n:fallback",
     "ast:lint": "ast-grep scan",
     "ast:fix": "ast-grep scan --fix",
     "prepare": "husky"
@@ -113,8 +124,8 @@
     "i18next": "^26.3.6",
     "lucide-react": "^1.7.0",
     "motion": "^12.42.2",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-hook-form": "^7.80.0",
     "react-i18next": "^17.0.0",
     "react-resizable-panels": "^3.0.6",
@@ -154,6 +165,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "husky": "^9.1.7",
+    "i18next-cli": "^1.71.0",
     "jscpd": "^5.0.11",
     "jsdom": "^29.0.1",
     "knip": "^6.0.6",

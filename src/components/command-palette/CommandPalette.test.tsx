@@ -138,9 +138,14 @@ import { CommandPalette } from './CommandPalette'
 // ---------------------------------------------------------------------------
 // Test data
 // ---------------------------------------------------------------------------
+// Test fixture: fake translation keys (not in en.json) on purpose — they
+// exercise generic rendering, not real i18n. Cast because labelKey is typed
+// against en.json (compile-time key check).
+const fakeLabelKey = (k: string) => k as AppCommand['labelKey']
+
 const makeCommand = (overrides: Partial<AppCommand> = {}): AppCommand => ({
   id: 'cmd-1',
-  labelKey: 'commands.cmd1.label',
+  labelKey: fakeLabelKey('commands.cmd1.label'),
   execute: vi.fn(),
   ...overrides,
 })
@@ -257,8 +262,8 @@ describe('CommandPalette', () => {
       mockGetAllCommands.mockReturnValue([
         makeCommand({
           id: 'rich',
-          labelKey: 'commands.rich.label',
-          descriptionKey: 'commands.rich.desc',
+          labelKey: fakeLabelKey('commands.rich.label'),
+          descriptionKey: fakeLabelKey('commands.rich.desc'),
           icon: FakeIcon,
           shortcut: '⌘R',
         }),

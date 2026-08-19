@@ -8,7 +8,7 @@
 
 ### 前置条件
 
-- [Node.js](https://nodejs.org/)（v20+）
+- [Node.js](https://nodejs.org/)（v24+）
 - [Rust](https://rustup.rs/)（最新稳定版）
 - 熟悉 React、TypeScript 和 Rust
 

@@ -132,7 +132,8 @@ describe('Simplified Command System', () => {
     it('handles command execution errors', async () => {
       const errorCommand: AppCommand = {
         id: 'error-command',
-        labelKey: 'commands.error.label',
+        // Test fixture: fake key on purpose (see index.test.ts for rationale)
+        labelKey: 'commands.error.label' as AppCommand['labelKey'],
         execute: () => {
           throw new Error('Test error')
         },
