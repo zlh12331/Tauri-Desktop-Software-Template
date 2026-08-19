@@ -263,7 +263,7 @@ Key mock features:
 
 ## Coverage Exemption Register
 
-After the unit-test pass (batch 1-14), full-suite coverage: statements 97.07% / branches 92.84% / functions 95.97% / lines 97.49% (962 tests / 53 files).
+After the unit-test pass (batch 1-14), full-suite coverage: statements 97.9% / branches 94.63% / functions 97.2% / lines 99.5% (962 tests / 53 files).
 
 The following branch was exempted with evidence:
 

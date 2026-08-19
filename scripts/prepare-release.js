@@ -31,10 +31,17 @@ function askQuestion(question) {
 }
 
 async function prepareRelease() {
-  const version = process.argv[2]
+  // --non-interactive: skip the git y/N prompt and commit/tag/push directly.
+  // Used by CI / release automation. Local default stays interactive.
+  const nonInteractive = process.argv.includes('--non-interactive')
+  const version = process.argv.find(
+    a => !a.startsWith('-') && /^v?\d+\.\d+\.\d+$/.test(a)
+  )
 
-  if (!version || !version.match(/^v?\d+\.\d+\.\d+$/)) {
-    console.error('❌ Usage: node scripts/prepare-release.js v1.0.0')
+  if (!version) {
+    console.error(
+      '❌ Usage: node scripts/prepare-release.js v1.0.0 [--non-interactive]'
+    )
     console.error('   or: npm run prepare-release v1.0.0')
     process.exit(1)
   }
@@ -102,6 +109,12 @@ async function prepareRelease() {
     exec('npm install', { silent: true })
     console.log('✅ Lock files updated')
 
+    // Generate CHANGELOG for this release (git-cliff, based on commits since
+    // the previous tag). Committed together with the version bump below.
+    console.log('\n📝 Generating CHANGELOG...')
+    exec('npm run changelog', { silent: true })
+    console.log('✅ CHANGELOG updated')
+
     // Verify configurations
     console.log('\n🔍 Verifying configurations...')
 
@@ -138,10 +151,12 @@ async function prepareRelease() {
     console.log("   • You'll need to manually publish the draft release")
     console.log('   • Users will receive auto-update notifications')
 
-    // Interactive execution option
-    const answer = await askQuestion(
-      '\n❓ Would you like me to execute these git commands? (y/N): '
-    )
+    // Interactive execution option (auto-proceed in --non-interactive mode)
+    const answer = nonInteractive
+      ? 'y'
+      : await askQuestion(
+          '\n❓ Would you like me to execute these git commands? (y/N): '
+        )
 
     if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
       console.log('\n⚡ Executing git commands...')

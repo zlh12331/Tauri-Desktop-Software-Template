@@ -119,6 +119,9 @@ jobs:
       - name: Frontend unit tests with coverage
         run: npm run test:coverage
 
+      - name: Coverage register guard (--check-only)
+        run: node scripts/check-coverage.mjs --check-only
+
       - name: Upload coverage report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

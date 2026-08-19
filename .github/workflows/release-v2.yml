@@ -15,6 +15,47 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # Manual dispatch only: bump the version in package.json / Cargo.toml /
+  # tauri.conf.json, update CHANGELOG, commit and tag. Tag push then triggers
+  # the normal build path below (push: tags v*) — this job exists so a human
+  # can do the whole release from the Actions UI without touching a terminal.
+  bump-version:
+    name: Bump version
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # prepare-release.js --non-interactive: runs check:all, bumps
+      # package.json/Cargo.toml/tauri.conf.json, runs changelog, and executes
+      # git add/commit/tag/push itself. The tag push triggers the normal
+      # release build path below (push: tags v*).
+      - name: Prepare release (bump versions, changelog, commit, tag)
+        run: node scripts/prepare-release.js ${{ inputs.version }} --non-interactive
+
   quality:
     name: Code Quality
     runs-on: ubuntu-22.04
@@ -71,6 +112,11 @@ jobs:
 
       - name: Frontend unit tests with coverage
         run: npm run test:coverage
+
+      - name: CHANGELOG up to date (git-cliff)
+        run: |
+          npm run changelog
+          git diff --exit-code -- CHANGELOG.md
 
       - name: Rust fmt
         run: cd src-tauri && cargo fmt --check

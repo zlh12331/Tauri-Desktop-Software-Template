@@ -44,6 +44,41 @@ if (!catalogs.has('en')) {
   process.exit(1)
 }
 
+// ---------------------------------------------------------------------------
+// Language-set parity: locales/*.json must match src/i18n/config.ts
+// `supportedLanguages`. Adding a language requires BOTH a new locale file AND
+// a config.ts entry — this check catches either one being forgotten.
+// ---------------------------------------------------------------------------
+const configPath = join(root, 'src/i18n/config.ts')
+const configSrc = readFileSync(configPath, 'utf8')
+const configMatch = configSrc.match(
+  /const supportedLanguages = \['([^']+)'((?:, '[^']+')*)\]/
+)
+if (!configMatch) {
+  console.error('✖ Could not parse supportedLanguages from src/i18n/config.ts')
+  process.exit(1)
+}
+const configuredLangs = [
+  configMatch[1],
+  ...(configMatch[2]?.match(/'([^']+)'/g) ?? []),
+].map(s => s.replace(/'/g, ''))
+const fileLangs = [...catalogs.keys()]
+
+const missingInConfig = fileLangs.filter(l => !configuredLangs.includes(l))
+const missingInFiles = configuredLangs.filter(l => !fileLangs.includes(l))
+if (missingInConfig.length || missingInFiles.length) {
+  console.error('✖ locales/*.json and supportedLanguages are out of sync:')
+  if (missingInConfig.length)
+    console.error(
+      `    in files but not config.ts: ${missingInConfig.join(', ')}`
+    )
+  if (missingInFiles.length)
+    console.error(
+      `    in config.ts but not files: ${missingInFiles.join(', ')}`
+    )
+  process.exit(1)
+}
+
 function flatten(obj, prefix = '', out = new Map()) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? `${prefix}.${k}` : k
@@ -94,6 +129,10 @@ for (const [lang, cat] of catalogs) {
   for (const [key, enVal] of enFlat) {
     const zhVal = flat.get(key)
     if (typeof enVal !== 'string' || typeof zhVal !== 'string') continue
+    // Empty target value = pending translation (e.g. a newly added language
+    // via scripts/add-language.mjs). Placeholder alignment only applies once
+    // the value is actually translated, so skip empties.
+    if (zhVal === '') continue
     const enSet = extractPlaceholders(enVal)
     const zhSet = extractPlaceholders(zhVal)
     if (enSet.size === 0 && zhSet.size === 0) continue
