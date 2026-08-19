@@ -1,4 +1,5 @@
 ﻿import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { CommandContext } from '@/lib/commands/types'
 
 // ---------------------------------------------------------------------------
 // Mock @tauri-apps/api/menu
@@ -478,5 +479,92 @@ describe('菜单 action 处理器', () => {
         'Toggle Right Sidebar menu item clicked'
       )
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// createMenuCommandContext().showToast 分支 + getMenuCommandContext 缓存
+// (coverage gap: menu.ts lines 136-146 switch branches + cache guard)
+// ---------------------------------------------------------------------------
+// 推进事件循环：menu handlers 通过 `void executeCommand(...)` 调用 async mock，
+// 其函数体在微任务中执行，showToast/push 需在 flush 后才能观测。
+const flush = () => new Promise<void>(r => setTimeout(r, 0))
+
+describe('菜单 command context — showToast 分支路由', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mockCheck.mockResolvedValue(null)
+    mockSetAsAppMenu.mockResolvedValue(undefined)
+    // Execute the command with the real context so showToast branches run.
+    mockExecuteCommand.mockImplementation(
+      async (_cmd: string, ctx: CommandContext) => {
+        ctx.showToast('msg', 'error')
+        ctx.showToast('msg', 'success')
+        ctx.showToast('msg', 'info')
+        ctx.showToast('msg') // default branch
+        return { success: true }
+      }
+    )
+    await buildAppMenu()
+  })
+
+  it('showToast error 路由到 notifications.error', async () => {
+    const action = getAction('preferences')
+    action?.()
+    await flush()
+    expect(mockNotificationsError).toHaveBeenCalledWith('msg')
+  })
+
+  it('showToast success 路由到 notifications.success', async () => {
+    const action = getAction('preferences')
+    action?.()
+    await flush()
+    expect(mockNotificationsSuccess).toHaveBeenCalledWith('msg')
+  })
+
+  it('showToast info 路由到 notifications.info', async () => {
+    const action = getAction('preferences')
+    action?.()
+    await flush()
+    expect(mockNotificationsInfo).toHaveBeenCalledWith('msg')
+  })
+
+  it('showToast 无 type 时走 default 分支路由到 notifications.info', async () => {
+    const action = getAction('preferences')
+    action?.()
+    await flush()
+    // default branch also calls info
+    expect(mockNotificationsInfo).toHaveBeenCalledWith('msg')
+  })
+})
+
+describe('菜单 command context — 缓存单例', () => {
+  let capturedContexts: CommandContext[] = []
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    mockCheck.mockResolvedValue(null)
+    mockSetAsAppMenu.mockResolvedValue(undefined)
+    // Capture the context passed on each executeCommand call.
+    capturedContexts = []
+    mockExecuteCommand.mockImplementation(
+      async (_cmd: string, ctx: CommandContext) => {
+        capturedContexts.push(ctx)
+        return { success: true }
+      }
+    )
+    await buildAppMenu()
+  })
+
+  it('多次 action 触发使用同一 context 实例 (缓存)', async () => {
+    getAction('preferences')?.()
+    await flush()
+    getAction('toggle-left-sidebar')?.()
+    await flush()
+    getAction('toggle-right-sidebar')?.()
+    await flush()
+    expect(capturedContexts).toHaveLength(3)
+    expect(capturedContexts[0]).toBe(capturedContexts[1])
+    expect(capturedContexts[1]).toBe(capturedContexts[2])
   })
 })
