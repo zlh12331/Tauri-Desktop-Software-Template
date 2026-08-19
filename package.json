@@ -67,7 +67,7 @@
       "prettier --write"
     ],
     "*.rs": [
-      "cd src-tauri && cargo fmt"
+      "cargo fmt --manifest-path src-tauri/Cargo.toml --"
     ]
   },
   "dependencies": {
