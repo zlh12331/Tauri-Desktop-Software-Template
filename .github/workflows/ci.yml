@@ -76,7 +76,7 @@ jobs:
 
       - name: Rust security audit
         working-directory: src-tauri
-        run: cargo audit --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
+        run: cargo audit --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2026-0235
 
       - name: Install cargo-deny
         run: cargo binstall --no-confirm cargo-deny

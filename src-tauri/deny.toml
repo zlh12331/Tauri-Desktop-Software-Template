@@ -21,6 +21,9 @@ ignore = [
     # The runtime quick-xml (via plist) has been updated to 0.41.0 (plist 1.10.0).
     { id = "RUSTSEC-2026-0194", reason = "wayland-scanner build-time only; trusted XML input" },
     { id = "RUSTSEC-2026-0195", reason = "wayland-scanner build-time only; trusted XML input" },
+    # rkyv 0.7 via rust_decimal (byte-unit -> tauri-plugin-log). Not part of the
+    # build tree; rust_decimal pins rkyv 0.7 and no 0.8 upgrade is available.
+    { id = "RUSTSEC-2026-0235", reason = "not in build tree; rust_decimal pins rkyv 0.7" },
 ]
 
 [licenses]
