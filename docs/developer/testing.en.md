@@ -260,3 +260,15 @@ Key mock features:
 | Use `tempfile` for Rust file tests    | Write to real file system     |
 | Use `getByRole()` in E2E selectors    | Use brittle CSS selectors     |
 | Wait for `__testHelpers` in E2E       | Assume listeners are ready    |
+
+## Coverage Exemption Register
+
+After the unit-test pass (batch 1-14), full-suite coverage: statements 97.07% / branches 92.84% / functions 95.97% / lines 97.49% (962 tests / 53 files).
+
+The following branch was exempted with evidence:
+
+| Location                                                                         | Exemption type                            | Evidence                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/preferences/panes/GeneralPane.tsx:42` `if (!preferences) return` | Objectively unreachable (defensive guard) | Line 137 sets `disabled={!preferences \|\| savePreferences.isPending}`, so `ShortcutPicker` is disabled whenever preferences are missing; `ShortcutPicker.tsx:180-190` `handleClick`/`handleReset` return early when disabled, so `onChange` can never trigger `handleShortcutChange` — the guard branch never executes. |
+
+All remaining modules (menu / use-auto-updater / use-square-corners-effect / QuickPaneApp / CommandPalette / GeneralPane / window-commands / commands index / TitleBar / i18n config / PreferencesDialog / CrashReportDialog) have branch coverage ≥92% with no uncovered branches.

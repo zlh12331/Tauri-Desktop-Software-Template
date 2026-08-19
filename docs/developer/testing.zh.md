@@ -260,3 +260,15 @@ mock（`e2e/mocks/tauri-mock.ts`）通过 `page.addInitScript()` 在任何页面
 | Rust 文件测试使用 `tempfile`         | 写入真实文件系统           |
 | E2E 选择器中使用 `getByRole()`       | 使用脆弱的 CSS 选择器      |
 | E2E 中等待 `__testHelpers`           | 假设监听器已就绪           |
+
+## 覆盖率豁免清单
+
+单元测试补充（batch 1-14）完成后，全量覆盖率：语句 97.07% / 分支 92.84% / 函数 95.97% / 行 97.49%（962 tests / 53 files）。
+
+以下分支经判定豁免，不补测试：
+
+| 位置                                                                             | 豁免类型               | 证据                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/components/preferences/panes/GeneralPane.tsx:42` `if (!preferences) return` | 客观不可达（防御兜底） | 行 137 `disabled={!preferences \|\| savePreferences.isPending}` 使 `ShortcutPicker` 在 preferences 缺失时禁用；`ShortcutPicker.tsx:180-190` 的 `handleClick`/`handleReset` 在 disabled 时直接 return，`onChange` 无法触发 `handleShortcutChange`，故该守卫分支永不执行。 |
+
+其余全部模块（menu / use-auto-updater / use-square-corners-effect / QuickPaneApp / CommandPalette / GeneralPane / window-commands / commands index / TitleBar / i18n config / PreferencesDialog / CrashReportDialog）分支覆盖率均 ≥92%，无未覆盖分支。
