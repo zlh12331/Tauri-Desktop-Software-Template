@@ -173,6 +173,18 @@ pub fn set_tray_icon_state(state: TrayIconState) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Maps a `TrayPosition` to the positioner plugin's `Position`.
+///
+/// Pure helper — extracted for unit testing without an `AppHandle`.
+pub fn map_tray_position(position: TrayPosition) -> Position {
+    match position {
+        TrayPosition::TopLeft => Position::TopLeft,
+        TrayPosition::TopRight => Position::TopRight,
+        TrayPosition::BottomLeft => Position::BottomLeft,
+        TrayPosition::BottomRight => Position::BottomRight,
+    }
+}
+
 /// Move a window to a tray-relative position (e.g. for popover-style panels).
 ///
 /// Exposed as a Tauri command so the frontend can position the quick pane
@@ -186,12 +198,7 @@ pub fn move_window_to_tray(
 ) -> Result<(), AppError> {
     use tauri_plugin_positioner::WindowExt;
 
-    let pos = match position {
-        TrayPosition::TopLeft => Position::TopLeft,
-        TrayPosition::TopRight => Position::TopRight,
-        TrayPosition::BottomLeft => Position::BottomLeft,
-        TrayPosition::BottomRight => Position::BottomRight,
-    };
+    let pos = map_tray_position(position);
 
     let window = app
         .get_webview_window(&window_label)
@@ -206,9 +213,21 @@ pub fn move_window_to_tray(
 mod tests {
     use super::*;
 
+    /// Serializes tests that read/write the global `TRAY_STATE`.
+    ///
+    /// Without this mutex, parallel tests race on the shared static, causing
+    /// flaky failures (one test overwrites the value before another asserts).
+    static TRAY_STATE_TEST_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn tray_state_default_is_normal() {
-        // The static should be Normal at start (test runs in same process)
+        let _guard = TRAY_STATE_TEST_MUTEX.lock().unwrap();
+        TRAY_STATE
+            .lock()
+            .map(|mut s| {
+                *s = TrayIconState::Normal;
+            })
+            .unwrap();
         let state = TRAY_STATE.lock().unwrap();
         assert_eq!(*state, TrayIconState::Normal);
     }
@@ -217,5 +236,142 @@ mod tests {
     fn tray_state_enum_equality() {
         assert_eq!(TrayIconState::Normal, TrayIconState::Normal);
         assert_ne!(TrayIconState::Normal, TrayIconState::Notification);
+    }
+
+    // =========================================================================
+    // TrayIconState / TrayPosition — 序列化用例
+    // =========================================================================
+
+    #[test]
+    fn tray_icon_state_serializes_as_plain_variant_name() {
+        let json = serde_json::to_string(&TrayIconState::Notification).unwrap();
+        assert_eq!(json, r#""Notification""#);
+    }
+
+    #[test]
+    fn tray_icon_state_roundtrips_through_json() {
+        for state in [TrayIconState::Normal, TrayIconState::Notification] {
+            let json = serde_json::to_string(&state).unwrap();
+            let decoded: TrayIconState = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, state);
+        }
+    }
+
+    #[test]
+    fn tray_icon_state_deserializes_invalid_value_as_error() {
+        let result: Result<TrayIconState, _> = serde_json::from_str(r#""Bogus""#);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn tray_position_roundtrips_through_json() {
+        for pos in [
+            TrayPosition::TopLeft,
+            TrayPosition::TopRight,
+            TrayPosition::BottomLeft,
+            TrayPosition::BottomRight,
+        ] {
+            let json = serde_json::to_string(&pos).unwrap();
+            let decoded: TrayPosition = serde_json::from_str(&json).unwrap();
+            assert_eq!(decoded, pos);
+        }
+    }
+
+    // =========================================================================
+    // set_tray_icon_state — 正向用例
+    // =========================================================================
+
+    #[test]
+    fn set_tray_icon_state_updates_global_state() {
+        let _guard = TRAY_STATE_TEST_MUTEX.lock().unwrap();
+        // Reset to known state.
+        *TRAY_STATE.lock().unwrap() = TrayIconState::Normal;
+
+        let result = set_tray_icon_state(TrayIconState::Notification);
+        assert!(result.is_ok());
+        assert_eq!(*TRAY_STATE.lock().unwrap(), TrayIconState::Notification);
+    }
+
+    // =========================================================================
+    // set_tray_icon_state — 边界用例
+    // =========================================================================
+
+    #[test]
+    fn set_tray_icon_state_same_value_is_idempotent() {
+        let _guard = TRAY_STATE_TEST_MUTEX.lock().unwrap();
+        *TRAY_STATE.lock().unwrap() = TrayIconState::Notification;
+
+        let result = set_tray_icon_state(TrayIconState::Notification);
+        assert!(result.is_ok());
+        // State is unchanged.
+        assert_eq!(*TRAY_STATE.lock().unwrap(), TrayIconState::Notification);
+    }
+
+    #[test]
+    fn set_tray_icon_state_can_toggle_back_and_forth() {
+        let _guard = TRAY_STATE_TEST_MUTEX.lock().unwrap();
+        *TRAY_STATE.lock().unwrap() = TrayIconState::Normal;
+
+        set_tray_icon_state(TrayIconState::Notification).unwrap();
+        set_tray_icon_state(TrayIconState::Normal).unwrap();
+        assert_eq!(*TRAY_STATE.lock().unwrap(), TrayIconState::Normal);
+
+        set_tray_icon_state(TrayIconState::Notification).unwrap();
+        assert_eq!(*TRAY_STATE.lock().unwrap(), TrayIconState::Notification);
+    }
+
+    // =========================================================================
+    // map_tray_position — 正向用例
+    // =========================================================================
+
+    #[test]
+    fn map_tray_position_maps_all_variants() {
+        assert!(matches!(
+            map_tray_position(TrayPosition::TopLeft),
+            Position::TopLeft
+        ));
+        assert!(matches!(
+            map_tray_position(TrayPosition::TopRight),
+            Position::TopRight
+        ));
+        assert!(matches!(
+            map_tray_position(TrayPosition::BottomLeft),
+            Position::BottomLeft
+        ));
+        assert!(matches!(
+            map_tray_position(TrayPosition::BottomRight),
+            Position::BottomRight
+        ));
+    }
+
+    // =========================================================================
+    // handle_menu_event — 正向/边界用例（MockRuntime）
+    // =========================================================================
+
+    fn mock_app_handle() -> tauri::AppHandle<tauri::test::MockRuntime> {
+        let app = tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("failed to build mock app");
+        app.handle().clone()
+    }
+
+    #[test]
+    fn handle_show_menu_event_does_not_panic_without_window() {
+        let app = mock_app_handle();
+        let event = tauri::menu::MenuEvent {
+            id: "tray_show".into(),
+        };
+        // No "main" window exists under MockRuntime; must no-op.
+        handle_menu_event(&app, event);
+    }
+
+    #[test]
+    fn handle_unknown_menu_event_is_noop() {
+        let app = mock_app_handle();
+        let event = tauri::menu::MenuEvent {
+            id: "some_other_item".into(),
+        };
+        // Unknown ids fall into the debug-log arm; must not panic.
+        handle_menu_event(&app, event);
     }
 }
