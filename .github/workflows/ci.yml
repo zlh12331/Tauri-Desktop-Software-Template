@@ -65,15 +65,21 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      # Install cargo-binstall once (compiled), then use prebuilt binaries
+      # for the audit tools — cargo install X --locked recompiles each tool
+      # from source on every CI run (10-20 min), binstall downloads instead.
+      - name: Install cargo-binstall
+        run: cargo install cargo-binstall --locked
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+        run: cargo binstall --no-confirm cargo-audit
 
       - name: Rust security audit
         working-directory: src-tauri
         run: cargo audit --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
 
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        run: cargo binstall --no-confirm cargo-deny
 
       - name: Rust dependency audit (cargo-deny)
         working-directory: src-tauri
@@ -160,8 +166,13 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
+      # Install cargo-binstall once, then use prebuilt binaries (see
+      # security-audit job for the rationale).
+      - name: Install cargo-binstall
+        run: cargo install cargo-binstall --locked
+
       - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
+        run: cargo binstall --no-confirm cargo-llvm-cov
 
       - name: Rust format check
         working-directory: src-tauri
@@ -172,7 +183,7 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Install cargo-machete
-        run: cargo install cargo-machete --locked
+        run: cargo binstall --no-confirm cargo-machete
 
       - name: Rust unused dependencies (cargo-machete)
         working-directory: src-tauri
