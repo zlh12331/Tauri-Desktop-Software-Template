@@ -568,8 +568,8 @@ describe('sentry — beforeSend 敏感数据脱敏', () => {
       const out = getBeforeSend().beforeSend(event) as {
         request: { headers: Record<string, string> }
       }
-      expect(out.request.headers.authorization).toBe('***')
-      expect(out.request.headers.theme).toBe('dark')
+      expect(out.request.headers['authorization']).toBe('***')
+      expect(out.request.headers['theme']).toBe('dark')
     })
   })
 
@@ -584,7 +584,7 @@ describe('sentry — beforeSend 敏感数据脱敏', () => {
       const out = getBeforeSend().beforeSend(event) as {
         breadcrumbs: { message: string }[]
       }
-      expect(out.breadcrumbs[0].message).toBe('api_key=***')
+      expect(out.breadcrumbs[0]?.message).toBe('api_key=***')
     })
 
     it('breadcrumb data 敏感 key 值被替换为 ***', async () => {
@@ -597,7 +597,7 @@ describe('sentry — beforeSend 敏感数据脱敏', () => {
       const out = getBeforeSend().beforeSend(event) as {
         breadcrumbs: { data: Record<string, string> }[]
       }
-      expect(out.breadcrumbs[0].data.password).toBe('***')
+      expect(out.breadcrumbs[0]?.data?.['password']).toBe('***')
     })
 
     it('无 message/data 的 breadcrumb 原样保留', async () => {
@@ -608,7 +608,7 @@ describe('sentry — beforeSend 敏感数据脱敏', () => {
       const out = getBeforeSend().beforeSend(event) as {
         breadcrumbs: { category: string }[]
       }
-      expect(out.breadcrumbs[0].category).toBe('navigation')
+      expect(out.breadcrumbs[0]?.category).toBe('navigation')
     })
   })
 
@@ -621,8 +621,8 @@ describe('sentry — beforeSend 敏感数据脱敏', () => {
       const out = getBeforeSend().beforeSend(event) as {
         extra: Record<string, string>
       }
-      expect(out.extra.secret).toBe('***')
-      expect(out.extra.keep).toBe('me')
+      expect(out.extra['secret']).toBe('***')
+      expect(out.extra['keep']).toBe('me')
     })
   })
 
