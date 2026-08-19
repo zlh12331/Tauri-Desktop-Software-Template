@@ -63,6 +63,9 @@ jobs:
       - name: Prettier format check
         run: npm run format:check
 
+      - name: i18n catalog consistency
+        run: npm run i18n:check
+
       - name: Frontend unit tests with coverage
         run: npm run test:coverage
 
