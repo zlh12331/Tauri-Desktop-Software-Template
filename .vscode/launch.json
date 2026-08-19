@@ -1,0 +1,97 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend: Debug Web (Vite 1420)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:1420",
+      "webRoot": "${workspaceFolder}/src",
+      "preLaunchTask": "frontend: dev",
+      "sourceMapPathOverrides": {
+        "webpack:///./src/*": "${webRoot}/*"
+      },
+      "runtimeArgs": ["--disable-features=DialMediaRouteProvider"],
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Tauri: Debug (Windows)",
+      "type": "lldb",
+      "request": "launch",
+      "preLaunchTask": "tauri: dev",
+      "program": "${workspaceFolder}/src-tauri/target/debug/tauri-desktop-software-template.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "env": { "RUST_BACKTRACE": "1" },
+      "sourceLanguages": ["rust"],
+      "presentation": { "hidden": false },
+      "windows": { "type": "cppvsdbg" }
+    },
+    {
+      "name": "Tauri: Debug (Linux)",
+      "type": "lldb",
+      "request": "launch",
+      "preLaunchTask": "tauri: dev",
+      "program": "${workspaceFolder}/src-tauri/target/debug/tauri-desktop-software-template",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": ["rust"],
+      "env": { "RUST_BACKTRACE": "1" }
+    },
+    {
+      "name": "Tauri: Debug (macOS)",
+      "type": "lldb",
+      "request": "launch",
+      "preLaunchTask": "tauri: dev",
+      "program": "${workspaceFolder}/src-tauri/target/debug/tauri-desktop-software-template",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": ["rust"],
+      "env": { "RUST_BACKTRACE": "1" }
+    },
+    {
+      "name": "Vitest: Current File",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+        "run",
+        "${file}",
+        "--inspect-brk"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": { "NODE_ENV": "test" }
+    },
+    {
+      "name": "Vitest: Debug with VSCode (watch)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+        "watch",
+        "${file}",
+        "--inspect-brk"
+      ],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**", "node_modules/**"],
+      "env": { "NODE_ENV": "test" }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Tauri: Full Stack Debug",
+      "configurations": [
+        "Frontend: Debug Web (Vite 1420)",
+        "Tauri: Debug (Windows)"
+      ],
+      "stopAll": true,
+      "presentation": { "hidden": false, "group": "Tauri" }
+    }
+  ]
+}

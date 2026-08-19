@@ -1,0 +1,4 @@
+# User-specific workspace state (machine dependent) — never commit
+*.code-workspace
+settings.user.json
+argv.json

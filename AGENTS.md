@@ -32,6 +32,33 @@ This repository is a template with sensible defaults for building Tauri React ap
 
 **CRITICAL:** Use Tauri v2 docs only. Always use modern Rust formatting: `format!("{variable}")`
 
+## Common Commands
+
+All via `npm` (never pnpm). Run from repo root unless noted.
+
+- `npm run dev` — Vite dev server only (frontend at `http://localhost:1420`).
+- `npm run tauri:dev` — Full app: Vite + Rust backend, launches desktop window.
+- `npm run build` / `npm run tauri:build` — Build frontend / build desktop bundle for current platform.
+- `npm run typecheck` — `tsc --noEmit` (fast type check, no emit).
+- `npm run lint` / `npm run format:check` — ESLint (zero warnings) / Prettier check.
+- `npm run test:run` — Run all Vitest unit tests once. Append a path to run a subset, e.g. `npm run test:run src/lib/logger.test.ts`.
+- `npm run e2e` — Playwright E2E (needs dev server or spins its own).
+- `npm run rust:test` — Run Rust `cargo test` (run from `src-tauri`).
+- `npm run rust:fmt:check` / `npm run rust:clippy` — `cargo fmt --check` / `cargo clippy -D warnings` (CI gates).
+- `npm run rust:bindings` — **Regenerate tauri-specta TypeScript types into `src/lib/bindings.ts`** after editing any Rust command. Required before frontend typechecks reflect command changes.
+- `npm run check:all` — Run every quality gate (typecheck, lint, ast-grep, fmt, clippy, both test suites). Run after significant changes.
+- `npm run fix:all` — Auto-fix lint/format/clippy where safe.
+- VSCode users: `.vscode/tasks.json` and `.vscode/launch.json` expose these as one-key tasks and debug configs (Tauri app + single-test debug).
+
+## Critical Pitfalls
+
+- **Edit a Rust command → regenerate bindings.** Any change to `#[tauri::command]` signatures in `src-tauri/src/commands/` must be followed by `npm run rust:bindings`. Frontend imports `commands.x()` from `@/lib/tauri-bindings`; stale `bindings.ts` causes type drift that CI catches but wastes a round-trip.
+- **Three ast-grep rules block anti-patterns at CI** (enforced, not advisory): `hooks-in-hooks-dir` (no React hooks in `lib/`), `no-store-in-lib` (no store subscriptions in `lib/`, only `getState()`), `no-destructure` (no Zustand destructuring — use selector syntax).
+- **Never use raw `invoke()`.** All Rust→frontend calls go through typed `commands` from `@/lib/tauri-bindings`.
+- **`lib/` is pure logic** — no React, no hooks, no store subscriptions. UI/state belong in `components/`, `hooks/`, `store/`.
+- **Rust error flow**: commands return `Result<T, AppError>`; `AppError` serializes as `{ kind, message }` with stable codes (`ERR_IO`, `ERR_VALIDATION`, …). Match on `.status === 'ok'` on the TS side.
+- **Prettier is the formatter**, not ESLint's — `lint:fix` runs eslint, `format` runs prettier; both run on save in VSCode.
+
 ## Architecture Patterns (CRITICAL)
 
 ### State Management Onion

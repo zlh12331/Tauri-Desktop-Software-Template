@@ -1,0 +1,26 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "vitest.explorer",
+    "ms-playwright.playwright",
+    "stylelint.vscode-stylelint",
+    "foxundermoon.shell-format",
+    "redhat.vscode-yaml",
+    "ms-azuretools.vscode-docker",
+    "vadimcn.vscode-lldb",
+    "ast-grep.ast-grep-vscode",
+    "usernamehw.errorlens",
+    "mhutchie.git-graph",
+    "yzhang.markdown-all-in-one",
+    "gruntfuggly.todo-tree",
+    "christian-kohler.path-intellisense",
+    "vmtyr.vscode-zod",
+    "youngger07.i18n-ally",
+    "vivaxy.vscode-conventional-commits"
+  ],
+  "unwantedRecommendations": ["ms-vscode.vscode-typescript-tslint-plugin"]
+}

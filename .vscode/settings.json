@@ -1,0 +1,170 @@
+{
+  // ===== Files / Encoding =====
+  "files.eol": "\n",
+  "files.encoding": "utf8",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.trimFinalNewlines": true,
+
+  // Exclude build artifacts from the explorer
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/src-tauri/target": true,
+    "**/src-tauri/gen": true,
+    "**/coverage": true,
+    "**/playwright-report": true,
+    "**/test-results": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/src-tauri/target": true,
+    "**/src-tauri/gen": true,
+    "**/coverage": true
+  },
+  "files.watcherExclude": {
+    "**/src-tauri/target/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true
+  },
+
+  // ===== TypeScript / JavaScript =====
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.preferences.importModuleSpecifierEnding": "js",
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "javascript.preferences.importModuleSpecifierEnding": "js",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+
+  // ===== Prettier (project uses singleQuote, printWidth 80, lf) =====
+  "prettier.enable": true,
+  "prettier.prettierPath": "./node_modules/prettier",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "on"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+
+  // ===== ESLint =====
+  "eslint.enable": true,
+  "eslint.useFlatConfig": true,
+  "eslint.runtime": "node",
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+
+  // ===== Tailwind CSS v4 =====
+  "tailwindCSS.experimental.configFile": "src/App.css",
+
+  // ===== Vitest Explorer =====
+  "vitest.explorer.onStartup": "activate",
+  "vitest.commandLine": "npx vitest",
+  "vitest.disabledWorkspaceFolders": [],
+
+  // ===== Rust / Tauri =====
+  "rust-analyzer.cargo.features": "all",
+  "rust-analyzer.cargo.allTargets": true,
+  "rust-analyzer.linkedProjects": ["src-tauri/Cargo.toml"],
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.extraArgs": ["--", "-D", "warnings"],
+  "rust-analyzer.formatting.enable": true,
+  "rust-analyzer.diagnostics.enable": true,
+  "rust-analyzer.procMacro.enable": true,
+  "rust-analyzer.imports.granularity.group": "module",
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+  "evenBetterToml.formatter.alignEntries": false,
+
+  // ===== Playwright =====
+  "playwright.env": {
+    "VITE_SENTRY_DSN": "https://test@test.ingest.sentry.io/123"
+  },
+
+  // ===== Misc =====
+  "emmet.includeLanguages": {
+    "typescriptreact": "html",
+    "javascriptreact": "html"
+  },
+  "editor.rulers": [80],
+  "editor.guides.bracketPairs": "active",
+  "editor.bracketPairColorizer.enabled": false,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+
+  // ===== ast-grep (architecture rule guard, see .ast-grep/rules) =====
+  "ast-grep.rulesDir": ["./.ast-grep/rules"],
+
+  // ===== Error Lens (inline ESLint/TS diagnostics) =====
+  "errorLens.enabledDiagnosticLevels": ["error", "warning", "info"],
+  "errorLens.excludeBySource": ["ts-plugin"],
+
+  // ===== Markdown (docs/ has 50+ .md guides) =====
+  "markdown.extension.toc.levels": "2..3",
+  "markdown.preview.breaks": true,
+
+  // ===== Path Intellisense (supports @/* alias) =====
+  "path-intellisense.mappings": {
+    "@": "${workspaceFolder}/src"
+  },
+
+  // ===== TODO Tree =====
+  "todo-tree.general.tags": ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE"],
+  "todo-tree.regex.regex": "(//|#|<!--|;)\\s*\\($TAGS\\)",
+
+  // ===== i18n-ally (locales/en,zh; compile-time key checks) =====
+  "i18n-ally.localesPaths": ["locales"],
+  "i18n-ally.sourceLanguage": "en",
+  "i18n-ally.displayLanguage": "en",
+  "i18n-ally.keystyle": "nested",
+  "i18n-ally.enabledFrameworks": ["i18next"],
+
+  // ===== Conventional Commits (husky + commitlint workflow) =====
+  "conventionalCommits.commitTypes": [
+    "feat",
+    "fix",
+    "docs",
+    "style",
+    "refactor",
+    "perf",
+    "test",
+    "build",
+    "ci",
+    "chore",
+    "revert"
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "frontend: dev",
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": ["$eslint-stylish"],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared" },
+      "isBackground": true,
+      "icon": "play"
+    },
+    {
+      "label": "frontend: build",
+      "type": "npm",
+      "script": "build",
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "package"
+    },
+    {
+      "label": "frontend: test",
+      "type": "npm",
+      "script": "test:run",
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "beaker"
+    },
+    {
+      "label": "frontend: typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared" },
+      "icon": "check"
+    },
+    {
+      "label": "e2e: playwright",
+      "type": "npm",
+      "script": "e2e",
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "beaker"
+    },
+    {
+      "label": "rust: fmt",
+      "type": "shell",
+      "command": "cargo fmt",
+      "options": { "cwd": "${workspaceFolder}/src-tauri" },
+      "problemMatcher": [],
+      "presentation": { "echo": true, "reveal": "silent", "panel": "shared" },
+      "icon": "symbol-namespace"
+    },
+    {
+      "label": "rust: clippy",
+      "type": "shell",
+      "command": "cargo clippy -- -D warnings",
+      "options": { "cwd": "${workspaceFolder}/src-tauri" },
+      "problemMatcher": ["$rustc"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "warning"
+    },
+    {
+      "label": "rust: test",
+      "type": "shell",
+      "command": "cargo test",
+      "options": { "cwd": "${workspaceFolder}/src-tauri" },
+      "problemMatcher": ["$rustc"],
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "beaker"
+    },
+    {
+      "label": "tauri: dev",
+      "type": "npm",
+      "script": "tauri:dev",
+      "problemMatcher": ["$rustc"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "isBackground": true,
+      "icon": "rocket"
+    },
+    {
+      "label": "tauri: build",
+      "type": "npm",
+      "script": "tauri:build",
+      "problemMatcher": ["$rustc"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "icon": "package"
+    },
+    {
+      "label": "quality: check:all",
+      "type": "npm",
+      "script": "check:all",
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "check-all"
+    },
+    {
+      "label": "quality: fix:all",
+      "type": "npm",
+      "script": "fix:all",
+      "presentation": { "echo": true, "reveal": "always", "panel": "shared" },
+      "icon": "wand"
+    }
+  ]
+}
