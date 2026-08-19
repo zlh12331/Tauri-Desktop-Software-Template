@@ -272,3 +272,19 @@ mock（`e2e/mocks/tauri-mock.ts`）通过 `page.addInitScript()` 在任何页面
 | `src/components/preferences/panes/GeneralPane.tsx:42` `if (!preferences) return` | 客观不可达（防御兜底） | 行 137 `disabled={!preferences \|\| savePreferences.isPending}` 使 `ShortcutPicker` 在 preferences 缺失时禁用；`ShortcutPicker.tsx:180-190` 的 `handleClick`/`handleReset` 在 disabled 时直接 return，`onChange` 无法触发 `handleShortcutChange`，故该守卫分支永不执行。 |
 
 其余全部模块（menu / use-auto-updater / use-square-corners-effect / QuickPaneApp / CommandPalette / GeneralPane / window-commands / commands index / TitleBar / i18n config / PreferencesDialog / CrashReportDialog）分支覆盖率均 ≥92%，无未覆盖分支。
+
+### 后端（Rust）豁免清单
+
+Rust 单元测试补充（batch 1-5）完成后：全量 region 82.00% / line 78.68%（430 tests）。核心域模块分支覆盖率：crash_report 87.53%、preferences 91.76%、recovery 90.94%、redact 100%、types 100%。
+
+以下路径经判定豁免（客观不可达——需真实外部环境）：
+
+| 位置                                                              | 豁免类型           | 证据                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commands/notifications.rs` 命令体（show 调用）                   | 客观不可达         | `send_native_notification` 签名绑定 `AppHandle`（Wry）；`AppHandle<MockRuntime>` 类型不兼容，且成功/失败需真实 notification 插件 + OS 通知服务。验证逻辑已提取 `validate_notification` 并 100% 覆盖                                                     |
+| `commands/tray.rs` `init_tray` / `handle_tray_event` / 窗口可见性 | 客观不可达         | 需真实系统托盘 + Wry window；`tray_quit` 分支 `app.exit(0)` 在 MockRuntime 下 panic（`mock_runtime.rs:144` "not implemented"）                                                                                                                          |
+| `commands/quick_pane.rs` 窗口显示/隐藏、快捷键注册                | 客观不可达         | `register_quick_pane_shortcut` 需 global-shortcut 插件 + Wry；窗口定位需真实 cursor/monitor。验证逻辑已提取 `validate_shortcut` 并覆盖                                                                                                                  |
+| `commands/crash_report.rs` `_impl` 包装 / `setup_panic_hook`      | 客观不可达         | `_impl` 需 AppHandle + `spawn_blocking` 真实目录；`setup_panic_hook` 修改进程全局 panic hook，测试会污染全部其它用例。纯逻辑（`init_consent_from_path`、`persist_consent_to_path`、`escape_json_string`、`read/delete_crash_report_from_path`）均已覆盖 |
+| `lib.rs` / `main.rs` / `bindings.rs`                              | 快通道（装配样板） | Tauri 应用装配、插件注册、`run()` 事件循环需完整桌面环境；`export_ts_bindings` 是 `#[ignore]` 的手动命令                                                                                                                                                |
+| `commands/notifications.rs` mobile 分支                           | 客观不可达         | `#[cfg(mobile)]` 在桌面测试编译下不存在                                                                                                                                                                                                                 |
+| `utils/paths.rs` 2 个防御 `map_err` 闭包                          | 客观不可达         | MockRuntime 下 `app_data_dir()` 恒成功；TempDir 下 `create_dir_all` 恒成功                                                                                                                                                                              |
