@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useCrashReportStore } from '@/store/crash-report-store'
 import type { CrashReportData } from '@/lib/tauri-bindings'
@@ -62,6 +62,47 @@ const mockCaptureMessage = vi.fn()
 vi.mock('@sentry/react', () => ({
   captureMessage: (...args: unknown[]) =>
     mockCaptureMessage(...(args as [never, never])),
+}))
+
+// Mock @/components/ui/dialog — Dialog exposes onOpenChange for direct testing
+const mockDialog = vi.hoisted(() => ({
+  onOpenChange: vi.fn(),
+}))
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({
+    open,
+    onOpenChange,
+    children,
+  }: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    children: React.ReactNode
+  }) => {
+    mockDialog.onOpenChange.mockImplementation(onOpenChange)
+    return open ? (
+      <div data-testid="crash-dialog" data-open="true">
+        <button data-testid="dialog-close" onClick={() => onOpenChange(false)}>
+          close
+        </button>
+        {children}
+      </div>
+    ) : null
+  },
+  DialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }))
 
 const defaultPrefs = {
@@ -292,6 +333,42 @@ describe('CrashReportDialog', () => {
         expect(denyButton).toBeDisabled()
       })
     })
+
+    it('非处理中时 onOpenChange(false) 关闭对话框', async () => {
+      render(<CrashReportDialog />)
+
+      fireEvent.click(screen.getByTestId('dialog-close'))
+
+      await waitFor(() => {
+        expect(useCrashReportStore.getState().crashReportDialogOpen).toBe(false)
+      })
+    })
+
+    it('处理中时 onOpenChange(false) 被忽略（不关闭）', async () => {
+      const user = userEvent.setup()
+      // Keep loadPreferences pending so "handling" stays true
+      mockLoadPreferences.mockReturnValue(
+        new Promise<{ status: 'ok'; data: typeof defaultPrefs }>(
+          () => undefined
+        )
+      )
+      render(<CrashReportDialog />)
+
+      await user.click(screen.getByText('crashReport.sendReport'))
+
+      // Wait until the send button is disabled (handling === true)
+      await waitFor(() => {
+        const sendButton = screen
+          .getByText('crashReport.sendReport')
+          .closest('button')
+        expect(sendButton).toBeDisabled()
+      })
+
+      fireEvent.click(screen.getByTestId('dialog-close'))
+
+      // Dialog must remain open while handling
+      expect(useCrashReportStore.getState().crashReportDialogOpen).toBe(true)
+    })
   })
 
   describe('异常用例', () => {
@@ -347,6 +424,31 @@ describe('CrashReportDialog', () => {
       })
       // savePreferences should NOT be called because loadPreferences failed
       expect(mockSavePreferences).not.toHaveBeenCalled()
+    })
+
+    it('handleAllow 时 loadPreferences 返回 error 仍继续发送流程但不保存', async () => {
+      const user = userEvent.setup()
+      useCrashReportStore.setState({ pendingCrashReport: crashFixture })
+      mockLoadPreferences.mockResolvedValue({
+        status: 'error',
+        error: { kind: 'Io', message: 'corrupt' },
+      })
+      render(<CrashReportDialog />)
+
+      await user.click(screen.getByText('crashReport.sendReport'))
+
+      // Consent gate still opens and the crash is still sent
+      await waitFor(() => {
+        expect(mockSetSentryConsent).toHaveBeenCalledWith(true)
+      })
+      expect(mockCaptureMessage).toHaveBeenCalledWith(
+        'Rust panic: panicked at src/main.rs:42',
+        'fatal'
+      )
+      expect(mockSavePreferences).not.toHaveBeenCalled()
+      await waitFor(() => {
+        expect(mockDeleteCrashReport).toHaveBeenCalledTimes(1)
+      })
     })
   })
 })
