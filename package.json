@@ -24,10 +24,10 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage",
+    "test": "node scripts/run-vitest.mjs",
+    "test:run": "node scripts/run-vitest.mjs run",
+    "test:ui": "node scripts/run-vitest.mjs --ui",
+    "test:coverage": "node scripts/run-vitest.mjs run --coverage",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:report": "playwright show-report",
@@ -60,7 +60,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
-      "eslint --fix --max-warnings 0",
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
       "prettier --write"
     ],
     "*.{json,css,md,yml,yaml,html}": [

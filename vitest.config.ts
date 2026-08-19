@@ -38,14 +38,13 @@ export default defineConfig({
         // shadcn/ui wrapper components over Radix UI primitives — tested upstream
         'src/components/ui/**',
       ],
+      // 覆盖率阈值对齐「核心域分支≥80%」标准。当前全量实际：语句 ~97%、
+      // 分支 ~93%、函数 ~96%、行 ~97%，远超阈值，为未来演进保留余量。
       thresholds: {
-        lines: 60,
-        // 低于 lines 阈值：项目业务代码（hooks/lib/store）已 100% 覆盖，
-        // 但部分纯配置/胶水代码（query-client.ts、redact.ts 等）尚未补齐测试。
-        // TODO: 补齐 src/lib/* 与 src/hooks/* 测试后将阈值恢复至 60
-        functions: 50,
-        branches: 60,
-        statements: 60,
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
       },
     },
   },

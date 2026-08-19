@@ -73,7 +73,10 @@ fn init_quick_pane_macos(app: &AppHandle) -> Result<(), AppError> {
 
     let panel = PanelBuilder::<_, QuickPanePanel>::new(app, QUICK_PANE_LABEL)
         .url(WebviewUrl::App("quick-pane.html".into()))
-        // TODO: i18n - quick pane title should be localized
+        // NOTE: window title kept in English — the quick pane is a borderless,
+        // skip-taskbar panel whose title is never visible to the user. Rust-side
+        // i18n is not implemented (menus moved to JS for i18n); see tray.rs for
+        // the same decision.
         .title("Quick Entry")
         .size(Size::Logical(LogicalSize::new(500.0, 72.0)))
         .level(PanelLevel::Status) // Status level to appear above fullscreen apps
@@ -115,7 +118,7 @@ fn init_quick_pane_standard(app: &AppHandle) -> Result<(), AppError> {
         QUICK_PANE_LABEL,
         WebviewUrl::App("quick-pane.html".into()),
     )
-    // TODO: i18n - quick pane title should be localized
+    // NOTE: window title kept in English — see macOS branch for rationale.
     .title("Quick Entry")
     .inner_size(500.0, 72.0)
     .always_on_top(true)
