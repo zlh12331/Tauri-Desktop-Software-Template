@@ -122,6 +122,9 @@ jobs:
       - name: Coverage register guard (--check-only)
         run: node scripts/check-coverage.mjs --check-only
 
+      - name: README test counts up to date
+        run: npm run readme:check
+
       - name: Upload coverage report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

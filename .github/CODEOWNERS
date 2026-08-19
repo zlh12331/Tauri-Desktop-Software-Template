@@ -1,0 +1,26 @@
+# CODEOWNERS — automatic review requests for critical paths.
+#
+# Replace the placeholder owners with real GitHub usernames or teams when
+# using this template. These paths change cross-language contracts, generated
+# artifacts, or user-facing content, so they must not be merged unreviewed
+# (especially by AI-generated changes).
+#
+# Syntax: <path> <owner>...  (see https://help.github.com/articles/about-codeowners/)
+
+# Auto-generated IPC bindings — regenerate via `npm run rust:bindings` and
+# never hand-edit.
+/src/lib/bindings.ts                       @your-org/maintainers
+
+# Rust command signatures — changing these alters the IPC type contract.
+/src-tauri/src/commands/                   @your-org/maintainers
+/src-tauri/src/error.rs                    @your-org/maintainers
+/src-tauri/src/types.rs                    @your-org/maintainers
+
+# Translation catalogs and i18n wiring.
+/locales/                                  @your-org/maintainers
+/i18next.config.ts                         @your-org/maintainers
+/scripts/check-i18n.mjs                    @your-org/maintainers
+
+# Release / versioning logic.
+/scripts/prepare-release.js                @your-org/maintainers
+/.github/workflows/release-v2.yml          @your-org/maintainers

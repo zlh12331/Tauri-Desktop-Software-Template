@@ -20,5 +20,8 @@ package-lock.json
 src/lib/bindings.ts
 CHANGELOG.md
 
+# Special formats prettier cannot parse
+.github/CODEOWNERS
+
 # Logs
 *.log

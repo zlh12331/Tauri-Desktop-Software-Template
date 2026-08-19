@@ -27,7 +27,7 @@ Most Tauri starters give you a "hello world" and leave the hard parts to you. Th
 - **Dual-layer crash reporting** — Rust panic hook captures crashes to disk (surviving even OOM), Sentry consent gate respects user privacy, sensitive data is redacted before any upload.
 - **NSPanel floating window** — Native macOS `NSPanel` integration for a Spotlight-like quick pane that floats across all Spaces. Falls back to `always_on_top` on Windows/Linux.
 - **Enforced architecture** — ast-grep rules block anti-patterns at CI time: no hooks in `lib/`, no store subscriptions in pure logic, no Zustand destructuring.
-- **1,076 tests** — 821 frontend + 239 Rust + 16 E2E (including WCAG 2.1 AA accessibility audits). Every command has three test layers: pure function, mock runtime, integration.
+- **1,457 tests** — 1011 frontend + 430 Rust + 16 E2E (including WCAG 2.1 AA accessibility audits). Every command has three test layers: pure function, mock runtime, integration.
 
 ## Quick Start
 
@@ -210,8 +210,8 @@ Three AST rules enforced in CI:
 | `npm run tauri:build`     | Build desktop app for current platform    |
 | `npm run check:all`       | Run all 15+ quality gates                 |
 | `npm run fix:all`         | Auto-fix all fixable issues               |
-| `npm run test:run`        | Run Vitest unit tests (821 tests)         |
-| `npm run rust:test`       | Run Rust tests (239 tests)                |
+| `npm run test:run`        | Run Vitest unit tests (1011 tests)        |
+| `npm run rust:test`       | Run Rust tests (430 tests)                |
 | `npm run e2e`             | Run Playwright E2E tests (16 scenarios)   |
 | `npm run rust:bindings`   | Regenerate tauri-specta TypeScript types  |
 | `npm run release:prepare` | Prepare a release (version bump + checks) |

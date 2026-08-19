@@ -27,7 +27,7 @@
 - **双层崩溃报告** — Rust panic 钩子将崩溃写入磁盘（即使在 OOM 下也能存活），Sentry 同意门控尊重用户隐私，敏感数据在上传前脱敏。
 - **NSPanel 浮动窗口** — 原生 macOS `NSPanel` 集成，实现类 Spotlight 的快捷面板，可跨所有 Space 浮动。Windows/Linux 降级为 `always_on_top`。
 - **架构强制执行** — ast-grep 规则在 CI 阶段拦截反模式：`lib/` 中禁止 Hook、纯逻辑中禁止 Store 订阅、禁止 Zustand 解构。
-- **1,076 个测试** — 821 前端 + 239 Rust + 16 E2E（含 WCAG 2.1 AA 无障碍审计）。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
+- **1,457 个测试** — 1011 前端 + 430 Rust + 16 E2E（含 WCAG 2.1 AA 无障碍审计）。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
 
 ## 快速开始
 
@@ -210,8 +210,8 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 | `npm run tauri:build`     | 构建当前平台桌面应用                  |
 | `npm run check:all`       | 运行全部 15+ 质量门禁                 |
 | `npm run fix:all`         | 自动修复所有可修复的问题              |
-| `npm run test:run`        | 运行 Vitest 单元测试（821 个）        |
-| `npm run rust:test`       | 运行 Rust 测试（239 个）              |
+| `npm run test:run`        | 运行 Vitest 单元测试（1011 个）       |
+| `npm run rust:test`       | 运行 Rust 测试（430 个）              |
 | `npm run e2e`             | 运行 Playwright E2E 测试（16 个场景） |
 | `npm run rust:bindings`   | 重新生成 tauri-specta TypeScript 类型 |
 | `npm run release:prepare` | 准备发布（版本号更新 + 检查）         |
