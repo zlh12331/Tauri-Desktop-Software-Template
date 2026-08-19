@@ -6,6 +6,29 @@ use tauri::AppHandle;
 
 use crate::error::AppError;
 
+/// Validates notification inputs before sending.
+///
+/// Pure helper — no runtime dependency, so the validation branches are fully
+/// unit-testable without a Wry runtime or the notification plugin.
+pub fn validate_notification(title: &str, body: Option<&str>) -> Result<(), AppError> {
+    if title.is_empty() {
+        return Err(AppError::validation("Notification title cannot be empty"));
+    }
+    if title.chars().count() > 200 {
+        return Err(AppError::validation(
+            "Notification title too long (max 200 characters)",
+        ));
+    }
+    if let Some(b) = body
+        && b.chars().count() > 500
+    {
+        return Err(AppError::validation(
+            "Notification body too long (max 500 characters)",
+        ));
+    }
+    Ok(())
+}
+
 /// Sends a native system notification.
 /// On mobile platforms, returns an error as notifications are not yet supported.
 #[tauri::command]
@@ -16,21 +39,7 @@ pub async fn send_native_notification(
     body: Option<String>,
 ) -> Result<(), AppError> {
     // Validate inputs
-    if title.is_empty() {
-        return Err(AppError::validation("Notification title cannot be empty"));
-    }
-    if title.chars().count() > 200 {
-        return Err(AppError::validation(
-            "Notification title too long (max 200 characters)",
-        ));
-    }
-    if let Some(b) = &body
-        && b.chars().count() > 500
-    {
-        return Err(AppError::validation(
-            "Notification body too long (max 500 characters)",
-        ));
-    }
+    validate_notification(&title, body.as_deref())?;
 
     log::info!("Sending native notification: {title}");
 
