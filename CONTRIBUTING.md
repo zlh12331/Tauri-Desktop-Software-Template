@@ -4,7 +4,7 @@ Thank you for your interest in contributing! This document covers the developmen
 
 ## Prerequisites
 
-- **Node.js** >= 20.0.0
+- **Node.js** >= 24.0.0
 - **Rust** stable toolchain (via [rustup](https://rustup.rs/))
 - **System dependencies** for Tauri v2 (see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/))
 

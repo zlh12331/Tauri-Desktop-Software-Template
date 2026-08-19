@@ -119,9 +119,10 @@ async function prepareRelease() {
       console.log('✅ Updater public key configured')
     }
 
-    // Final check that Rust code compiles
+    // Final check that Rust code compiles (cross-platform: no `source`, which
+    // only exists in bash and would fail on Windows cmd/PowerShell).
     console.log('\n🔍 Running final compilation check...')
-    exec('source ~/.cargo/env && cd src-tauri && cargo check')
+    exec('cargo check --manifest-path src-tauri/Cargo.toml')
     console.log('✅ Rust compilation check passed')
 
     console.log(`\n🎉 Successfully prepared release ${tagVersion}!`)
