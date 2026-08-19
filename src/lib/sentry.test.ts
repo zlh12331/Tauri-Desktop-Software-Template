@@ -522,3 +522,167 @@ describe('sentry — 生产模式 (DEV=false)', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// beforeSend 脱敏（redactSentryEvent）分支覆盖
+// ---------------------------------------------------------------------------
+describe('sentry — beforeSend 敏感数据脱敏', () => {
+  const TEST_DSN = 'https://example.com@sentry.io/789'
+
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    localStorage.clear()
+    vi.stubEnv('VITE_SENTRY_DSN', TEST_DSN)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  function getBeforeSend() {
+    return mockSentryInit.mock.calls[0]?.[0] as {
+      beforeSend: (event: Record<string, unknown>) => unknown
+    }
+  }
+
+  describe('正向用例 — request 脱敏', () => {
+    it('request.url 中的敏感 key 被脱敏', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = { request: { url: 'https://x.io/login?token=abc123' } }
+      const out = getBeforeSend().beforeSend(event) as {
+        request: { url: string }
+      }
+      expect(out.request.url).toBe('https://x.io/login?token=***')
+    })
+
+    it('request.headers 敏感 key 值被替换为 ***', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = {
+        request: { headers: { authorization: 'Bearer secret', theme: 'dark' } },
+      }
+      const out = getBeforeSend().beforeSend(event) as {
+        request: { headers: Record<string, string> }
+      }
+      expect(out.request.headers.authorization).toBe('***')
+      expect(out.request.headers.theme).toBe('dark')
+    })
+  })
+
+  describe('正向用例 — breadcrumbs 脱敏', () => {
+    it('breadcrumb message 中的敏感值被脱敏', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = {
+        breadcrumbs: [{ message: 'api_key=sk-123', category: 'fetch' }],
+      }
+      const out = getBeforeSend().beforeSend(event) as {
+        breadcrumbs: { message: string }[]
+      }
+      expect(out.breadcrumbs[0].message).toBe('api_key=***')
+    })
+
+    it('breadcrumb data 敏感 key 值被替换为 ***', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = {
+        breadcrumbs: [{ data: { password: 'hunter2' }, category: 'ui' }],
+      }
+      const out = getBeforeSend().beforeSend(event) as {
+        breadcrumbs: { data: Record<string, string> }[]
+      }
+      expect(out.breadcrumbs[0].data.password).toBe('***')
+    })
+
+    it('无 message/data 的 breadcrumb 原样保留', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = { breadcrumbs: [{ category: 'navigation' }] }
+      const out = getBeforeSend().beforeSend(event) as {
+        breadcrumbs: { category: string }[]
+      }
+      expect(out.breadcrumbs[0].category).toBe('navigation')
+    })
+  })
+
+  describe('正向用例 — extra 上下文脱敏', () => {
+    it('extra 中敏感 key 值被替换为 ***', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = { extra: { secret: 'top', keep: 'me' } }
+      const out = getBeforeSend().beforeSend(event) as {
+        extra: Record<string, string>
+      }
+      expect(out.extra.secret).toBe('***')
+      expect(out.extra.keep).toBe('me')
+    })
+  })
+
+  describe('边界用例 — 缺失字段不报错', () => {
+    it('无 request 字段时返回原事件', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = { message: 'hi' }
+      expect(getBeforeSend().beforeSend(event)).toEqual({ message: 'hi' })
+    })
+
+    it('无 breadcrumbs 字段时返回原事件', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = { extra: {} }
+      expect(getBeforeSend().beforeSend(event)).toEqual({ extra: {} })
+    })
+
+    it('无 extra 字段时返回原事件', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      const event = { request: {} }
+      expect(getBeforeSend().beforeSend(event)).toEqual({ request: {} })
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// setConsent 同步失败时 console.warn（异常分支）
+// ---------------------------------------------------------------------------
+describe('sentry — setConsent 同步失败', () => {
+  const TEST_DSN = 'https://example.com@sentry.io/1011'
+
+  beforeEach(async () => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    localStorage.clear()
+    vi.stubEnv('VITE_SENTRY_DSN', TEST_DSN)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('commands.setConsent reject 时调用 console.warn 且不抛', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined)
+    // Make the shared setConsent mock reject for this call
+    mockSetConsent.mockRejectedValueOnce(new Error('rust down'))
+    const { initSentry, setSentryConsent } = await import('./sentry')
+    initSentry()
+    // Should not throw despite rejected sync
+    expect(() => setSentryConsent(true)).not.toThrow()
+    // allow the .catch microtask to flush
+    await new Promise(r => setTimeout(r, 0))
+    expect(warnSpy).toHaveBeenCalled()
+    warnSpy.mockRestore()
+  })
+})
