@@ -171,20 +171,31 @@ describe('GeneralPane', () => {
       expect(input).toHaveValue('hello world')
     })
 
-    it('切换 example toggle 开关', () => {
+    it('切换 example toggle 开关（开启 → 关闭）', async () => {
+      const user = userEvent.setup()
       renderWithClient(<GeneralPane />)
-      // Initially shows disabled text
-      expect(screen.getAllByText('common.disabled').length).toBeGreaterThan(0)
-
       const exampleToggle = document.getElementById(
         'example-toggle'
       ) as HTMLElement
-      // Radix Switch 在 jsdom 中对 pointer 事件支持有限,改用键盘 Space 切换
-      exampleToggle.focus()
-      fireEvent.keyDown(exampleToggle, { key: ' ', code: 'Space' })
-      fireEvent.keyUp(exampleToggle, { key: ' ', code: 'Space' })
 
-      // Now should show enabled text somewhere
+      // Initially checked (exampleToggle 初始为 true)
+      await waitFor(() => {
+        expect(exampleToggle).toHaveAttribute('data-state', 'checked')
+      })
+      expect(screen.getAllByText('common.enabled').length).toBeGreaterThan(0)
+
+      // Toggle off
+      await user.click(exampleToggle)
+      await waitFor(() => {
+        expect(exampleToggle).toHaveAttribute('data-state', 'unchecked')
+      })
+      expect(screen.getAllByText('common.disabled').length).toBeGreaterThan(0)
+
+      // Toggle back on
+      await user.click(exampleToggle)
+      await waitFor(() => {
+        expect(exampleToggle).toHaveAttribute('data-state', 'checked')
+      })
       expect(screen.getAllByText('common.enabled').length).toBeGreaterThan(0)
     })
 
@@ -312,6 +323,176 @@ describe('GeneralPane', () => {
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith(
           'preferences.general.launchOnBootDisableFailed'
+        )
+      })
+    })
+  })
+
+  describe('正向用例 — 快捷键更新', () => {
+    const prefsWithShortcut = {
+      ...defaultPrefs,
+      quick_pane_shortcut: 'CommandOrControl+Shift+A',
+    }
+
+    async function captureShortcut() {
+      const user = userEvent.setup()
+      renderWithClient(<GeneralPane />)
+      await waitFor(() => {
+        expect(mockGetDefaultQuickPaneShortcut).toHaveBeenCalled()
+      })
+      const shortcutButton = screen
+        .getAllByRole('button')
+        .find(btn => btn.textContent?.includes('Shift')) as HTMLElement
+      await user.click(shortcutButton)
+      // Press Ctrl+Shift+P
+      fireEvent.keyDown(window, {
+        key: 'p',
+        code: 'KeyP',
+        ctrlKey: true,
+        shiftKey: true,
+      })
+      fireEvent.keyUp(window, {
+        key: 'p',
+        code: 'KeyP',
+        ctrlKey: true,
+        shiftKey: true,
+      })
+    }
+
+    it('捕获新快捷键时调用 updateQuickPaneShortcut 并保存偏好', async () => {
+      mockUsePreferences.mockReturnValue({
+        data: prefsWithShortcut,
+        isLoading: false,
+      })
+      mockUpdateQuickPaneShortcut.mockResolvedValue({
+        status: 'ok',
+        data: null,
+      })
+
+      await captureShortcut()
+
+      await waitFor(() => {
+        expect(mockUpdateQuickPaneShortcut).toHaveBeenCalledWith(
+          'CommandOrControl+Shift+P'
+        )
+      })
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalledWith({
+          ...prefsWithShortcut,
+          quick_pane_shortcut: 'CommandOrControl+Shift+P',
+        })
+      })
+      expect(mockToastError).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('异常用例 — 快捷键注册与回滚', () => {
+    const prefsWithShortcut = {
+      ...defaultPrefs,
+      quick_pane_shortcut: 'CommandOrControl+Shift+A',
+    }
+
+    async function captureShortcut() {
+      const user = userEvent.setup()
+      renderWithClient(<GeneralPane />)
+      await waitFor(() => {
+        expect(mockGetDefaultQuickPaneShortcut).toHaveBeenCalled()
+      })
+      const shortcutButton = screen
+        .getAllByRole('button')
+        .find(btn => btn.textContent?.includes('Shift')) as HTMLElement
+      await user.click(shortcutButton)
+      fireEvent.keyDown(window, {
+        key: 'p',
+        code: 'KeyP',
+        ctrlKey: true,
+        shiftKey: true,
+      })
+      fireEvent.keyUp(window, {
+        key: 'p',
+        code: 'KeyP',
+        ctrlKey: true,
+        shiftKey: true,
+      })
+    }
+
+    it('快捷键注册失败时显示错误 toast 且不保存偏好', async () => {
+      mockUsePreferences.mockReturnValue({
+        data: defaultPrefs,
+        isLoading: false,
+      })
+      mockUpdateQuickPaneShortcut.mockResolvedValue({
+        status: 'error',
+        error: { message: 'shortcut in use', kind: 'ERR_VALIDATION' },
+      })
+
+      await captureShortcut()
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(
+          'toast.error.shortcutFailed',
+          { description: 'shortcut in use' }
+        )
+      })
+      expect(mockMutateAsync).not.toHaveBeenCalled()
+    })
+
+    it('保存偏好失败时回滚后端注册（回滚成功）', async () => {
+      mockUsePreferences.mockReturnValue({
+        data: prefsWithShortcut,
+        isLoading: false,
+      })
+      // 第一次注册新快捷键成功, 回滚也成功
+      mockUpdateQuickPaneShortcut.mockResolvedValueOnce({
+        status: 'ok',
+        data: null,
+      })
+      mockUpdateQuickPaneShortcut.mockResolvedValueOnce({
+        status: 'ok',
+        data: null,
+      })
+      mockMutateAsync.mockRejectedValue(new Error('disk full'))
+
+      await captureShortcut()
+
+      await waitFor(() => {
+        expect(mockMutateAsync).toHaveBeenCalled()
+      })
+      await waitFor(() => {
+        expect(mockUpdateQuickPaneShortcut).toHaveBeenCalledTimes(2)
+      })
+      // 回滚调用用旧快捷键值
+      expect(mockUpdateQuickPaneShortcut).toHaveBeenLastCalledWith(
+        'CommandOrControl+Shift+A'
+      )
+      // 回滚成功路径不显示 restore 失败 toast
+      expect(mockToastError).not.toHaveBeenCalledWith(
+        'toast.error.shortcutRestoreFailed',
+        { description: 'toast.error.shortcutRestoreDescription' }
+      )
+    })
+
+    it('保存失败且回滚失败时显示 restore 失败 toast', async () => {
+      mockUsePreferences.mockReturnValue({
+        data: prefsWithShortcut,
+        isLoading: false,
+      })
+      mockUpdateQuickPaneShortcut.mockResolvedValueOnce({
+        status: 'ok',
+        data: null,
+      })
+      mockUpdateQuickPaneShortcut.mockResolvedValueOnce({
+        status: 'error',
+        error: { message: 'rollback failed', kind: 'ERR_IO' },
+      })
+      mockMutateAsync.mockRejectedValue(new Error('disk full'))
+
+      await captureShortcut()
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(
+          'toast.error.shortcutRestoreFailed',
+          { description: 'toast.error.shortcutRestoreDescription' }
         )
       })
     })
