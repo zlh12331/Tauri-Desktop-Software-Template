@@ -36,6 +36,16 @@ jobs:
       - name: npm audit (devDependencies)
         run: npm audit --audit-level=high
 
+      - name: npm license check
+        run: npx --yes license-checker --summary --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;MPL-2.0;CC0-1.0;Unlicense;Zlib;0BSD;WTFPL;Python-2.0;BlueOak-1.0.0;BSD-3-Clause-Clear"
+
+      - name: Secret leak scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'true'
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@v1
         with:
@@ -146,6 +156,13 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy -- -D warnings
 
+      # Regenerate TS bindings and fail if they drifted from the committed
+      # src/lib/bindings.ts. Catches the "edited a Rust command but forgot
+      # npm run rust:bindings" failure mode before it reaches typecheck.
+      - name: Regenerate TypeScript bindings (drift guard)
+        working-directory: src-tauri
+        run: cargo test export_bindings -- --ignored --nocapture
+
       - name: Rust tests
         working-directory: src-tauri
         run: cargo test
@@ -154,7 +171,7 @@ jobs:
         working-directory: src-tauri
         run: |
           mkdir -p ../coverage
-          cargo +nightly llvm-cov --branch --text --output-path ../coverage/rust-coverage.txt --fail-under-lines 60
+          cargo +nightly llvm-cov --branch --text --output-path ../coverage/rust-coverage.txt --fail-under-lines 75
 
       - name: Upload Rust coverage report
         if: ${{ !cancelled() }}

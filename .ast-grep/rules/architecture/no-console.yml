@@ -1,0 +1,27 @@
+id: no-console
+message: |
+  Remove console.* calls from production code; use the structured logger from
+  @/lib/logger instead.
+
+  BAD: console.log('debug value', x)
+  GOOD: logger.debug('debug value', { x })
+severity: error
+language: TypeScript
+files:
+  - 'src/**/*.ts'
+  - 'src/**/*.tsx'
+ignores:
+  # logger.ts is the logging infra itself — it wraps console by design.
+  - 'src/lib/logger.ts'
+  # i18n lazy-load fallback warns to console (no logger dependency allowed
+  # in the i18n bootstrap to avoid circular imports).
+  - 'src/i18n/config.ts'
+  # Sentry consent-sync failure warns to console because logger may not be
+  # ready in every context (documented in-code).
+  - 'src/lib/sentry.ts'
+rule:
+  pattern: console.$METHOD($$$ARGS)
+note: |
+  AI debugging output frequently leaks into commits as console.log. The
+  project uses a structured logger (@/lib/logger). Scripts and config files
+  are outside src/ so they are not scanned.

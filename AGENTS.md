@@ -17,7 +17,7 @@ This repository is a template with sensible defaults for building Tauri React ap
 
 **CRITICAL:** Follow these strictly:
 
-0. **Use npm only**: This project uses `npm`, NOT `pnpm`. Always use `npm install`, `npm run`, etc.
+0. **Use npm only**: This project uses `npm`, NOT `pnpm`. `packageManager` + `.npmrc` `engine-strict=true` hard-enforce this — `pnpm install` fails, and installs fail on Node < 20.
 1. **Read Before Editing**: Always read files first to understand context
 2. **Follow Established Patterns**: Use patterns from this file and `docs/developer`
 3. **Senior Architect Mindset**: Consider performance, maintainability, testability
@@ -52,8 +52,8 @@ All via `npm` (never pnpm). Run from repo root unless noted.
 
 ## Critical Pitfalls
 
-- **Edit a Rust command → regenerate bindings.** Any change to `#[tauri::command]` signatures in `src-tauri/src/commands/` must be followed by `npm run rust:bindings`. Frontend imports `commands.x()` from `@/lib/tauri-bindings`; stale `bindings.ts` causes type drift that CI catches but wastes a round-trip.
-- **Three ast-grep rules block anti-patterns at CI** (enforced, not advisory): `hooks-in-hooks-dir` (no React hooks in `lib/`), `no-store-in-lib` (no store subscriptions in `lib/`, only `getState()`), `no-destructure` (no Zustand destructuring — use selector syntax).
+- **Edit a Rust command → regenerate bindings.** Any change to `#[tauri::command]` signatures in `src-tauri/src/commands/` must be followed by `npm run rust:bindings`. Frontend imports `commands.x()` from `@/lib/tauri-bindings`; stale `bindings.ts` causes type drift. CI now runs `cargo test export_bindings -- --ignored` and fails on any drift (including doc-comment changes).
+- **Six ast-grep rules block anti-patterns at CI** (enforced, not advisory): `hooks-in-hooks-dir` (no React hooks in `lib/`), `no-store-in-lib` (no store subscriptions in `lib/`, only `getState()`), `no-destructure` (no Zustand destructuring — use selector syntax), `no-console` (no `console.*` in `src/`; use `@/lib/logger`), `no-ts-ignore` (use `@ts-expect-error`), `no-direct-invoke` (no raw `invoke()` imports outside `bindings.ts`).
 - **Never use raw `invoke()`.** All Rust→frontend calls go through typed `commands` from `@/lib/tauri-bindings`.
 - **`lib/` is pure logic** — no React, no hooks, no store subscriptions. UI/state belong in `components/`, `hooks/`, `store/`.
 - **Rust error flow**: commands return `Result<T, AppError>`; `AppError` serializes as `{ kind, message }` with stable codes (`ERR_IO`, `ERR_VALIDATION`, …). Match on `.status === 'ok'` on the TS side.

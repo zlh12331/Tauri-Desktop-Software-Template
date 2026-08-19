@@ -180,7 +180,11 @@ export type CrashReportData = {
 	app_version: string,
 };
 
-/**  Error types for recovery operations (typed for frontend matching) */
+/**
+ *  Error types for recovery operations (typed for frontend matching).
+ *  Uses `tag = "kind"` to stay consistent with `AppError`'s serde tag,
+ *  so the frontend can use a single discriminator field for all errors.
+ */
 export type RecoveryError = 
 /**  File does not exist (expected case, not a failure) */
 { kind: "FileNotFound" } | 

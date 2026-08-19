@@ -1,0 +1,19 @@
+id: no-ts-ignore
+message: |
+  Use `@ts-expect-error` instead of `@ts-ignore` — it fails when the error
+  disappears.
+
+  BAD: // @ts-ignore
+  GOOD: // @ts-expect-error reason...
+severity: error
+language: TypeScript
+files:
+  - 'src/**/*.ts'
+  - 'src/**/*.tsx'
+rule:
+  pattern: '// @ts-ignore'
+note: |
+  `@ts-ignore` suppresses type errors even when the underlying problem is
+  fixed, leaving dead suppressions. `@ts-expect-error` fails the build if the
+  error is gone, forcing cleanup. AI-generated code frequently leans on
+  `@ts-ignore`.
