@@ -674,6 +674,117 @@ mod tests {
     }
 
     // =========================================================================
+    // init_consent_from_path — 正向用例
+    // =========================================================================
+
+    #[tokio::test]
+    async fn init_consent_from_path_granted_sets_state_to_one() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, r#"{"crash_reporting_consent":true}"#).unwrap();
+
+        init_consent_from_path(&path);
+        assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 1);
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn init_consent_from_path_denied_sets_state_to_two() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, r#"{"crash_reporting_consent":false}"#).unwrap();
+
+        init_consent_from_path(&path);
+        assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 2);
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn init_consent_from_path_null_consent_stays_zero() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(2, Ordering::Relaxed); // prove we reset
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, r#"{"crash_reporting_consent":null}"#).unwrap();
+
+        init_consent_from_path(&path);
+        assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn init_consent_from_path_missing_consent_field_stays_zero() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(1, Ordering::Relaxed); // prove we reset
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, r#"{"theme":"dark"}"#).unwrap();
+
+        init_consent_from_path(&path);
+        assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 0);
+    }
+
+    // =========================================================================
+    // init_consent_from_path — 边界用例
+    // =========================================================================
+
+    #[tokio::test]
+    async fn init_consent_from_path_missing_file_keeps_state_unchanged() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(1, Ordering::Relaxed);
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("nonexistent.json");
+
+        init_consent_from_path(&path);
+        // File missing — state stays as it was.
+        assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 1);
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn init_consent_from_path_invalid_json_keeps_state_unchanged() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(1, Ordering::Relaxed);
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, "not json").unwrap();
+
+        init_consent_from_path(&path);
+        // Parse failure — state stays unchanged (privacy-safe).
+        assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 1);
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    // =========================================================================
+    // init_consent_from_path — 异常用例
+    // =========================================================================
+
+    #[tokio::test]
+    async fn init_consent_from_path_unreadable_file_keeps_state_unchanged() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(2, Ordering::Relaxed);
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, r#"{"crash_reporting_consent":true}"#).unwrap();
+        // Make the file unreadable so read_to_string fails.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        }
+
+        init_consent_from_path(&path);
+
+        #[cfg(unix)]
+        {
+            assert_eq!(CONSENT_STATE.load(Ordering::Relaxed), 2);
+        }
+        // On Windows chmod 0 is a no-op; accept either outcome — must not panic.
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    // =========================================================================
     // persist_consent_to_path — 正向用例
     // =========================================================================
 
