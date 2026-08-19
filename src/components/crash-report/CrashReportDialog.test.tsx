@@ -148,7 +148,7 @@ describe('CrashReportDialog', () => {
     it('渲染 "Send Report" 和 "Don\'t Send" 按钮', () => {
       render(<CrashReportDialog />)
       expect(screen.getByText('crashReport.sendReport')).toBeInTheDocument()
-      expect(screen.getByText('crashReport.dontSend')).toBeInTheDocument()
+      expect(screen.getByText('crashReport.doNotSend')).toBeInTheDocument()
     })
 
     it('渲染隐私说明文本', () => {
@@ -243,7 +243,7 @@ describe('CrashReportDialog', () => {
       useCrashReportStore.setState({ pendingCrashReport: crashFixture })
       render(<CrashReportDialog />)
 
-      await user.click(screen.getByText('crashReport.dontSend'))
+      await user.click(screen.getByText('crashReport.doNotSend'))
 
       await waitFor(() => {
         expect(mockSavePreferences).toHaveBeenCalledWith({
@@ -258,7 +258,7 @@ describe('CrashReportDialog', () => {
       const user = userEvent.setup()
       render(<CrashReportDialog />)
 
-      await user.click(screen.getByText('crashReport.dontSend'))
+      await user.click(screen.getByText('crashReport.doNotSend'))
 
       await waitFor(() => {
         expect(mockSetSentryConsent).not.toHaveBeenCalledWith(true)
@@ -269,7 +269,7 @@ describe('CrashReportDialog', () => {
       const user = userEvent.setup()
       render(<CrashReportDialog />)
 
-      await user.click(screen.getByText('crashReport.dontSend'))
+      await user.click(screen.getByText('crashReport.doNotSend'))
 
       await waitFor(() => {
         expect(useCrashReportStore.getState().crashReportDialogOpen).toBe(false)
@@ -291,7 +291,7 @@ describe('CrashReportDialog', () => {
       mockIsSentryEnabled.mockReturnValue(false)
       render(<CrashReportDialog />)
       const denyButton = screen
-        .getByText('crashReport.dontSend')
+        .getByText('crashReport.doNotSend')
         .closest('button')
       expect(denyButton).not.toBeDisabled()
     })
@@ -323,12 +323,12 @@ describe('CrashReportDialog', () => {
       )
       render(<CrashReportDialog />)
 
-      await user.click(screen.getByText('crashReport.dontSend'))
+      await user.click(screen.getByText('crashReport.doNotSend'))
 
       // While handling, both buttons should be disabled
       await waitFor(() => {
         const denyButton = screen
-          .getByText('crashReport.dontSend')
+          .getByText('crashReport.doNotSend')
           .closest('button')
         expect(denyButton).toBeDisabled()
       })
@@ -389,7 +389,7 @@ describe('CrashReportDialog', () => {
       mockSavePreferences.mockRejectedValue(new Error('save fail'))
       render(<CrashReportDialog />)
 
-      await user.click(screen.getByText('crashReport.dontSend'))
+      await user.click(screen.getByText('crashReport.doNotSend'))
 
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith('crashReport.consentError')
@@ -416,7 +416,7 @@ describe('CrashReportDialog', () => {
       })
       render(<CrashReportDialog />)
 
-      await user.click(screen.getByText('crashReport.dontSend'))
+      await user.click(screen.getByText('crashReport.doNotSend'))
 
       // Wait a tick for any async work
       await waitFor(() => {

@@ -47,7 +47,7 @@
   "crashReport.consentGranted": "崩溃报告已启用。未来的崩溃将自动报告。",
   "crashReport.crashMessage": "崩溃信息",
   "crashReport.description": "应用程序遇到了崩溃。您是否愿意发送崩溃报告以帮助我们修复问题？",
-  "crashReport.dontSend": "不发送",
+  "crashReport.doNotSend": "不发送",
   "crashReport.privacyNote": "崩溃报告包含错误详情、堆栈跟踪和应用版本。不会收集任何个人数据。",
   "crashReport.sendReport": "发送报告",
   "crashReport.title": "崩溃报告",

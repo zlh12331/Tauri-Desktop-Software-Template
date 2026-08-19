@@ -148,7 +148,7 @@ export function CrashReportDialog() {
 
         <DialogFooter>
           <Button variant="secondary" onClick={handleDeny} disabled={handling}>
-            {t('crashReport.dontSend')}
+            {t('crashReport.doNotSend')}
           </Button>
           <Button
             onClick={handleAllow}

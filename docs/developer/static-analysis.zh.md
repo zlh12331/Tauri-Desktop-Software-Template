@@ -10,16 +10,20 @@
 | -------------- | ------------------- | ------------------------ | --------------- |
 | TypeScript     | 类型检查            | `npm run typecheck`      | 是              |
 | ESLint         | 语法、风格、TS 规则 | `npm run lint`           | 是              |
+| cspell         | 拼写检查            | `npm run cspell:check`   | 是              |
 | Prettier       | 代码格式化          | `npm run format:check`   | 是              |
 | ast-grep       | 架构模式            | `npm run ast:lint`       | 是              |
 | i18n check     | 提取漂移 + 键同步   | `npm run i18n:check`     | 是              |
 | React Compiler | 自动 memoization    | 构建时                   | 是              |
 | cargo fmt      | Rust 格式化         | `npm run rust:fmt:check` | 是              |
 | clippy         | Rust lint           | `npm run rust:clippy`    | 是              |
+| cargo-machete  | Rust 未使用依赖     | `npm run rust:machete`   | 是              |
 | Vitest         | 前端测试            | `npm run test:run`       | 是              |
 | cargo test     | Rust 测试           | `npm run rust:test`      | 是              |
 | knip           | 未使用代码检测      | `npm run knip`           | 否              |
 | jscpd          | 重复代码检测        | `npm run jscpd`          | 否              |
+
+CI 额外运行 [actionlint](https://github.com/rhysd/actionlint) 检查所有 GitHub Actions workflow，以及 [gitleaks](https://github.com/gitleaks/gitleaks) 密钥扫描。
 
 ## 运行所有检查
 

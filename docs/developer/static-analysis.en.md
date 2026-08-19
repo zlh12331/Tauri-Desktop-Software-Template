@@ -10,16 +10,22 @@ All static analysis tools configured in this app and how to use them.
 | -------------- | ------------------------ | ------------------------ | ------------ |
 | TypeScript     | Type checking            | `npm run typecheck`      | Yes          |
 | ESLint         | Syntax, style, TS rules  | `npm run lint`           | Yes          |
+| cspell         | Spell checking           | `npm run cspell:check`   | Yes          |
 | Prettier       | Code formatting          | `npm run format:check`   | Yes          |
 | ast-grep       | Architecture patterns    | `npm run ast:lint`       | Yes          |
 | i18n check     | Extract drift + key sync | `npm run i18n:check`     | Yes          |
 | React Compiler | Automatic memoization    | Build-time               | Yes          |
 | cargo fmt      | Rust formatting          | `npm run rust:fmt:check` | Yes          |
 | clippy         | Rust linting             | `npm run rust:clippy`    | Yes          |
+| cargo-machete  | Rust unused deps         | `npm run rust:machete`   | Yes          |
 | Vitest         | Frontend tests           | `npm run test:run`       | Yes          |
 | cargo test     | Rust tests               | `npm run rust:test`      | Yes          |
 | knip           | Unused code detection    | `npm run knip`           | No           |
 | jscpd          | Duplicate code detection | `npm run jscpd`          | No           |
+
+CI additionally runs [actionlint](https://github.com/rhysd/actionlint) on all
+GitHub Actions workflows and [gitleaks](https://github.com/gitleaks/gitleaks)
+secret scanning.
 
 ## Running All Checks
 

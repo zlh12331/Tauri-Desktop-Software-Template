@@ -15,6 +15,15 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  workflow-lint:
+    name: Workflow Lint (actionlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lint GitHub Actions workflows
+        uses: rhysd/actionlint@v1
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -92,6 +101,9 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Spell check (cspell)
+        run: npm run cspell:check
+
       - name: Prettier format check
         run: npm run format:check
 
@@ -158,6 +170,13 @@ jobs:
       - name: Rust clippy
         working-directory: src-tauri
         run: cargo clippy -- -D warnings
+
+      - name: Install cargo-machete
+        run: cargo install cargo-machete --locked
+
+      - name: Rust unused dependencies (cargo-machete)
+        working-directory: src-tauri
+        run: cargo machete
 
       # Regenerate TS bindings and fail if they drifted from the committed
       # src/lib/bindings.ts. Catches the "edited a Rust command but forgot

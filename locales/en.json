@@ -47,7 +47,7 @@
   "crashReport.consentGranted": "Crash reporting enabled. Future crashes will be reported automatically.",
   "crashReport.crashMessage": "Crash message",
   "crashReport.description": "The application encountered a crash. Would you like to send a crash report to help us fix the issue?",
-  "crashReport.dontSend": "Don't Send",
+  "crashReport.doNotSend": "Don't Send",
   "crashReport.privacyNote": "Crash reports include error details, stack traces, and app version. No personal data is collected.",
   "crashReport.sendReport": "Send Report",
   "crashReport.title": "Crash Report",

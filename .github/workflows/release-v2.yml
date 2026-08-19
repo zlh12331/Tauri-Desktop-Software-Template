@@ -60,6 +60,9 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Spell check (cspell)
+        run: npm run cspell:check
+
       - name: Prettier format check
         run: npm run format:check
 

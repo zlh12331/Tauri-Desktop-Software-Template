@@ -45,6 +45,7 @@
     "rust:test": "cd src-tauri && cargo test",
     "rust:bindings": "cd src-tauri && cargo test export_bindings -- --ignored --nocapture",
     "rust:doc": "cd src-tauri && cargo doc --no-deps",
+    "rust:machete": "cd src-tauri && cargo machete",
     "rust:coverage": "cd src-tauri && cargo +nightly llvm-cov --branch --text",
     "rust:coverage:check": "cd src-tauri && cargo +nightly llvm-cov --branch --fail-under-lines 75",
     "changelog": "git-cliff -o CHANGELOG.md",
@@ -53,7 +54,7 @@
     "tauri:build": "npm run tauri build",
     "tauri:check": "npm run typecheck && npm run tauri build --check",
     "test:all": "npm run test:run && npm run rust:test",
-    "check:all": "npm run typecheck && npm run lint && npm run ast:lint && npm run format:check && npm run i18n:check && npm run rust:fmt:check && npm run rust:clippy && npm run test:run && npm run rust:test",
+    "check:all": "npm run typecheck && npm run lint && npm run cspell:check && npm run ast:lint && npm run format:check && npm run i18n:check && npm run rust:fmt:check && npm run rust:clippy && npm run rust:machete && npm run test:run && npm run rust:test",
     "fix:all": "npm run lint:fix && npm run format && npm run rust:fmt && npm run rust:clippy:fix",
     "build:analyze": "vite-bundle-visualizer --output-format html --output-file bundle-analysis.html",
     "release:prepare": "node scripts/prepare-release.js",
@@ -69,15 +70,19 @@
     "i18n:check": "npm run i18n:extract:check && npm run i18n:status && npm run i18n:fallback",
     "ast:lint": "ast-grep scan",
     "ast:fix": "ast-grep scan --fix",
+    "cspell:check": "cspell lint --no-progress \"src/**/*.{ts,tsx}\" \"locales/*.json\" \"docs/**/*.md\" \"*.md\" \"*.json\"",
+    "cspell:fix": "cspell lint --no-progress --fix \"src/**/*.{ts,tsx}\" \"locales/*.json\" \"docs/**/*.md\" \"*.md\" \"*.json\"",
     "prepare": "husky"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [
       "eslint --fix --max-warnings 0 --no-warn-ignored",
-      "prettier --write"
+      "prettier --write",
+      "cspell lint --no-progress"
     ],
     "*.{json,css,md,yml,yaml,html}": [
-      "prettier --write"
+      "prettier --write",
+      "cspell lint --no-progress"
     ],
     "*.rs": [
       "cargo fmt --manifest-path src-tauri/Cargo.toml --"
@@ -157,6 +162,7 @@
     "@vitest/coverage-v8": "^4.1.11",
     "@vitest/ui": "^4.1.11",
     "babel-plugin-react-compiler": "^1.0.0",
+    "cspell": "^10.0.1",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-i18next": "^6.1.5",
