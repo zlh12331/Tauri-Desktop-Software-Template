@@ -423,7 +423,7 @@ describe('GeneralPane', () => {
       })
       mockUpdateQuickPaneShortcut.mockResolvedValue({
         status: 'error',
-        error: { message: 'shortcut in use', kind: 'ERR_VALIDATION' },
+        error: { message: 'shortcut in use', kind: 'Validation' },
       })
 
       await captureShortcut()
@@ -483,7 +483,7 @@ describe('GeneralPane', () => {
       })
       mockUpdateQuickPaneShortcut.mockResolvedValueOnce({
         status: 'error',
-        error: { message: 'rollback failed', kind: 'ERR_IO' },
+        error: { message: 'rollback failed', kind: 'Io' },
       })
       mockMutateAsync.mockRejectedValue(new Error('disk full'))
 

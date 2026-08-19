@@ -204,14 +204,14 @@ describe('QuickPaneApp', () => {
     it('logs an error when the dismiss command fails', async () => {
       mockDismissQuickPane.mockResolvedValue({
         status: 'error',
-        error: { kind: 'ERR_IO', message: 'boom' },
+        error: { kind: 'Io', message: 'boom' },
       })
       render(<QuickPaneApp />)
       focusListener?.({ payload: false })
       await waitFor(() => expect(mockDismissQuickPane).toHaveBeenCalledTimes(1))
       expect(logger.error).toHaveBeenCalledWith(
         'Failed to dismiss quick pane',
-        { error: { kind: 'ERR_IO', message: 'boom' } }
+        { error: { kind: 'Io', message: 'boom' } }
       )
     })
   })

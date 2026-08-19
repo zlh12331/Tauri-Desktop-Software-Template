@@ -46,7 +46,7 @@
     "rust:bindings": "cd src-tauri && cargo test export_bindings -- --ignored --nocapture",
     "rust:doc": "cd src-tauri && cargo doc --no-deps",
     "rust:coverage": "cd src-tauri && cargo +nightly llvm-cov --branch --text",
-    "rust:coverage:check": "cd src-tauri && cargo +nightly llvm-cov --branch --fail-under-lines 60",
+    "rust:coverage:check": "cd src-tauri && cargo +nightly llvm-cov --branch --fail-under-lines 75",
     "changelog": "git-cliff -o CHANGELOG.md",
     "tauri": "tauri",
     "tauri:dev": "npm run tauri dev",
