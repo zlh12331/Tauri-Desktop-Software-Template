@@ -186,6 +186,66 @@ describe('windowCommands', () => {
       )
     })
 
+    it('window-minimize uses "Unknown error" when rejection is not an Error', async () => {
+      mockMinimize.mockRejectedValueOnce('plain string failure')
+      const ctx = createMockContext()
+
+      await findCommand('window-minimize')?.execute(ctx)
+
+      expect(mockT).toHaveBeenCalledWith('toast.error.windowMinimizeFailed', {
+        message: 'Unknown error',
+      })
+      expect(ctx.showToast).toHaveBeenCalledWith(
+        'toast.error.windowMinimizeFailed',
+        'error'
+      )
+    })
+
+    it('window-toggle-maximize uses "Unknown error" when rejection is not an Error', async () => {
+      mockToggleMaximize.mockRejectedValueOnce(42)
+      const ctx = createMockContext()
+
+      await findCommand('window-toggle-maximize')?.execute(ctx)
+
+      expect(mockT).toHaveBeenCalledWith('toast.error.windowMaximizeFailed', {
+        message: 'Unknown error',
+      })
+      expect(ctx.showToast).toHaveBeenCalledWith(
+        'toast.error.windowMaximizeFailed',
+        'error'
+      )
+    })
+
+    it('window-fullscreen uses "Unknown error" when rejection is not an Error', async () => {
+      mockSetFullscreen.mockRejectedValueOnce(null)
+      const ctx = createMockContext()
+
+      await findCommand('window-fullscreen')?.execute(ctx)
+
+      expect(mockT).toHaveBeenCalledWith('toast.error.fullscreenEnterFailed', {
+        message: 'Unknown error',
+      })
+      expect(ctx.showToast).toHaveBeenCalledWith(
+        'toast.error.fullscreenEnterFailed',
+        'error'
+      )
+    })
+
+    it('window-exit-fullscreen uses "Unknown error" when rejection is not an Error', async () => {
+      mockSetFullscreen.mockRejectedValueOnce({ code: 'ERR_UNKNOWN' })
+      const ctx = createMockContext()
+
+      await findCommand('window-exit-fullscreen')?.execute(ctx)
+
+      expect(mockT).toHaveBeenCalledWith('toast.error.fullscreenExitFailed', {
+        message: 'Unknown error',
+      })
+      expect(ctx.showToast).toHaveBeenCalledWith(
+        'toast.error.fullscreenExitFailed',
+        'error'
+      )
+    })
+
     it('window-minimize shows error toast when minimize() rejects', async () => {
       mockMinimize.mockRejectedValueOnce(new Error('minimize failed'))
       const ctx = createMockContext()
