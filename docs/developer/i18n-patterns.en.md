@@ -288,6 +288,29 @@ t('nonexistent.key') // TypeScript error
 t('preferences.title') // ✅ Works
 ```
 
+## Automatic Validation (Hard Constraint)
+
+Three layers enforce i18n consistency programmatically — AI-generated changes
+cannot silently drift:
+
+1. **Type-safe keys** (compile time): `i18n.d.ts` types `t()` from `en.json`,
+   so a missing key is a TypeScript error.
+
+2. **Catalog consistency** (`npm run i18n:check`, CI): `scripts/check-i18n.mjs`
+   fails when:
+   - a language file's key set differs from `en.json` (missing/extra keys)
+   - a static `t('key')` reference does not resolve in `en.json`
+   - a key is both a leaf and a parent (e.g. `a.b` string + `a.b.c` map)
+
+   Dynamic references (`t(command.labelKey)`, template literals) are
+   intentionally excluded — they are not statically resolvable.
+
+3. **No hardcoded JSX text** (ESLint): `i18next/no-literal-string` with
+   `jsxTextOnly` bans literal text in JSX; all user-visible strings must go
+   through `t()`. Dev-only panels and test fixtures are exempted.
+
+Run locally: `npm run i18n:check` (included in `check:all` and CI).
+
 ## Using Translations Outside React
 
 For non-React contexts (like menu building), import i18n directly:

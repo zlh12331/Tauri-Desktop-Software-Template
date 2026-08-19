@@ -288,6 +288,23 @@ t('nonexistent.key') // TypeScript 错误
 t('preferences.title') // 正常工作
 ```
 
+## 自动校验（硬约束）
+
+三层机制以程序化方式强制 i18n 一致性——AI 生成的改动无法静默漂移：
+
+1. **类型安全键**（编译期）：`i18n.d.ts` 从 `en.json` 推导 `t()` 的键类型，缺失键即 TypeScript 错误。
+
+2. **目录一致性**（`npm run i18n:check`，CI）：`scripts/check-i18n.mjs` 在以下情况失败：
+   - 语言文件的键集合与 `en.json` 不一致（缺失/多余键）
+   - 静态 `t('key')` 引用无法在 `en.json` 中解析
+   - 同一键既是叶子值又是父节点（如 `a.b` 字符串与 `a.b.c` 映射并存）
+
+   动态引用（`t(command.labelKey)`、模板字符串）被有意排除——它们无法静态解析。
+
+3. **禁止 JSX 硬编码文本**（ESLint）：`i18next/no-literal-string`（`jsxTextOnly`）禁止 JSX 中的字面文本；所有用户可见字符串必须通过 `t()`。dev-only 调试面板与测试夹具已豁免。
+
+本地运行：`npm run i18n:check`（已纳入 `check:all` 与 CI）。
+
 ## 在 React 之外使用翻译
 
 对于非 React 上下文（如菜单构建），直接导入 i18n：

@@ -17,6 +17,7 @@ import { isSentryInitialized } from './lib/sentry'
 import { usePreferences } from './queries/preferences'
 
 /** Debug panel for Sentry E2E testing — only shown in dev mode. */
+/* eslint-disable i18next/no-literal-string -- dev-only E2E debug labels */
 function SentryDebugPanel() {
   const [lastEvent, setLastEvent] = useState<string>('')
 

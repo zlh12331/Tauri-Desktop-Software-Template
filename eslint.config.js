@@ -4,6 +4,7 @@ import reactPlugin from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactCompiler from 'eslint-plugin-react-compiler'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import i18nextPlugin from 'eslint-plugin-i18next'
 import prettierConfig from 'eslint-config-prettier'
 
 export default tseslint.config(
@@ -27,6 +28,7 @@ export default tseslint.config(
       'react-hooks': reactHooks,
       'react-compiler': reactCompiler,
       'react-refresh': reactRefresh,
+      i18next: i18nextPlugin,
     },
     rules: {
       ...reactPlugin.configs.recommended.rules,
@@ -53,6 +55,9 @@ export default tseslint.config(
         },
       ],
       '@typescript-eslint/no-import-type-side-effects': 'error',
+      // All user-visible JSX text must go through t(). The dev-only
+      // SentryDebugPanel in App.tsx is exempted below.
+      'i18next/no-literal-string': ['error', { jsxTextOnly: true }],
     },
     settings: {
       react: {
@@ -73,6 +78,16 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'off',
       // Disable compiler rule for UI components (from shadcn) and test files
       'react-compiler/react-compiler': 'off',
+      // shadcn/ui wrappers ship their own aria/label copy; tests use literal
+      // text as assertions — neither is user-facing translation scope
+      'i18next/no-literal-string': 'off',
+    },
+  },
+  {
+    files: ['src/**/*.{test,spec}.{ts,tsx}'],
+    rules: {
+      // Test fixtures use literal text for assertions
+      'i18next/no-literal-string': 'off',
     },
   },
   {

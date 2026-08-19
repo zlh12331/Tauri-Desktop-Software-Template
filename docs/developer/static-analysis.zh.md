@@ -12,6 +12,7 @@
 | ESLint         | 语法、风格、TS 规则 | `npm run lint`           | 是              |
 | Prettier       | 代码格式化          | `npm run format:check`   | 是              |
 | ast-grep       | 架构模式            | `npm run ast:lint`       | 是              |
+| i18n check     | 翻译键一致性        | `npm run i18n:check`     | 是              |
 | React Compiler | 自动 memoization    | 构建时                   | 是              |
 | cargo fmt      | Rust 格式化         | `npm run rust:fmt:check` | 是              |
 | clippy         | Rust lint           | `npm run rust:clippy`    | 是              |

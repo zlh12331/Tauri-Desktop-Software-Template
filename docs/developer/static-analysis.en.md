@@ -12,6 +12,7 @@ All static analysis tools configured in this app and how to use them.
 | ESLint         | Syntax, style, TS rules  | `npm run lint`           | Yes          |
 | Prettier       | Code formatting          | `npm run format:check`   | Yes          |
 | ast-grep       | Architecture patterns    | `npm run ast:lint`       | Yes          |
+| i18n check     | Locale key consistency   | `npm run i18n:check`     | Yes          |
 | React Compiler | Automatic memoization    | Build-time               | Yes          |
 | cargo fmt      | Rust formatting          | `npm run rust:fmt:check` | Yes          |
 | clippy         | Rust linting             | `npm run rust:clippy`    | Yes          |
