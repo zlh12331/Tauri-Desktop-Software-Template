@@ -259,12 +259,13 @@ jobs:
 
       # 把安装包重命名为 `<产品名>-<平台>-<版本>-<架构>.<后缀>`，
       # 同时生成 rename-map.json 供 finalize 重建 latest.json 时做新旧文件名映射。
+      # 注意：必须写成单行——Windows runner 默认 shell 是 PowerShell，`\` 不是续行符。
       - name: Rename release assets with platform label
-        run: |
-          node scripts/release-assets.mjs rename \
-            ${{ matrix.os }} \
-            Tauri-Desktop-Software-Template \
-            ${{ github.ref_name || inputs.version }}
+        run: >-
+          node scripts/release-assets.mjs rename
+          ${{ matrix.os }}
+          Tauri-Desktop-Software-Template
+          ${{ github.ref_name || inputs.version }}
 
       # 把该平台的重命名产物作为独立 Actions Artifact 保存，交给 finalize 作业。
       - name: Upload bundle artifact
