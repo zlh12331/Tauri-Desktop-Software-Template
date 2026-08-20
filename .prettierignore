@@ -22,6 +22,7 @@ CHANGELOG.md
 
 # Special formats prettier cannot parse
 .github/CODEOWNERS
+.lychee.toml
 
 # Logs
 *.log

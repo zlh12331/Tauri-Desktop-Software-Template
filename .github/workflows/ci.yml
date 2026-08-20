@@ -24,6 +24,34 @@ jobs:
       - name: Lint GitHub Actions workflows
         uses: rhysd/actionlint@v1.7.12
 
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # 文档防回潮护栏：格式一致性 + 双语配对/互链 + 外部链接可达性。
+      # 三项互相独立，失败会阻断合并，避免文档在精简后被悄然带偏。
+      - name: markdownlint (format consistency)
+        run: npm run docs:lint
+
+      - name: en/zh pair & cross-link check
+        run: npm run docs:pairs
+
+      - name: URL link check (lychee)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config .lychee.toml 'docs/**/*.md' 'README.md' 'README.zh.md'
+
   security-audit:
     name: Security Audit
     runs-on: ubuntu-latest

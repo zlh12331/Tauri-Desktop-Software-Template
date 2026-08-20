@@ -1,0 +1,17 @@
+{
+  "config": {
+    "MD013": false,
+    "MD024": false,
+    "MD033": false,
+    "MD040": false,
+    "MD041": false,
+    "MD043": false,
+    "MD051": false,
+  },
+  "globs": ["docs/**/*.md", "README.md", "README.zh.md"],
+  "ignores": [
+    "docs/conversations/**",
+    "docs/tasks-done/**",
+    "docs/tasks-todo/**",
+  ],
+}

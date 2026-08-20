@@ -1,0 +1,25 @@
+# lychee link checker config.
+# Runs in CI on the docs/ tree; scans markdown files for broken local & external links.
+cache = false
+max_concurrency = 8
+max_retries = 2
+retry_wait_secs = 2
+
+# Skip generated/private files that are not source-authored content.
+exclude_path = [
+  "docs/conversations/**",
+  "CHANGELOG.md",
+]
+
+# Allow patterns that lychee would otherwise flag (common false positives):
+#   - localhost is only referenced as a dev-server example.
+#   - git@ ssh refs and raw email addresses are intentionally not "websites".
+exclude = [
+  "http://localhost",
+  "localhost:1420",
+  "mailto:",
+  "file://",
+]
+
+# External status codes considered a failure even for otherwise-ok requests.
+include_verbatim = false
