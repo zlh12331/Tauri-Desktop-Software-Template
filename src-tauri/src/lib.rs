@@ -44,40 +44,46 @@ pub fn run() {
     // has explicitly granted consent (`CONSENT_STATE == 1`). The consent state
     // is initialized from `preferences.json` in `setup()` and updated via the
     // `set_consent` Tauri command when the user toggles consent in the UI.
-    let _sentry_guard = sentry::init(sentry::ClientOptions {
-        dsn: option_env!("SENTRY_DSN")
-            .filter(|s| !s.is_empty())
-            .and_then(|s| s.parse().ok()),
-        release: sentry::release_name!(),
-        environment: Some(if cfg!(debug_assertions) {
-            "development".into()
-        } else {
-            "production".into()
-        }),
-        // Full error sampling — self-hosted Sentry has no quota limits
-        sample_rate: 1.0,
-        // Disable Rust-side performance tracing — the desktop app has no
-        // HTTP request chains to trace. Tracing is kept on the frontend
-        // (React SDK) for Web Vitals (LCP/FCP/INP/CLS).
-        traces_sample_rate: 0.0,
-        // Attach stack traces to all captured events
-        attach_stacktrace: true,
-        // Release Health: track crash-free session rate
-        auto_session_tracking: true,
-        // Consent gate: drop events unless the user has granted consent.
-        // CONSENT_STATE: 0=unknown, 1=granted, 2=denied.
-        before_send: Some(std::sync::Arc::new(|event| {
-            if commands::crash_report::CONSENT_STATE.load(std::sync::atomic::Ordering::Relaxed) == 1
-            {
-                Some(event)
+    let mut sentry_options = sentry::ClientOptions::new();
+    // dsn/release builders take concrete values (not Option), so only set them
+    // when present. A missing DSN leaves the client as a no-op guard.
+    if let Some(dsn) = option_env!("SENTRY_DSN").filter(|s| !s.is_empty()) {
+        sentry_options = sentry_options.dsn(dsn);
+    }
+    if let Some(release) = sentry::release_name!() {
+        sentry_options = sentry_options.release(release);
+    }
+    let _sentry_guard = sentry::init(
+        sentry_options
+            .environment(if cfg!(debug_assertions) {
+                "development"
             } else {
-                None
-            }
-        })),
-        // Increase shutdown timeout to ensure events are flushed on exit
-        shutdown_timeout: std::time::Duration::from_secs(5),
-        ..Default::default()
-    });
+                "production"
+            })
+            // Full error sampling — self-hosted Sentry has no quota limits
+            .sample_rate(1.0)
+            // Disable Rust-side performance tracing — the desktop app has no
+            // HTTP request chains to trace. Tracing is kept on the frontend
+            // (React SDK) for Web Vitals (LCP/FCP/INP/CLS).
+            .traces_sample_rate(0.0)
+            // Attach stack traces to all captured events
+            .attach_stacktrace(true)
+            // Release Health: track crash-free session rate
+            .auto_session_tracking(true)
+            // Consent gate: drop events unless the user has granted consent.
+            // CONSENT_STATE: 0=unknown, 1=granted, 2=denied.
+            .before_send(|event| {
+                if commands::crash_report::CONSENT_STATE.load(std::sync::atomic::Ordering::Relaxed)
+                    == 1
+                {
+                    Some(event)
+                } else {
+                    None
+                }
+            })
+            // Increase shutdown timeout to ensure events are flushed on exit
+            .shutdown_timeout(std::time::Duration::from_secs(5)),
+    );
 
     let builder = bindings::generate_bindings();
 
