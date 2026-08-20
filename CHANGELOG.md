@@ -120,6 +120,7 @@ All notable changes to this project will be documented in this file.
 - **release**: Fetch full git history for git-cliff in quality job
 - **release**: Use valid uploadUpdaterJson input for tauri-action
 - **release**: Use TAURI_PRIVATE_KEY_PASSWORD secret for updater signing
+- **release**: Skip Apple signing env when certificate is absent
 
 ### Build System
 
