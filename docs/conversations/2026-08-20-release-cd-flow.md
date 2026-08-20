@@ -114,30 +114,25 @@ GitHub draft release `v0.1.0` 已创建，资产齐全：
 - Linux: `_0.1.0_amd64.AppImage`（含 `.sig`）
 - `latest.json`（自动更新清单）
 
-发布为 **draft**（`releaseDraft: true`），需用户到 GitHub Releases 页手动「Publish」后才对用户可见。
+`.sig` 签名文件与 `latest.json` 均成功生成，说明用户配置的 `TAURI_PRIVATE_KEY` / `TAURI_PRIVATE_KEY_PASSWORD` 两个 Secrets 生效，签名阶段通过。
 
-## 六、关键教训
+**最终发布**：用户配置好 Secrets 后确认「配置好了」，本次运行（commit `7e5c9f0`，2026-08-20T09:30Z）三平台构建全部成功。由 agent 执行 `gh release edit v0.1.0 --draft=false` 将 draft 正式发布，`published: 2026-08-20T09:51:36Z`。
 
-## 五、遗留的硬阻塞（需用户手动操作）
+🎉 **v0.1.0 发布完成**：https://github.com/zlh12331/Tauri-Desktop-Software-Template/releases/tag/v0.1.0
+
+## 六、配置 Secrets 的说明（用户手动完成）
 
 `GH_TOKEN`（`ghu_` 集成 token）对 GitHub Actions **Secrets** 写操作一律返回
-`Resource not accessible by integration`（HTTP 403），即使账户 API 显示 `admin: true`。
-`tauri-action` 的输入工具（GitHub MCP、gh CLI）也都无法写入 Secrets。
-
-因此 **只有配置 Secrets 这一步必须由用户在 GitHub 网页（或自己签发的 oauth token）完成**：
+`Resource not accessible by integration`（HTTP 403）。因此 **配置 Secrets 需由用户在 GitHub 网页手动完成**：
 
 | Secret 名称                  | 值                                                 |
 | ---------------------------- | -------------------------------------------------- |
 | `TAURI_PRIVATE_KEY`          | 私钥文件完整内容（base64 minisign 私钥，348 字符） |
 | `TAURI_PRIVATE_KEY_PASSWORD` | 生成时设置的密码                                   |
 
-私钥已生成在沙箱 `/tmp/vault/updater.key`，密码 `t3mpl8ate-v0.1.0-upd@ter`。
-公钥已提交进 `tauri.conf.json`。
+用户已在仓库 Settings → Secrets 中配置好这两个值，本次三平台构建的 `.sig` 签名与 `latest.json` 生成成功即为配置生效的证明。
 
-配置完成后，只需把本地 tag `v0.1.0` push 到远端（`git push origin v0.1.0`），或在 Actions 页
-`workflow_dispatch` 手动触发，即可让 `publish-tauri` 三平台构建成功并创建 draft release。
-
-## 六、唤起过程中的关键教训
+## 七、过程中的关键教训
 
 1. **git-cliff 是完整历史依赖工具**：浅克隆 / `fetch-depth:1` 生成的 CHANGELOG 会缺失祖先提交，导致与提交内容不一致。release workflow 里凡跑 git-cliff 的作业必须 `fetch-depth: 0`。
 2. **本地浅克隆不可作为"生成一致性"验证依据**：必须在完整历史上验证 `git-cliff -o` 输出 == 提交的 CHANGELOG.md。
