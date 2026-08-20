@@ -1,36 +1,44 @@
 #!/usr/bin/env node
 
 import fs from 'fs'
-import { execSync, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import readline from 'readline'
 
 /**
- * Run a command. Pass a string for trusted hardcoded commands (goes through
- * the shell), or an array [cmd, ...args] when interpolating values — arrays
- * bypass the shell entirely, so there is no command-line injection surface.
+ * Resolve the npm CLI entry point. When a script runs under `npm run`, npm
+ * exposes its own JS entry via the npm_execpath env var. Spawning that file
+ * with the current Node binary is shell-free and behaves identically on
+ * Windows, macOS, and Linux — no npm.cmd / .cmd shim involved.
+ */
+function npmArgs(args) {
+  const npmCli = process.env.npm_execpath
+  if (!npmCli) {
+    throw new Error(
+      'npm_execpath is not set — run this script via `npm run release:prepare`'
+    )
+  }
+  return [process.execPath, npmCli, ...args]
+}
+
+/**
+ * Run a command as [cmd, ...args] via spawnSync. Arrays bypass the shell
+ * entirely, so interpolated values can never be interpreted by a shell —
+ * there is no command-line injection surface.
  */
 function exec(command, options = {}) {
   try {
-    if (Array.isArray(command)) {
-      const result = spawnSync(command[0], command.slice(1), {
-        encoding: 'utf8',
-        stdio: options.silent ? 'pipe' : 'inherit',
-        ...options,
-      })
-      if (result.status !== 0) {
-        const detail = result.stderr?.trim()
-        throw new Error(detail || `exited with code ${result.status}`)
-      }
-      return result.stdout ?? ''
-    }
-    return execSync(command, {
+    const result = spawnSync(command[0], command.slice(1), {
       encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
       ...options,
     })
+    if (result.status !== 0) {
+      const detail = result.stderr?.trim()
+      throw new Error(detail || `exited with code ${result.status}`)
+    }
+    return result.stdout ?? ''
   } catch (error) {
-    const label = Array.isArray(command) ? command.join(' ') : command
-    throw new Error(`Command failed: ${label}\n${error.message}`)
+    throw new Error(`Command failed: ${command.join(' ')}\n${error.message}`)
   }
 }
 
@@ -58,9 +66,11 @@ async function prepareRelease() {
 
   if (!version) {
     console.error(
-      '❌ Usage: node scripts/prepare-release.js v1.0.0 [--non-interactive]'
+      '❌ Usage: npm run release:prepare -- v1.0.0 [--non-interactive]'
     )
-    console.error('   or: npm run prepare-release v1.0.0')
+    console.error(
+      '   or: node scripts/prepare-release.js v1.0.0 [--non-interactive]'
+    )
     process.exit(1)
   }
 
@@ -72,7 +82,7 @@ async function prepareRelease() {
   try {
     // Check git status
     console.log('🔍 Checking git status...')
-    const gitStatus = exec('git status --porcelain', { silent: true })
+    const gitStatus = exec(['git', 'status', '--porcelain'], { silent: true })
     if (gitStatus.trim()) {
       console.error(
         '❌ Working directory is not clean. Please commit or stash changes first.'
@@ -85,7 +95,7 @@ async function prepareRelease() {
 
     // Run all checks first
     console.log('\n🔍 Running pre-release checks...')
-    exec('npm run check:all')
+    exec(npmArgs(['run', 'check:all']))
     console.log('✅ All checks passed')
 
     // Update package.json
@@ -124,13 +134,13 @@ async function prepareRelease() {
 
     // Run npm install to update lock files
     console.log('\n📦 Updating lock files...')
-    exec('npm install', { silent: true })
+    exec(npmArgs(['install']), { silent: true })
     console.log('✅ Lock files updated')
 
     // Generate CHANGELOG for this release (git-cliff, based on commits since
     // the previous tag). Committed together with the version bump below.
     console.log('\n📝 Generating CHANGELOG...')
-    exec('npm run changelog', { silent: true })
+    exec(npmArgs(['run', 'changelog']), { silent: true })
     console.log('✅ CHANGELOG updated')
 
     // Verify configurations
@@ -153,7 +163,7 @@ async function prepareRelease() {
     // Final check that Rust code compiles (cross-platform: no `source`, which
     // only exists in bash and would fail on Windows cmd/PowerShell).
     console.log('\n🔍 Running final compilation check...')
-    exec('cargo check --manifest-path src-tauri/Cargo.toml')
+    exec(['cargo', 'check', '--manifest-path', 'src-tauri/Cargo.toml'])
     console.log('✅ Rust compilation check passed')
 
     console.log(`\n🎉 Successfully prepared release ${tagVersion}!`)
@@ -180,7 +190,7 @@ async function prepareRelease() {
       console.log('\n⚡ Executing git commands...')
 
       console.log('📝 Adding changes...')
-      exec('git add .')
+      exec(['git', 'add', '.'])
 
       console.log('💾 Creating commit...')
       exec(['git', 'commit', '-m', `chore: release ${tagVersion}`])
@@ -189,7 +199,7 @@ async function prepareRelease() {
       exec(['git', 'tag', tagVersion])
 
       console.log('📤 Pushing to remote...')
-      exec('git push origin main --tags')
+      exec(['git', 'push', 'origin', 'main', '--tags'])
 
       console.log(`\n🎊 Release ${tagVersion} has been published!`)
       console.log(
