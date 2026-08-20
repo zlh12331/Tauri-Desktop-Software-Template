@@ -249,8 +249,10 @@ jobs:
 
       # 直接调 tauri CLI 构建（非 tauri-action）。传入 updater 私钥用于生成
       # .sig 签名文件与各平台自己的 latest.json。macOS 无证书时会走 ad-hoc 签名。
+      # 注意必须用 `npm run tauri -- build`：没有 `--` 分隔时 npm 会把
+      # `--bundles appimage` 当成 npm 自己的参数吞掉，导致 tauri 收到裸的 `appimage`。
       - name: Build (tauri)
-        run: npm run tauri build ${{ matrix.args }}
+        run: npm run tauri -- build ${{ matrix.args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_PRIVATE_KEY_PASSWORD }}
