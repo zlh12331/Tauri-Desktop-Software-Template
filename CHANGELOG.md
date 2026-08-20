@@ -49,6 +49,7 @@ All notable changes to this project will be documented in this file.
 - Record coverage exemption register after unit test pass
 - Record rust coverage exemption register
 - **readme**: Redesign project overview and readme
+- **conversations**: Add release-cd-flow session record
 
 ### Testing
 
@@ -117,6 +118,7 @@ All notable changes to this project will be documented in this file.
 - **release**: Vend pinned git-cliff install in quality job
 - **release**: Fetch full git history for git-cliff in quality job
 - **release**: Use valid uploadUpdaterJson input for tauri-action
+- **release**: Use TAURI_PRIVATE_KEY_PASSWORD secret for updater signing
 
 ### Build System
 
