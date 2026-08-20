@@ -109,6 +109,7 @@ failed to bundle project: failed codesign application:
 ```
 
 GitHub draft release `v0.1.0` 已创建，资产齐全：
+
 - macOS: `_0.1.0_aarch64.dmg` + `.app.tar.gz`（含 `.sig`）
 - Windows: `_0.1.0_x64_en-US.msi`（含 `.sig`）
 - Linux: `_0.1.0_amd64.AppImage`（含 `.sig`）
