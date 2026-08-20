@@ -259,7 +259,7 @@ jobs:
       # 同时生成 rename-map.json 供 finalize 重建 latest.json 时做新旧文件名映射。
       - name: Rename release assets with platform label
         run: |
-          node scripts/release-assets.cjs rename \
+          node scripts/release-assets.mjs rename \
             ${{ matrix.os }} \
             Tauri-Desktop-Software-Template \
             ${{ github.ref_name || inputs.version }}
@@ -325,7 +325,7 @@ jobs:
       # 汇总三平台产物：重建 latest.json（用重命名后的文件名）并生成 release-body.md。
       - name: Assemble latest.json and release body
         run: |
-          node scripts/release-assets.cjs finalize \
+          node scripts/release-assets.mjs finalize \
             artifacts \
             '${{ github.ref_name || inputs.version }}' \
             '${{ github.repository_owner }}' \

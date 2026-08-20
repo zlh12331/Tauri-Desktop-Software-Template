@@ -47,7 +47,7 @@
 从原来的 127 行（含 Testing/CI/Build/Miscellaneous/deps 噪音）精简为一屏内可读完的
 干净日志，只含 New features / Bug fixes / Refactoring & performance / Documentation。
 
-### 3. `scripts/release-assets.cjs`（新增）
+### 3. `scripts/release-assets.mjs`（新增）
 一个脚本、两个子命令：
 - **`rename <platform> <productName> <version>`**：递归扫描 `bundle/` 下该平台产物，
   重命名为 `{productName}-{platform}-{version}-{arch}.{ext}`（平台为

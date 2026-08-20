@@ -19,15 +19,13 @@
  *   2. finalize  —— 汇总三平台产物，重建 latest.json 并生成发布说明（finalize 作业内执行）
  *
  * 用法：
- *   node scripts/release-assets.cjs rename <platform> <productName> <version>
- *   node scripts/release-assets.cjs finalize \
+ *   node scripts/release-assets.mjs rename <platform> <productName> <version>
+ *   node scripts/release-assets.mjs finalize \
  *       <artifactsDir> <tag> <owner> <repo> <productName> <version> <outDir> <changelogPath>
  */
 
-'use strict'
-
-const fs = require('fs')
-const path = require('path')
+import fs from 'node:fs'
+import path from 'node:path'
 
 // 平台维度配置：label 用于产物文件名；
 // fileRe 匹配 Tauri 产物文件名（捕获 prod/ver/arch/ext）；
