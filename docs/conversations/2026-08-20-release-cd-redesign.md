@@ -115,6 +115,9 @@
 5. **重跑幂等**：同一 tag 重复创建会冲突 → `gh release create` 前先
    `gh release delete <tag> --yes || true`。
 6. 顺带修复：已存在 `docs/conversations/2026-08-20-release-cd-flow.md` 的 prettier 格式问题。
+7. macOS 自更新包 `Tauri-Desktop-Software-Template.app.tar.gz` 文件名不含
+   `_version_arch`，之前漏改平台前缀 → 让 `fileRe` 的版本/架构可选，
+   从同目录的 `_aarch64.dmg` 探测架构后，一并改名为 `-macOS-<版本>-<架构>.app.tar.gz`。
 
 修复上述 4（白名单）后重跑，目标做到：三平台 `Build & rename` 全部成功，
 `finalize` 的 `Assemble / Create draft / Upload assets / Upload latest.json` 全部通过，

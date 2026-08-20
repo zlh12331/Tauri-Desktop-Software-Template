@@ -51,8 +51,9 @@ function isReleaseArtifact(name) {
 const PLATFORMS = {
   macos: {
     label: 'macOS',
+    // 允许版本/架构可选：dmg 带 `_version_arch`，自更新包 `.app.tar.gz` 常为裸名。
     fileRe:
-      /^(?<prod>.+?)_(?<ver>\d+\.\d+\.\d+)_(?<arch>aarch64|x86_64)(?<ext>\.dmg|\.app\.tar\.gz)$/,
+      /^(?<prod>.+?)(?:_(?<ver>\d+\.\d+\.\d+))?(?:_(?<arch>aarch64|x86_64))?(?<ext>\.dmg|\.app\.tar\.gz)$/,
     archLabel: arch => (arch === 'x86_64' ? 'x86_64' : 'aarch64'),
   },
   windows: {
@@ -137,13 +138,24 @@ function runRename(platform, productName, version) {
   )
 
   // 收集重命名映射：{ 原始文件名 -> 新文件名 }
+  //
+  // 先探测一次架构：macOS 的 `.app.tar.gz`（自更新压缩包）文件名里通常不含
+  // `_version_arch`（如 `Tauri-Desktop-Software-Template.app.tar.gz`），
+  // 需要从同目录下带架构的产物（如 `_aarch64.dmg`）推断架构。
+  const archSample = artifacts
+    .map(a => path.basename(a).match(cfg.fileRe))
+    .filter(Boolean)
+    .map(m => m.groups.arch)
+    .find(Boolean)
+  const detectedArch = archSample || 'aarch64'
+
   const renameMap = {}
   for (const absPath of artifacts) {
     const file = path.basename(absPath)
     const m = file.match(cfg.fileRe)
     if (!m) continue
     const { arch, ext } = m.groups
-    const archName = cfg.archLabel(arch)
+    const archName = cfg.archLabel(arch || detectedArch)
     const newName = `${productName}-${cfg.label}-${ver}-${archName}${ext}`
     if (newName === file) continue
     renameMap[file] = newName
