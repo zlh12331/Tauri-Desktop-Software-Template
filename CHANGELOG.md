@@ -116,6 +116,7 @@ All notable changes to this project will be documented in this file.
 - Use cargo-binstall for audit tools to cut build time
 - **release**: Vend pinned git-cliff install in quality job
 - **release**: Fetch full git history for git-cliff in quality job
+- **release**: Use valid uploadUpdaterJson input for tauri-action
 
 ### Build System
 
