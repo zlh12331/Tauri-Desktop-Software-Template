@@ -50,6 +50,7 @@ All notable changes to this project will be documented in this file.
 - Record rust coverage exemption register
 - **readme**: Redesign project overview and readme
 - **conversations**: Add release-cd-flow session record
+- **conversations**: Format release cd flow session record
 
 ### Testing
 
