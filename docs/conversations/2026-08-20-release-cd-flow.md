@@ -96,10 +96,10 @@ tauri-action 会告警但忽略无效输入，导致 updater json 不上传。�
 
 因此 **只有配置 Secrets 这一步必须由用户在 GitHub 网页（或自己签发的 oauth token）完成**：
 
-| Secret 名称 | 值 |
-|---|---|
-| `TAURI_PRIVATE_KEY` | 私钥文件完整内容（base64 minisign 私钥，348 字符）|
-| `TAURI_PRIVATE_KEY_PASSWORD` | 生成时设置的密码 |
+| Secret 名称                  | 值                                                 |
+| ---------------------------- | -------------------------------------------------- |
+| `TAURI_PRIVATE_KEY`          | 私钥文件完整内容（base64 minisign 私钥，348 字符） |
+| `TAURI_PRIVATE_KEY_PASSWORD` | 生成时设置的密码                                   |
 
 私钥已生成在沙箱 `/tmp/vault/updater.key`，密码 `t3mpl8ate-v0.1.0-upd@ter`。
 公钥已提交进 `tauri.conf.json`。
