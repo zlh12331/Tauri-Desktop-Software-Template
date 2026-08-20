@@ -1,7 +1,7 @@
 {
   "name": "tauri-desktop-software-template",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "author": "zlh12331",
   "copyright": "Copyright © 2025 zlh12331. All rights reserved.",

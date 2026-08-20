@@ -1,6 +1,6 @@
 [package]
 name = "tauri-desktop-software-template"
-version = "0.1.0"
+version = "0.1.1"
 description = "A type-safe, production-hardened desktop app template"
 authors = ["zlh12331"]
 edition = "2024"
