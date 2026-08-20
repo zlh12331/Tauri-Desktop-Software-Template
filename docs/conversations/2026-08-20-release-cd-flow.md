@@ -72,21 +72,51 @@ tauri-action 会告警但忽略无效输入，导致 updater json 不上传。�
 - 验证私钥：`TAURI_SIGNING_PRIVATE_KEY`（私钥文件原始内容）或 `TAURI_SIGNING_PRIVATE_KEY_PATH` 均能成功签名。
 - 用新公钥覆盖 `src-tauri/tauri.conf.json` 的 `updater.pubkey`（因为旧模板公钥无对应私钥）。
 - 提交 `chore(release): rotate updater public key for v0.1.0`。
+- GH_TOKEN 是 `ghu_` 集成 token，对 Actions Secrets 写操作恒返回 403，无法代用户写入 `TAURI_PRIVATE_KEY` / 密码。最终由用户手动在 GitHub 网页配置。
 
-## 四、最终代码状态（main）
+### 修复 5：密码 Secret 命名不一致
 
-最终 main HEAD = `1b17f53`，包含：
+第三次触发后三平台 `publish` 仍失败，但错误从 `Missing comment` 变为 `Wrong password for that key`。
 
-- `chore(release): v0.1.0`（重打 CHANGELOG 后提交）
-- `chore(release): rotate updater public key for v0.1.0`（新公钥）
-- `ci(release): use valid uploadUpdaterJson input for tauri-action`
-- `chore(release): v0.1.0`（完整历史 CHANGELOG）
-- `ci(release): fetch full git history for git-cliff in quality job`
-- `ci(release): vend pinned git-cliff install in quality job`
+- **根因**: `release-v2.yml` 中私钥引用 `secrets.TAURI_PRIVATE_KEY`，密码却引用 `secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD`——命名不一致，密码 secret 读不到。用户配置的是 `TAURI_PRIVATE_KEY_PASSWORD`（与私钥对称）。
+- 修复：密码引用改为 `secrets.TAURI_PRIVATE_KEY_PASSWORD`。
 
-已验证：在最新 HEAD 上完整历史重新运行 `git-cliff -o` 与提交的 CHANGELOG.md 完全一致（`MATCH OK`），确保 quality 的 diff 门禁能通过。
+### 修复 6：macOS 无证书但 tauri-action 仍注入空 Apple env
 
-本地 tag `v0.1.0` 已指向 `1b17f53`；main 已 push 到远端。
+第四次触发后 Windows/Linux `publish` 成功，产生 AppImage/MSI 及 `.sig`，**仅 macOS dmg 失败**，错误：
+
+```
+failed to bundle project: failed codesign application:
+  failed security import: failed to import keychain certificate
+```
+
+- **根因**: tauri-action 在 macOS 上只要检测到 Apple 签名环境变量**存在但为空**（`APPLE_CERTIFICATE` 等 secret 未配置），就会走 keychain 证书导入路径，即使 `bundle.macOS.signingIdentity: "-"`（ad-hoc）。这是 tauri-action 已知问题（issue #234）。
+- 修复：把 `Build and release` 拆成两个互斥步骤——
+  - Apple-signed（`if: env.APPLE_CERTIFICATE_IMPORTED == 'true'`）注入全部 Apple env；
+  - unsigned fallback（`if: env.APPLE_CERTIFICATE_IMPORTED != 'true'`）只传 `TAURI_SIGNING_PRIVATE_KEY` 相关 env，让 macOS 走 ad-hoc 签名。
+  - 用 `secrets` 上下文在 step `if` 中会被 actionlint 拒绝，改用 macOS 证书导入步骤写入的 `APPLE_CERTIFICATE_IMPORTED` flag。
+- 本仓库未配置 Apple 开发者证书，因此走 unsigned fallback 产出未签名(ad-hoc)dmg，可供内测；如需上架分发需另行配置 Apple 签名/公证 secrets。
+
+## 五、最终结果（发布成功）
+
+第五次触发（tag → `7e5c9f0`）全绿：
+
+```
+✓ Code Quality in 3m5s
+✓ Publish (windows msi) in 7m39s
+✓ Publish (ubuntu appimage) in 7m13s
+✓ Publish (macos app,dmg) in 10m36s
+```
+
+GitHub draft release `v0.1.0` 已创建，资产齐全：
+- macOS: `_0.1.0_aarch64.dmg` + `.app.tar.gz`（含 `.sig`）
+- Windows: `_0.1.0_x64_en-US.msi`（含 `.sig`）
+- Linux: `_0.1.0_amd64.AppImage`（含 `.sig`）
+- `latest.json`（自动更新清单）
+
+发布为 **draft**（`releaseDraft: true`），需用户到 GitHub Releases 页手动「Publish」后才对用户可见。
+
+## 六、关键教训
 
 ## 五、遗留的硬阻塞（需用户手动操作）
 
