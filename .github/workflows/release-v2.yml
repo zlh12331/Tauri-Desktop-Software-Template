@@ -154,8 +154,13 @@ jobs:
       - name: Architecture rules (ast-grep)
         run: npm run ast:lint
 
+  # 三平台并行：构建 → 重命名产物 → 上传为 Actions Artifact。
+  # 刻意不用 tauri-action 直接发布，而是把"发布"集中到 finalize 作业统一处理，
+  # 这样能：1) 把各平台安装包按 Windows/macOS/Linux 前缀重命名；
+  #         2) 重建一份合并后的 latest.json（自更新清单，必须与新文件名一致）；
+  #         3) 生成按平台分组、结构清晰的发布说明，避免 tauri-action 各平台互相覆盖 body。
   publish-tauri:
-    name: Publish
+    name: Build & rename (${{ matrix.os }})
     needs: quality
     permissions:
       contents: write
@@ -164,10 +169,13 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
+            os: macos
             args: --bundles app,dmg
           - platform: windows-latest
+            os: windows
             args: --bundles msi
           - platform: ubuntu-22.04
+            os: linux
             args: --bundles appimage
     runs-on: ${{ matrix.platform }}
     steps:
@@ -239,75 +247,30 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "tauri-keychain" build.keychain
           echo "APPLE_CERTIFICATE_IMPORTED=true" >> "$GITHUB_ENV"
 
-      # tauri-action fails with "failed to import keychain certificate" on
-      # macOS when the Apple signing env vars are *present but empty* (even
-      # with signingIdentity "-"). Only inject the Apple signing environment
-      # when an Apple certificate is actually configured; otherwise let the
-      # macOS bundler fall through to ad-hoc (unsigned) codesign.
-      - name: Build and release (Apple-signed)
-        if: env.APPLE_CERTIFICATE_IMPORTED == 'true'
-        uses: tauri-apps/tauri-action@v1
+      # 直接调 tauri CLI 构建（非 tauri-action）。传入 updater 私钥用于生成
+      # .sig 签名文件与各平台自己的 latest.json。macOS 无证书时会走 ad-hoc 签名。
+      - name: Build (tauri)
+        run: npm run tauri build ${{ matrix.args }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # 把安装包重命名为 `<产品名>-<平台>-<版本>-<架构>.<后缀>`，
+      # 同时生成 rename-map.json 供 finalize 重建 latest.json 时做新旧文件名映射。
+      - name: Rename release assets with platform label
+        run: |
+          node scripts/release-assets.cjs rename \
+            ${{ matrix.os }} \
+            Tauri-Desktop-Software-Template \
+            ${{ github.ref_name || inputs.version }}
+
+      # 把该平台的重命名产物作为独立 Actions Artifact 保存，交给 finalize 作业。
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ github.ref_name || inputs.version }}
-          releaseName: 'Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}'
-          releaseBody: |
-            ## Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}
-
-            ### Installation Instructions
-            - **macOS**: Download the `.dmg` file and drag to Applications folder
-            - **Windows**: Download the `.msi` file and run the installer
-            - **Linux**: Download the `.AppImage` file, make it executable (`chmod +x`), and run
-
-            ### Auto-Updates
-            Existing users will receive automatic update notifications.
-
-            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name || inputs.version }}
-          releaseDraft: true
-          prerelease: false
-          uploadUpdaterJson: true
-          args: ${{ matrix.args }}
-
-      # Fallback: unsigned/complete-without-Apple path. Used when Apple
-      # signing secrets are absent (macOS builds ad-hoc signed, Windows and
-      # Linux unaffected). Runs for every platform that did NOT just run the
-      # signed step (either Apple cert configured but not macOS, or on macOS
-      # with no Apple cert). Mutually exclusive with the signed step.
-      - name: Build and release (unsigned fallback)
-        if: env.APPLE_CERTIFICATE_IMPORTED != 'true'
-        uses: tauri-apps/tauri-action@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ github.ref_name || inputs.version }}
-          releaseName: 'Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}'
-          releaseBody: |
-            ## Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}
-
-            ### Installation Instructions
-            - **macOS**: Download the `.dmg` file and drag to Applications folder
-            - **Windows**: Download the `.msi` file and run the installer
-            - **Linux**: Download the `.AppImage` file, make it executable (`chmod +x`), and run
-
-            ### Auto-Updates
-            Existing users will receive automatic update notifications.
-
-            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name || inputs.version }}
-          releaseDraft: true
-          prerelease: false
-          uploadUpdaterJson: true
-          args: ${{ matrix.args }}
+          name: bundle-${{ matrix.os }}
+          path: src-tauri/target/release/bundle
+          if-no-files-found: error
 
       - name: Cleanup Windows certificate
         if: matrix.platform == 'windows-latest' && always()
@@ -321,3 +284,88 @@ jobs:
         if: matrix.platform == 'macos-latest' && always()
         run: |
           security delete-keychain build.keychain 2>/dev/null || true
+
+  # 汇合作业：等待三个平台全部构建完成后，
+  # 1) 下载各平台产物；2) 重建合并的 latest.json + 生成发布说明；
+  # 3) 创建 draft release 并上传全部安装包/签名/latest.json。
+  finalize:
+    name: Finalize release
+    needs: publish-tauri
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Download macOS bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: bundle-macos
+          path: artifacts/macos
+
+      - name: Download Windows bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: bundle-windows
+          path: artifacts/windows
+
+      - name: Download Linux bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: bundle-linux
+          path: artifacts/linux
+
+      # 汇总三平台产物：重建 latest.json（用重命名后的文件名）并生成 release-body.md。
+      - name: Assemble latest.json and release body
+        run: |
+          node scripts/release-assets.cjs finalize \
+            artifacts \
+            '${{ github.ref_name || inputs.version }}' \
+            '${{ github.repository_owner }}' \
+            '${{ github.event.repository.name }}' \
+            Tauri-Desktop-Software-Template \
+            '${{ github.ref_name || inputs.version }}' \
+            release-out \
+            CHANGELOG.md
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release create \
+            '${{ github.ref_name || inputs.version }}' \
+            --draft \
+            --title "Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}" \
+            --notes-file release-out/release-body.md
+
+      # 上传全部安装包 + .sig 签名（跳过内部清单文件）。
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          find artifacts -type f \
+            ! -name 'latest.json' \
+            ! -name 'rename-map.json' \
+            -print0 | while IFS= read -r -d '' file; do
+              gh release upload '${{ github.ref_name || inputs.version }}' "$file" --clobber
+          done
+
+      # 更新后的 latest.json 是自动更新的唯一入口，必须在最后单独上传。
+      - name: Upload updated latest.json (updater manifest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload \
+            '${{ github.ref_name || inputs.version }}' \
+            release-out/latest.json \
+            --clobber
