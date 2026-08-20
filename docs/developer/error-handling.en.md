@@ -241,13 +241,12 @@ const handleChange = async (newValue: string) => {
 | Optional feature       | `AppError`                   | Graceful degradation | Silent fallback  |
 | Critical operation     | `AppError`                   | Explicit + rollback  | Toast + recovery |
 
-See also: [tauri-commands.md](./tauri-commands.en.md) for Result type patterns, [logging.md](./logging.en.md) for logging best practices.
+See also: [tauri-commands.md](./tauri-commands.en.md) for Result type patterns.
 
 ## Crash Reporting (Sentry)
 
 This project integrates Sentry for remote error tracking across both the React
-frontend and the Rust backend. See [observability.md](./observability.en.md) for the
-full architecture.
+frontend and the Rust backend.
 
 ### Consent Gate
 

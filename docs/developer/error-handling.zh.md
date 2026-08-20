@@ -239,11 +239,11 @@ const handleChange = async (newValue: string) => {
 | 可选功能     | `AppError`                   | 优雅降级        | 静默回退     |
 | 关键操作     | `AppError`                   | 显式处理 + 回滚 | Toast + 恢复 |
 
-另请参阅：[tauri-commands.md](./tauri-commands.zh.md) 了解 Result 类型模式，[logging.md](./logging.zh.md) 了解日志最佳实践。
+另请参阅：[tauri-commands.md](./tauri-commands.zh.md) 了解 Result 类型模式。
 
 ## 崩溃报告 (Sentry)
 
-本项目集成了 Sentry，用于跨 React 前端和 Rust 后端进行远程错误跟踪。有关完整的架构，请参阅 [observability.md](./observability.zh.md)。
+本项目集成了 Sentry，用于跨 React 前端和 Rust 后端进行远程错误跟踪。
 
 ### 同意门控
 

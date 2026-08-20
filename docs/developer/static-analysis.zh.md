@@ -71,7 +71,7 @@ npm run ast:fix     # 尽可能自动修复
 - Hook 必须在 `hooks/` 目录中
 - `lib/` 中禁止 store 订阅
 
-参见 [writing-ast-grep-rules.zh.md](./writing-ast-grep-rules.zh.md) 了解如何创建新规则。
+自定义 ast-grep 规则以 YAML 文件形式编写在 `.ast-grep/rules/` 中；规则语法请参考 AST-grep 官方文档。
 
 ### React Compiler
 
@@ -125,6 +125,6 @@ npm run check:all
 
 **ESLint**：在 `eslint.config.js` 中添加规则
 
-**ast-grep**：在 `.ast-grep/rules/` 中创建 YAML 文件。参见 [writing-ast-grep-rules.zh.md](./writing-ast-grep-rules.zh.md)。
+**ast-grep**：在 `.ast-grep/rules/` 中创建 YAML 文件；规则语法请参考 AST-grep 官方文档。
 
 **Prettier**：修改 `prettier.config.js`

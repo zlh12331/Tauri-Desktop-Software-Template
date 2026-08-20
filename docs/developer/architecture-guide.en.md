@@ -56,7 +56,7 @@ This ensures the same actions work consistently across all interaction methods.
 
 ### Command-Centric Design
 
-All user actions flow through a centralized [command system](./command-system.en.md):
+All user actions are dispatched through a centralized command registry, backed by the type-safe [Tauri command bridge](./tauri-commands.en.md):
 
 - **Commands** are pure objects with `execute()` functions
 - **Context** provides all state and actions commands need
@@ -87,15 +87,14 @@ Event-Driven Bridge
 
 ## Core Systems
 
-| System               | Documentation                                       |
-| -------------------- | --------------------------------------------------- |
-| Command System       | [command-system.md](./command-system.en.md)         |
-| Keyboard Shortcuts   | [keyboard-shortcuts.md](./keyboard-shortcuts.en.md) |
-| Native Menus         | [menus.md](./menus.en.md)                           |
-| Quick Panes          | [quick-panes.md](./quick-panes.en.md)               |
-| Data Persistence     | [data-persistence.md](./data-persistence.en.md)     |
-| Internationalization | [i18n-patterns.md](./i18n-patterns.en.md)           |
-| Cross-Platform       | [cross-platform.md](./cross-platform.en.md)         |
+| System               | Documentation                                   |
+| -------------------- | ----------------------------------------------- |
+| Tauri Commands       | [tauri-commands.md](./tauri-commands.en.md)     |
+| State Management     | [state-management.md](./state-management.en.md) |
+| Error Handling       | [error-handling.md](./error-handling.en.md)     |
+| Internationalization | [i18n-patterns.md](./i18n-patterns.en.md)       |
+| Static Analysis      | [static-analysis.md](./static-analysis.en.md)   |
+| Releases             | [releases.md](./releases.en.md)                 |
 
 ## Component Hierarchy
 
@@ -163,7 +162,7 @@ listen('data-updated', ({ payload }) => {
 })
 ```
 
-See [quick-panes.md](./quick-panes.en.md) for a complete implementation example.
+Any multi-window setup (quick panes, preferences, helpers) follows this event-based pattern.
 
 ## Security Architecture
 
@@ -210,7 +209,7 @@ CSP prevents XSS attacks. Configuration is in `src-tauri/tauri.conf.json`.
 | App preferences | App data directory (JSON)          | Medium         |
 | User content    | App data directory (JSON/recovery) | Medium         |
 
-**Note**: `keyring` and SQLite are not installed by default. See [external-apis.md](./external-apis.en.md) for keyring setup and [data-persistence.md](./data-persistence.en.md) for SQLite integration. Never store sensitive tokens in `tauri-plugin-store` (plain JSON on disk).
+**Note**: `keyring` and SQLite are not installed by default; enable them via the respective crates when needed. Never store sensitive tokens in `tauri-plugin-store` (plain JSON on disk); use the OS keychain for secrets.
 
 ### Rust-First Security
 
@@ -289,6 +288,6 @@ See [static-analysis.md](./static-analysis.en.md) for all tools included.
 1. **Commands** - Add to appropriate command group file
 2. **State** - Choose appropriate layer (useState/Zustand/TanStack Query)
 3. **UI** - Follow component architecture
-4. **Persistence** - Use established [data-persistence.md](./data-persistence.en.md) patterns
-5. **Testing** - Add tests following [testing.md](./testing.en.md) patterns
+4. **Persistence** - Use established file-storage / atomic-write patterns
+5. **Testing** - Add unit and integration tests following the existing suite
 6. **Documentation** - Update relevant docs

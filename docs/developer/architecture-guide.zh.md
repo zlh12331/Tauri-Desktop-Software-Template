@@ -56,7 +56,7 @@ Rust 菜单点击 → 事件发射 → React 监听器 → 命令执行 → 状�
 
 ### 以命令为中心的设计
 
-所有用户操作都通过集中的[命令系统](./command-system.zh.md)流转：
+所有用户操作都通过集中的命令注册表分发，并由类型安全的 [Tauri 命令桥接](./tauri-commands.zh.md) 支撑：
 
 - **命令**是带有 `execute()` 函数的纯对象
 - **上下文**提供命令所需的所有状态和操作
@@ -87,15 +87,14 @@ Event-Driven Bridge
 
 ## 核心系统
 
-| 系统                 | 文档                                                |
-| -------------------- | --------------------------------------------------- |
-| Command System       | [command-system.md](./command-system.zh.md)         |
-| Keyboard Shortcuts   | [keyboard-shortcuts.md](./keyboard-shortcuts.zh.md) |
-| Native Menus         | [menus.md](./menus.zh.md)                           |
-| Quick Panes          | [quick-panes.md](./quick-panes.zh.md)               |
-| Data Persistence     | [data-persistence.md](./data-persistence.zh.md)     |
-| Internationalization | [i18n-patterns.md](./i18n-patterns.zh.md)           |
-| Cross-Platform       | [cross-platform.md](./cross-platform.zh.md)         |
+| 系统                 | 文档                                            |
+| -------------------- | ----------------------------------------------- |
+| Tauri Commands       | [tauri-commands.md](./tauri-commands.zh.md)     |
+| State Management     | [state-management.md](./state-management.zh.md) |
+| Error Handling       | [error-handling.md](./error-handling.zh.md)     |
+| Internationalization | [i18n-patterns.md](./i18n-patterns.zh.md)       |
+| Static Analysis      | [static-analysis.md](./static-analysis.zh.md)   |
+| Releases             | [releases.md](./releases.zh.md)                 |
 
 ## 组件层次结构
 
@@ -163,7 +162,7 @@ listen('data-updated', ({ payload }) => {
 })
 ```
 
-有关完整的实现示例，请参阅 [quick-panes.md](./quick-panes.zh.md)。
+任何多窗口场景（快捷面板、偏好设置、辅助窗口）都遵循上述基于事件的模式。
 
 ## 安全架构
 
@@ -210,7 +209,7 @@ CSP 可防止 XSS 攻击。配置位于 `src-tauri/tauri.conf.json`。
 | 应用偏好设置  | 应用数据目录 (JSON)               | 中       |
 | 用户内容      | 应用数据目录 (JSON/recovery)      | 中       |
 
-**注意**：`keyring` 和 SQLite 默认未安装。有关 keyring 设置请参阅 [external-apis.md](./external-apis.zh.md)，有关 SQLite 集成请参阅 [data-persistence.md](./data-persistence.zh.md)。切勿将敏感令牌存储在 `tauri-plugin-store` 中（磁盘上的纯 JSON）。
+**注意**：`keyring` 和 SQLite 默认未安装，需要时通过相应 crate 启用。切勿将敏感令牌存储在 `tauri-plugin-store` 中（磁盘上的纯 JSON）；敏感信息请使用操作系统钥匙串。
 
 ### Rust 优先的安全策略
 
@@ -289,6 +288,6 @@ npm run check:all
 1. **命令** - 添加到相应的命令组文件
 2. **状态** - 选择合适的层 (useState/Zustand/TanStack Query)
 3. **UI** - 遵循组件架构
-4. **持久化** - 使用既定的 [data-persistence.md](./data-persistence.zh.md) 模式
-5. **测试** - 按照 [testing.md](./testing.zh.md) 模式添加测试
+4. **持久化** - 使用既定的文件存储 / 原子写入模式
+5. **测试** - 按照现有测试套件添加单元和集成测试
 6. **文档** - 更新相关文档

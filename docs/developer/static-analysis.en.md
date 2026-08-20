@@ -73,7 +73,7 @@ npm run ast:fix     # Auto-fix where possible
 - Hooks must be in `hooks/` directory
 - No store subscriptions in `lib/`
 
-See [writing-ast-grep-rules.en.md](./writing-ast-grep-rules.en.md) for creating new rules.
+Custom ast-grep rules are authored as YAML files in `.ast-grep/rules/`; refer to the AST-grep documentation for the rule syntax.
 
 ### React Compiler
 
@@ -127,6 +127,6 @@ npm run check:all
 
 **ESLint:** Add rules to `eslint.config.js`
 
-**ast-grep:** Create YAML files in `.ast-grep/rules/`. See [writing-ast-grep-rules.en.md](./writing-ast-grep-rules.en.md).
+**ast-grep:** Create YAML files in `.ast-grep/rules/`; refer to the AST-grep documentation for the rule syntax.
 
 **Prettier:** Modify `prettier.config.js`
