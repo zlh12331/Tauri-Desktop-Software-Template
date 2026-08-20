@@ -343,24 +343,25 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          # 幂等：重跑/重试时清理同名旧 release（含草稿），避免冲突。
+          gh release delete '${{ github.ref_name || inputs.version }}' --yes || true
           gh release create \
             '${{ github.ref_name || inputs.version }}' \
             --draft \
             --title "Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}" \
             --notes-file release-out/release-body.md
 
-      # 上传全部安装包 + .sig 签名（跳过内部清单文件）。
+      # 上传全部安装包 + .sig 签名。文件清单由 finalize 脚本生成
+      # （已排除 latest.json / rename-map.json / macOS 的 .app 应用包内部文件）。
       - name: Upload release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          find artifacts -type f \
-            ! -name 'latest.json' \
-            ! -name 'rename-map.json' \
-            -print0 | while IFS= read -r -d '' file; do
-              gh release upload '${{ github.ref_name || inputs.version }}' "$file" --clobber
-          done
+          while IFS= read -r file; do
+            test -n "$file" || continue
+            gh release upload '${{ github.ref_name || inputs.version }}' "$file" --clobber
+          done < release-out/upload-files.txt
 
       # 更新后的 latest.json 是自动更新的唯一入口，必须在最后单独上传。
       - name: Upload updated latest.json (updater manifest)

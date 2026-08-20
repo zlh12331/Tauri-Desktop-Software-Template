@@ -71,8 +71,12 @@ function findFiles(root, predicate) {
     if (!fs.existsSync(dir)) return
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const abs = path.join(dir, entry.name)
-      if (entry.isDirectory()) walk(abs)
-      else if (predicate(entry.name, abs)) hits.push(abs)
+      if (entry.isDirectory()) {
+        // 跳过 macOS 的 `.app` 应用包目录：里面是可执行文件/图标/框架等运行时
+        // 文件，既不是需要签名的安装包，也不应该被上传到 Release。
+        if (entry.name.endsWith('.app')) continue
+        walk(abs)
+      } else if (predicate(entry.name, abs)) hits.push(abs)
     }
   }
   walk(root)
@@ -283,7 +287,9 @@ function runFinalize(opts) {
     Object.hasOwn(combined.platforms, 'linux-aarch64')
 
   // 生成发布说明：按平台分组列出下载链接与安装指引，再附 changelog。
+  // uploadFiles 记录需要上传到 Release 的所有文件（安装包 + .sig），排除内部清单与 .app 包。
   const lines = [`## ${productName} ${tagName}`]
+  const uploadFiles = []
   lines.push('')
   if (Object.keys(combined.platforms).length > 0) {
     lines.push('### Installers')
@@ -298,18 +304,19 @@ function runFinalize(opts) {
         '- **Linux**: download the `.AppImage`, make it executable and run it:'
       )
     lines.push('')
-    // 按平台分组列出全部产物链接。
+    // 按平台分组列出全部产物链接（递归查找，排除内部清单与 .app 包）。
     const byPlatform = {}
     for (const dir of platformDirs) {
       const absDir = path.join(artifactsDir, dir)
       if (!fs.existsSync(absDir)) continue
-      for (const file of fs.readdirSync(absDir)) {
-        if (
-          file === 'latest.json' ||
-          file === 'rename-map.json' ||
-          file.endsWith('.sig')
-        )
-          continue
+      for (const abs of findFiles(
+        absDir,
+        name => name !== 'latest.json' && name !== 'rename-map.json'
+      )) {
+        const file = path.basename(abs)
+        // 需要上传到 Release 的：安装包 + 各自的 .sig 签名文件。
+        uploadFiles.push(abs)
+        if (file.endsWith('.sig')) continue
         const label = platformOf(file)
         if (!label) continue
         ;(byPlatform[label] ||= []).push(file)
@@ -346,12 +353,20 @@ function runFinalize(opts) {
     JSON.stringify(combined, null, 2) + '\n'
   )
   fs.writeFileSync(path.join(outDir, 'release-body.md'), lines.join('\n'))
+  fs.writeFileSync(
+    path.join(outDir, 'upload-files.txt'),
+    uploadFiles.join('\n') + '\n'
+  )
 
   console.log(`[finalize] wrote ${outDir}/latest.json`)
   for (const [key, entry] of Object.entries(combined.platforms)) {
     console.log(`  ${key} -> ${entry.url}`)
   }
   console.log(`[finalize] wrote ${outDir}/release-body.md`)
+  console.log(
+    `[finalize] wrote ${outDir}/upload-files.txt (${uploadFiles.length} file(s))`
+  )
+  for (const file of uploadFiles) console.log(`  ${file}`)
 }
 
 // ---- 入口：解析子命令参数并分发 ----
