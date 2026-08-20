@@ -123,8 +123,53 @@
 `finalize` 的 `Assemble / Create draft / Upload assets / Upload latest.json` 全部通过，
 生成带平台前缀命名安装包、按平台分组的发布说明与合并后的 `latest.json`。
 
-## 六、已知限制 / 后续
+## 六、最终验证（最新一次完整 Release v0.1.1 成功）
+
+对提交 `cde9a97` 触发的完整发布管道（`quality → build&rename(三平台) → finalize`）
+做端到端验证，全部通过：
+
+- **CI**：Release run success；Code Quality 作业 20+ 步全绿。
+- **三个 `Build & rename` 作业**（windows / macOS / linux）：Build + Rename + Upload 均 success。
+- **finalize**：汇总产物、重建 latest.json、生成发布说明、上传成功。
+
+### 生成并确认的 Release 产物（`gh release view v0.1.1`）
+
+平台前缀清晰，且提供了各自完整的 `.sig` 签名与自更新包：
+
+| 平台 | 安装包 | 签名 |
+| --- | --- | --- |
+| Windows | `Tauri-Desktop-Software-Template-Windows-0.1.1-x86_64.msi` | `.msi.sig` |
+| macOS | `...-macOS-0.1.1-aarch64.dmg` + `...-macOS-0.1.1-aarch64.app.tar.gz` | 各自 `.sig` |
+| Linux | `...-Linux-0.1.1-x86_64.AppImage` | `.AppImage.sig` |
+
+> 重点修复项验证成功：之前漏改平台前缀的 macOS 自更新包
+> `Tauri-Desktop-Software-Template.app.tar.gz` 已正确改名为
+> `Tauri-Desktop-Software-Template-macOS-0.1.1-aarch64.app.tar.gz`。
+
+### 合并后的 latest.json（自更新清单）
+
+从发布中下载 `latest.json` 校验：
+
+- 包含 **3 个平台**：`darwin-aarch64` / `windows-x86_64` / `linux-x86_64`；
+- 每项的 `url` 都已指向**重命名后的新文件名**，与上传的产物一一对应；
+- 每项的 `signature`（`.sig`）对文件内容签名、与文件名无关，重命名后依然有效
+  —— 自动更新功能不会因改名失效。
+
+### 发布说明（release-body）
+
+按 Windows / macOS / Linux 分组列出各自的安装包与直链，末尾附本次干净版 changelog
+（只剩 `Documentation` 分组，无测试/CI/依赖噪音）。
+
+验证结论：安装包平台命名、自动更新清单同步、简洁更新日志三项目标全部达成。
+
+## 七、已知限制 / 后续
 
 - 本仓库未配置 Apple 开发者证书，macOS 安装包为 ad-hoc（`signingIdentity:"-"`）签名，
   仅供内测；若要上架分发需另行配置 Apple 签名/公证。
-- 下个版本发布时（打新 `v*` tag）将走新的命名与发布说明流程。
+- 本次为验证而打 tag，产物发布为 **draft 草稿**，如需对外发布需手动 `gh release edit` 转为正式。
+- 下个版本发布时（打新 `v*` tag）将自动走新的命名与发布说明流程。
+
+## 对话（2026-08-20 · 续：最终验证）
+
+用户消息："继续"——延续上一轮任务，验证并收尾 v0.1.1 发布。本轮没有修改代码，
+只做了端到端发布验证与记录：CI 全绿、产物平台命名正确、latest.json 同步、发布说明干净。
