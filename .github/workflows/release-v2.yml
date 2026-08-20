@@ -239,7 +239,13 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "tauri-keychain" build.keychain
           echo "APPLE_CERTIFICATE_IMPORTED=true" >> "$GITHUB_ENV"
 
-      - name: Build and release
+      # tauri-action fails with "failed to import keychain certificate" on
+      # macOS when the Apple signing env vars are *present but empty* (even
+      # with signingIdentity "-"). Only inject the Apple signing environment
+      # when an Apple certificate is actually configured; otherwise let the
+      # macOS bundler fall through to ad-hoc (unsigned) codesign.
+      - name: Build and release (Apple-signed)
+        if: env.APPLE_CERTIFICATE_IMPORTED == 'true'
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -251,6 +257,38 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: ${{ github.ref_name || inputs.version }}
+          releaseName: 'Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}'
+          releaseBody: |
+            ## Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}
+
+            ### Installation Instructions
+            - **macOS**: Download the `.dmg` file and drag to Applications folder
+            - **Windows**: Download the `.msi` file and run the installer
+            - **Linux**: Download the `.AppImage` file, make it executable (`chmod +x`), and run
+
+            ### Auto-Updates
+            Existing users will receive automatic update notifications.
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name || inputs.version }}
+          releaseDraft: true
+          prerelease: false
+          uploadUpdaterJson: true
+          args: ${{ matrix.args }}
+
+      # Fallback: unsigned/complete-without-Apple path. Used when Apple
+      # signing secrets are absent (macOS builds ad-hoc signed, Windows and
+      # Linux unaffected). Runs for every platform that did NOT just run the
+      # signed step (either Apple cert configured but not macOS, or on macOS
+      # with no Apple cert). Mutually exclusive with the signed step.
+      - name: Build and release (unsigned fallback)
+        if: env.APPLE_CERTIFICATE_IMPORTED != 'true'
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name || inputs.version }}
           releaseName: 'Tauri-Desktop-Software-Template ${{ github.ref_name || inputs.version }}'
