@@ -48,7 +48,7 @@ regex = "1"
 # Sentry integration: `panic` hook automatically reports panics. The `log`
 # integration bridges `log` crate calls into Sentry breadcrumbs. The `logs`
 # feature enables structured log forwarding to Sentry's Logs product.
-sentry = { version = "0.48", features = ["log", "logs"] }
+sentry = { version = "0.49", features = ["log", "logs"] }
 
 # Type-safe Tauri command bindings
 specta = { version = "=2.0.0-rc.25", features = ["derive", "serde_json"] }
