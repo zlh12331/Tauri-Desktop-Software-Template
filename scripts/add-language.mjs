@@ -12,7 +12,7 @@
  *
  * The check-i18n.mjs guard then keeps files and configs in sync.
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,18 +28,27 @@ if (!lang || !/^[a-z]{2}(-[A-Z]{2})?$/.test(lang)) {
 }
 
 const localePath = join(root, 'locales', `${lang}.json`)
-if (existsSync(localePath)) {
-  console.error(`✖ locales/${lang}.json already exists`)
-  process.exit(1)
-}
 
-// 1. Create the locale file from en.json (keys preserved, values emptied)
+// 1. Create the locale file from en.json (keys preserved, values emptied).
+// The 'wx' flag makes creation atomic — it fails with EEXIST if the file
+// already exists, replacing the check-then-write pattern (CWE-367).
 const enPath = join(root, 'locales', 'en.json')
 const en = JSON.parse(readFileSync(enPath, 'utf8'))
 const template = Object.fromEntries(
   Object.entries(en).map(([k, v]) => [k, typeof v === 'string' ? '' : v])
 )
-writeFileSync(localePath, JSON.stringify(template, null, 2) + '\n', 'utf8')
+try {
+  writeFileSync(localePath, JSON.stringify(template, null, 2) + '\n', {
+    encoding: 'utf8',
+    flag: 'wx',
+  })
+} catch (error) {
+  if (error.code === 'EEXIST') {
+    console.error(`✖ locales/${lang}.json already exists`)
+    process.exit(1)
+  }
+  throw error
+}
 console.log(
   `✓ Created locales/${lang}.json (${Object.keys(template).length} keys, values empty)`
 )

@@ -19,7 +19,7 @@
  *
  * Exit code 0 = consistent, 1 = violations found (CI fails).
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -160,11 +160,21 @@ if (!checkOnly) {
     },
   ]
   for (const { file, pattern, replacement } of docs) {
-    if (!existsSync(file)) continue
-    let content = readFileSync(file, 'utf8')
+    let content
+    try {
+      content = readFileSync(file, 'utf8')
+    } catch (error) {
+      if (error.code === 'ENOENT') continue
+      throw error
+    }
     const updated = content.replace(pattern, replacement)
     if (updated !== content) {
-      writeFileSync(file, updated, 'utf8')
+      // Write to a temp file in the same directory, then rename over the
+      // target atomically — the checked path is never opened for writing,
+      // which avoids check/read-then-write races (CWE-367).
+      const tmpFile = `${file}.tmp`
+      writeFileSync(tmpFile, updated, 'utf8')
+      renameSync(tmpFile, file)
       console.log(`✓ Updated coverage numbers in ${file}`)
     }
   }

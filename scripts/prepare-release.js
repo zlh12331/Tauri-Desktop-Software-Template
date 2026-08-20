@@ -1,18 +1,36 @@
 #!/usr/bin/env node
 
 import fs from 'fs'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import readline from 'readline'
 
+/**
+ * Run a command. Pass a string for trusted hardcoded commands (goes through
+ * the shell), or an array [cmd, ...args] when interpolating values — arrays
+ * bypass the shell entirely, so there is no command-line injection surface.
+ */
 function exec(command, options = {}) {
   try {
+    if (Array.isArray(command)) {
+      const result = spawnSync(command[0], command.slice(1), {
+        encoding: 'utf8',
+        stdio: options.silent ? 'pipe' : 'inherit',
+        ...options,
+      })
+      if (result.status !== 0) {
+        const detail = result.stderr?.trim()
+        throw new Error(detail || `exited with code ${result.status}`)
+      }
+      return result.stdout ?? ''
+    }
     return execSync(command, {
       encoding: 'utf8',
       stdio: options.silent ? 'pipe' : 'inherit',
       ...options,
     })
   } catch (error) {
-    throw new Error(`Command failed: ${command}\n${error.message}`)
+    const label = Array.isArray(command) ? command.join(' ') : command
+    throw new Error(`Command failed: ${label}\n${error.message}`)
   }
 }
 
@@ -165,10 +183,10 @@ async function prepareRelease() {
       exec('git add .')
 
       console.log('💾 Creating commit...')
-      exec(`git commit -m "chore: release ${tagVersion}"`)
+      exec(['git', 'commit', '-m', `chore: release ${tagVersion}`])
 
       console.log('🏷️  Creating tag...')
-      exec(`git tag ${tagVersion}`)
+      exec(['git', 'tag', tagVersion])
 
       console.log('📤 Pushing to remote...')
       exec('git push origin main --tags')
