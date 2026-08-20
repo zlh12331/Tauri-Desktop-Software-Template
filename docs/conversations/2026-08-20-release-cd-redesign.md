@@ -85,12 +85,42 @@
 ## 四、验证
 
 - `git-cliff` 重新生成 CHANGELOG，仅剩精简分组。
-- `release-assets.cjs rename` 在合成 bundle 目录上验证：三平台产物 + `.sig` 均被正确重命名。
-- `release-assets.cjs finalize` 在合成产物上验证：`latest.json` 合并出三条 platform，
+- `release-assets.mjs rename` 在合成 bundle 目录上验证：三平台产物 + `.sig` 均被正确重命名。
+- `release-assets.mjs finalize` 在合成产物上验证：`latest.json` 合并出三条 platform，
   url 均指向重命名后的新文件；`release-body.md` 按 Windows/macOS/Linux 分组并附 changelog。
 - `actionlint`（v1.7.12）校验 `release-v2.yml` 通过（exit 0，无告警）。
 
-## 五、已知限制 / 后续
+## 五、真实验证（打 v0.1.1 tag）过程中发现并修复的集成问题
+
+> 注意：`ghu_` 集成 token 无法触发 `workflow_dispatch`（HTTP 403），所以采用
+> 直接打新 tag（`v0.1.1`）走 tag-push 的 `quality → build → finalize` 路径来验证。
+> 该路径不跑 `bump-version`，需手动先 bump 三个版本号文件，创建 tag 后再
+> `git-cliff -o` 生成 `[v0.1.1]` 段并提交，最后把 tag 移到含最终 CHANGELOG 的提交。
+
+逐轮修复的问题（每轮经 CI 失败反馈定位）：
+
+1. **ESLint 报 `require`/`console`/`process` undef**：仓库 eslint 按 ESM 处理脚本，
+   `.cjs` 的 CommonJS 写法被判失败。→ 把脚本改成 ESM：`.cjs` → `.mjs`，
+   `require()` → `import`。
+2. **`npm run tauri build --bundles appimage` 参数被吞**：npm 会把 `--bundles appimage`
+   当成 npm 自己的参数（`appimage` 变成裸位置参数），tauri 报
+   `error: unexpected argument 'appimage'`。→ 必须用 `npm run tauri -- build ...`。
+3. **Windows runner 默认 PowerShell，`\` 不是续行符**：rename 多行 + `\` 在 Windows 挂掉。
+   → rename 命令改为单行（YAML `>-` 折叠块）。
+4. **finalize `find -type f` 误把 macOS `.app` 应用包内部文件（png 图标/可执行文件）上传**：
+   `gh release upload` 报 `HTTP 422 ... name already exists`（上传到 `xxx.png`）。
+   → finalize 改为白名单 `isReleaseArtifact()`：只保留安装包（msi/dmg/AppImage/app.tar.gz…）
+   及其 `.sig`，并让 `findFiles()` 跳过 `.app` 目录；上传改读 finalize 生成的
+   `release-out/upload-files.txt`（不再用 find）。
+5. **重跑幂等**：同一 tag 重复创建会冲突 → `gh release create` 前先
+   `gh release delete <tag> --yes || true`。
+6. 顺带修复：已存在 `docs/conversations/2026-08-20-release-cd-flow.md` 的 prettier 格式问题。
+
+修复上述 4（白名单）后重跑，目标做到：三平台 `Build & rename` 全部成功，
+`finalize` 的 `Assemble / Create draft / Upload assets / Upload latest.json` 全部通过，
+生成带平台前缀命名安装包、按平台分组的发布说明与合并后的 `latest.json`。
+
+## 六、已知限制 / 后续
 
 - 本仓库未配置 Apple 开发者证书，macOS 安装包为 ad-hoc（`signingIdentity:"-"`）签名，
   仅供内测；若要上架分发需另行配置 Apple 签名/公证。

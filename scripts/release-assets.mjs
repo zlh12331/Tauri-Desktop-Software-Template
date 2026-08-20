@@ -27,6 +27,24 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+// 判断一个文件名是否是应发布到 Release 的安装包（或其 .sig 签名文件）。
+// 白名单制：只有安装包/签名进发布清单，屏蔽 png 图标、可执行文件、框架等无关产出。
+function isReleaseArtifact(name) {
+  const isInstaller =
+    /\.(msi|dmg|exe|AppImage|deb|rpm)$/i.test(name) ||
+    /\.app\.tar\.gz$/i.test(name)
+  if (isInstaller) return true
+  // 签名文件：去掉 `.sig` 后其主体仍是安装包。
+  if (name.toLowerCase().endsWith('.sig')) {
+    const base = name.slice(0, -'.sig'.length)
+    return (
+      /\.(msi|dmg|exe|AppImage|deb|rpm)$/i.test(base) ||
+      /\.app\.tar\.gz$/i.test(base)
+    )
+  }
+  return false
+}
+
 // 平台维度配置：label 用于产物文件名；
 // fileRe 匹配 Tauri 产物文件名（捕获 prod/ver/arch/ext）；
 // archLabel 把架构缩写（amd64/x64）规整为面向用户的写法。
@@ -314,6 +332,8 @@ function runFinalize(opts) {
         name => name !== 'latest.json' && name !== 'rename-map.json'
       )) {
         const file = path.basename(abs)
+        // 只发布安装包与其 .sig；排除 png 图标/可执行文件/框架等无关产出。
+        if (!isReleaseArtifact(file)) continue
         // 需要上传到 Release 的：安装包 + 各自的 .sig 签名文件。
         uploadFiles.push(abs)
         if (file.endsWith('.sig')) continue
