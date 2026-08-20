@@ -7,16 +7,19 @@
 ## 一、现状分析
 
 ### 1. 安装包命名
+
 发布流程原先用 `tauri-apps/tauri-action` 直接构建并发布，产物名是 Tauri 默认的
 `{productName}_{version}_{arch}.{ext}`，例如：
+
 - Windows: `Tauri-Desktop-Software-Template_0.1.0_x64_en-US.msi`
-- macOS:   `Tauri-Desktop-Software-Template_0.1.0_aarch64.dmg`
-- Linux:   `Tauri-Desktop-Software-Template_0.1.0_amd64.AppImage`
+- macOS: `Tauri-Desktop-Software-Template_0.1.0_aarch64.dmg`
+- Linux: `Tauri-Desktop-Software-Template_0.1.0_amd64.AppImage`
 
 只能在格式后缀上区分平台，不够直观；且 GitHub Release 发布说明是三平台共用的泛化三行文字，
 未按平台列出各自的安装包和具体下载链接。
 
 ### 2. 更新日志
+
 仓库里已有一个 **`cliff.toml`**（git-cliff 优先读取的非隐藏配置），它把
 `feat/fix/test/ci/build/chore` 全部分组、`filter_commits=false`，
 导致 git-cliff 把**每条 commit 倾进 CHANGELOG**——CI 修来修去、测试批量提交、依赖升级全混在一起，非常乱。
@@ -25,6 +28,7 @@
 ## 二、设计决策（经用户确认）
 
 咨询用户后确定两个方案（均为推荐项）：
+
 1. **安装包/发布页**：重命名安装包为带平台前缀 + 同步更新 `latest.json`（自更新清单）。
 2. **更新日志**：精简 Keep a Changelog 风格——新增配置只保留用户可感知的
    Feature / Fix / Refactoring & performance / Documentation，屏蔽 CI/测试/依赖等内部噪音。
@@ -32,6 +36,7 @@
 ## 三、改动清单
 
 ### 1. `cliff.toml`（重写）
+
 - 采用 Keep a Changelog 精简模板（版本 → 语义分组 → 提交行）。
 - `commit_parsers` 只保留：
   - `feat` → New features
@@ -44,11 +49,14 @@
 - 破坏性变更用行内 `(breaking)` 标记，不单开章节。
 
 ### 2. `CHANGELOG.md`（用新配置重新生成）
+
 从原来的 127 行（含 Testing/CI/Build/Miscellaneous/deps 噪音）精简为一屏内可读完的
 干净日志，只含 New features / Bug fixes / Refactoring & performance / Documentation。
 
 ### 3. `scripts/release-assets.mjs`（新增）
+
 一个脚本、两个子命令：
+
 - **`rename <platform> <productName> <version>`**：递归扫描 `bundle/` 下该平台产物，
   重命名为 `{productName}-{platform}-{version}-{arch}.{ext}`（平台为
   Windows/macOS/Linux），安装包与其 `.sig` 一并改名，并写出 `rename-map.json`
@@ -63,7 +71,9 @@
 > 但 `latest.json` 里 `url` 是文件名，必须同步改，这正是 `finalize` 要做的事。
 
 ### 4. `.github/workflows/release-v2.yml`（重构 build/发布分离）
+
 不再用 tauri-action 直接发布，改为：
+
 - **`publish-tauri`（三平台矩阵）**：`npm run tauri build --bundles ...` 直接构建 →
   `release-assets.cjs rename` 重命名 → `actions/upload-artifact` 上传为独立 Artifact。
 - **`finalize`（新增汇合作业）**：等待三平台完成 → 下载产物 →
