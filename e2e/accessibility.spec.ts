@@ -5,15 +5,34 @@ const isMacOS = process.platform === 'darwin'
 const modifierKey = isMacOS ? 'Meta' : 'Control'
 
 /**
+ * Opens the command palette via keyboard shortcut and waits for its
+ * fade-in animation to finish. Axe must not run mid-animation: a
+ * partially transparent list dilutes colors and triggers false
+ * color-contrast violations on slow CI runners.
+ */
+async function openCommandPalette(page: Page) {
+  await page.keyboard.press(`${modifierKey}+k`)
+  await expect(
+    page.getByRole('dialog', { name: /command palette/i })
+  ).toBeVisible()
+  // The motion.div wrapping the command list fades in from opacity 0;
+  // wait until it reaches full opacity before accessibility analysis.
+  await page.waitForFunction(() => {
+    const sizer = document.querySelector('[cmdk-list-sizer]')
+    const animated = sizer?.firstElementChild as HTMLElement | null
+    return animated !== null && animated.style.opacity === '1'
+  })
+}
+
+/**
  * Opens the Preferences dialog via the command palette.
  * Returns a locator scoped to the dialog.
  */
 async function openPreferences(page: Page) {
   // Wait for the app to fully load before sending keyboard shortcuts.
   await expect(page.getByText('Hello World')).toBeVisible({ timeout: 15000 })
-  await page.keyboard.press(`${modifierKey}+k`)
+  await openCommandPalette(page)
   const commandDialog = page.getByRole('dialog', { name: /command palette/i })
-  await expect(commandDialog).toBeVisible()
   await commandDialog.getByPlaceholder(/command|search/i).fill('preferences')
   await page.keyboard.press('Enter')
   const dialog = page.getByRole('dialog', { name: /^preferences$/i })
@@ -48,10 +67,7 @@ test.describe('Accessibility (WCAG 2.1 AA)', () => {
     await expect(mockPage.getByText('Hello World')).toBeVisible({
       timeout: 15000,
     })
-    await mockPage.keyboard.press(`${modifierKey}+k`)
-    await expect(
-      mockPage.getByRole('dialog', { name: /command palette/i })
-    ).toBeVisible()
+    await openCommandPalette(mockPage)
     await analyzeA11y(mockPage)
   })
 
