@@ -1,10 +1,10 @@
 <div align="center">
 
-# Tauri-Desktop-Software-Template
+# Tauri Desktop Software Template
 
-**类型安全、生产级硬化的桌面应用模板，内置 AI 友好架构。**
+**生产级硬化的跨平台桌面应用开发起点。**
 
-构建跨平台桌面应用——快速交付、易于维护。端到端类型安全、强制架构规范、完善的测试策略，在问题到达用户之前拦截回归。
+类型安全 IPC、原生体验的用户界面，以及能在问题到达用户之前拦截回归的质量体系——全部预配置，开箱即用。
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-000000?style=flat-square)](LICENSE.md)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-000000?style=flat-square)](https://v2.tauri.app/)
@@ -19,15 +19,15 @@
 
 ---
 
-## 为什么选择这个模板？
+## 为什么选择这个模板
 
-大多数 Tauri 起步模板只给你一个 "hello world"，把难啃的部分留给你自己。这个模板直接交付真实桌面应用所需、却没人愿意从零搭建的基础设施：
+大多数 Tauri 起步模板只给你一个 "hello world"，把难啃的部分留给你自己。这个模板直接交付真实桌面应用所需的基础设施——让你专注于产品本身，而不是折腾工具链：
 
-- **类型安全 IPC** — 17 个 Tauri 命令通过 tauri-specta 实现编译时类型检查。不用字符串 `invoke()`，不用 `any` 类型，没有运行时意外。
+- **类型安全 IPC** — 17 个 Tauri 命令，通过 [tauri-specta](https://github.com/specta-rs/tauri-specta) 从 Rust 自动生成编译时类型。不用字符串 `invoke()`，不用 `any`，没有运行时意外。
 - **双层崩溃报告** — Rust panic 钩子将崩溃写入磁盘（即使在 OOM 下也能存活），Sentry 同意门控尊重用户隐私，敏感数据在上传前脱敏。
-- **NSPanel 浮动窗口** — 原生 macOS `NSPanel` 集成，实现类 Spotlight 的快捷面板，可跨所有 Space 浮动。Windows/Linux 降级为 `always_on_top`。
+- **NSPanel 浮动窗口** — 原生 macOS `NSPanel` 集成，实现类 Spotlight 的快捷面板，可跨所有 Space 浮动；Windows/Linux 优雅降级为 `always_on_top`。
 - **架构强制执行** — ast-grep 规则在 CI 阶段拦截反模式：`lib/` 中禁止 Hook、纯逻辑中禁止 Store 订阅、禁止 Zustand 解构。
-- **1,457 个测试** — 1011 前端 + 430 Rust + 16 E2E（含 WCAG 2.1 AA 无障碍审计）。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
+- **1,457 个测试** — 1011 前端 + 430 Rust + 16 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
 
 ## 快速开始
 
@@ -38,36 +38,50 @@ npm install
 npm run tauri:dev
 ```
 
-应用将在 `http://localhost:1420`（开发模式）启动，或以桌面窗口形式运行（`tauri:dev`）。
+应用将以桌面窗口形式启动（前端开发服务器运行在 `http://localhost:1420`）。
 
 ### 前置条件
 
 - [Node.js](https://nodejs.org/) v24+
 - [Rust](https://rustup.rs/) 1.93+（edition 2024）
-- 平台特定依赖 — 参考 [Tauri 前置条件](https://v2.tauri.app/start/prerequisites/)
+- 平台特定系统依赖 — 参考 [Tauri 前置条件](https://v2.tauri.app/start/prerequisites/)
 
-## 核心特性
+## 特性概览
+
+| 领域         | 开箱即得的能力                                                                        |
+| ------------ | ------------------------------------------------------------------------------------- |
+| **IPC**      | 17 个类型安全命令 + 10 变体 `AppError`，带稳定错误码（`ERR_IO`、`ERR_VALIDATION` 等） |
+| **可靠性**   | 自动更新（minisign 签名验证）、双层崩溃报告、原子化偏好写入                           |
+| **用户体验** | 命令面板（`Cmd+K`）、跨平台标题栏、系统托盘、全局快捷键、深链接                       |
+| **平台能力** | macOS NSPanel + 毛玻璃、Windows 无边框、Linux 原生装饰                                |
+| **工程质量** | 15+ 质量门禁、三层 Rust 测试、axe 无障碍 E2E、cargo-deny                              |
+| **AI 友好**  | `AGENTS.md` 规则、26 篇开发者文档，讲透每个模式背后的"为什么"                         |
+
+## 核心特性详解
 
 ### 端到端类型安全
 
-- **17 个 Tauri 命令** 通过 [tauri-specta](https://github.com/specta-rs/tauri-specta) 从 Rust 自动生成类型——前端调用 `commands.savePreferences(prefs)` 获得的是 `Result<AppPreferences, AppError>` 联合类型，而非 `Promise<any>`。
-- **10 变体 `AppError`** 枚举，使用 `#[serde(tag = "kind", content = "message")]`——结构化错误从 Rust 流向 TypeScript，带稳定错误码（`ERR_IO`、`ERR_VALIDATION` 等）。
-- **Schema-first 表单** — Zod schema 同时作为运行时验证和 TypeScript 类型的唯一来源。`react-hook-form` + `zodResolver` 将其连接到 UI。
-- **编译时 i18n** — 翻译键经过类型检查。`t('prefrences.title')` 的拼写错误会直接编译报错。
+- **17 个 Tauri 命令** 通过 [tauri-specta](https://github.com/specta-rs/tauri-specta) 从 Rust 自动生成类型——前端调用 `commands.savePreferences(prefs)` 获得的是 `Result<AppPreferences, AppError>` 联合类型，而不是 `Promise<any>`。
+- **10 变体 `AppError` 枚举**，使用 `#[serde(tag = "kind", content = "message")]`——结构化错误从 Rust 流向 TypeScript，带稳定可匹配的错误码。
+- **Schema-first 表单** — Zod schema 同时作为运行时验证和 TypeScript 类型的唯一来源；`react-hook-form` + `zodResolver` 将其连接到 UI。
+- **编译时 i18n** — 翻译键经过类型检查，`t('prefrences.title')` 是编译错误，而非运行时事故。
 
-### 跨平台桌面
+### 跨平台支持
 
-- **macOS** — 透明窗口 + `hudWindow` 毛玻璃效果，交通灯控件（含 Alt 键最大化提示），NSPanel 浮动面板
-- **Windows** — 无边框窗口 + 自定义控件，通过 `build.rs` 嵌入 Common-Controls v6 清单
-- **Linux** — 原生窗口装饰 + 工具栏
-- **平台感知 UI** — "在 Finder 中显示" vs "在资源管理器中显示"，快捷键显示 `⌘` vs `Ctrl`，各平台独立 Tauri 配置覆盖
+| 平台    | 标题栏            | 窗口控件   | 安装包格式  |
+| ------- | ----------------- | ---------- | ----------- |
+| macOS   | 透明 + 毛玻璃效果 | 红绿灯控件 | `.dmg`      |
+| Windows | 无边框            | 右侧控件   | `.msi`      |
+| Linux   | 原生 + 工具栏     | 原生       | `.AppImage` |
+
+平台检测缓存在模块级（`usePlatform()` Hook）。各平台独立 Tauri 配置覆盖处理窗口装饰、透明度和毛玻璃效果；平台特定 UI 字符串集中管理在 `lib/platform-strings.ts`。
 
 ### 生产级基础设施
 
 - **自动更新** — GitHub Releases 集成，minisign 签名验证，静默下载并自动重启
-- **崩溃报告** — 自托管 Sentry，三层架构：Rust panic 钩子（写入磁盘）→ 同意门控（`AtomicU8` 状态）→ 脱敏过滤器（8 类敏感键模式）
-- **系统托盘** — 驻留托盘模式（关闭即隐藏，不退出），托盘图标状态管理，窗口相对托盘定位
-- **全局快捷键** — 运行时注册，用户可通过偏好设置自定义（默认：`Cmd+Shift+.` 触发快捷面板）
+- **崩溃报告** — 自托管 Sentry 三层架构：Rust panic 钩子（写入磁盘）→ 同意门控（`AtomicU8` 状态）→ 脱敏过滤器（8 类敏感键模式）
+- **系统托盘** — 驻留托盘模式（关闭即隐藏而非退出），托盘图标状态管理，窗口相对托盘定位
+- **全局快捷键** — 运行时注册，用户可通过偏好设置自定义（默认：`Cmd+Shift+.` 打开快捷面板）
 - **深链接** — `tauri-app://` scheme，支持路由到偏好设置或命令面板
 
 ### 开发体验
@@ -75,11 +89,11 @@ npm run tauri:dev
 - **命令面板** — `Cmd+K` 可搜索启动器，由统一命令注册表驱动（14 个命令，覆盖导航、窗口、通知、应用 4 个分组）
 - **偏好设置系统** — 3 个面板（通用、外观、高级），通过 temp-file + rename 实现原子写入
 - **主题系统** — 亮色/暗色/跟随系统，首次绘制前应用（内联 FOUC 防闪脚本），通过 Tauri 事件跨窗口同步
-- **国际化** — 懒加载语言包（en、zh），RTL 支持，从操作系统自动检测 locale
+- **国际化** — 懒加载语言包（en、zh），RTL 支持，自动检测操作系统 locale
 
 ### 质量工程
 
-- **15+ 质量门禁** 集成在 `npm run check:all` 中：TypeScript 严格模式（含 `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`），ESLint（零警告），ast-grep 架构规则，React Compiler，Prettier，Rust fmt/clippy，Vitest，cargo test
+- **15+ 质量门禁** 集成在 `npm run check:all` 中：TypeScript 严格模式（`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`），ESLint（零警告），ast-grep 规则，React Compiler，Prettier，Rust fmt/clippy，Vitest，cargo test
 - **三层 Rust 测试** — 纯函数（`*_from_path`/`*_to_path`）用 `TempDir` 隔离，`MockRuntime` 模拟 `AppHandle`，集成测试覆盖端到端流程
 - **E2E 含无障碍审计** — 16 个 Playwright 场景，包含 `@axe-core/playwright` WCAG 2.1 AA 审计
 - **cargo-deny** — 许可证白名单（14 种允许，拒绝 GPL/AGPL），漏洞扫描，git 依赖强制 pin revision
@@ -132,41 +146,6 @@ my-app/
 - locales/                   i18n 翻译文件（en, zh）
 ```
 
-## Tauri 插件（20 个预配置）
-
-| 插件              | 用途                                |
-| ----------------- | ----------------------------------- |
-| single-instance   | 防止多实例运行                      |
-| window-state      | 记忆窗口位置/大小                   |
-| positioner        | 托盘相对定位                        |
-| autostart         | 开机自启                            |
-| deep-link         | 自定义 URL Scheme（`tauri-app://`） |
-| updater           | 应用内自动更新（含签名验证）        |
-| global-shortcut   | 全局快捷键                          |
-| fs                | 文件系统访问                        |
-| persisted-scope   | 持久化文件访问范围                  |
-| dialog            | 原生打开/保存对话框                 |
-| store             | 键值持久化（原子写入）              |
-| opener            | 用默认应用打开 URL/文件             |
-| clipboard-manager | 剪贴板读写                          |
-| notification      | 系统通知                            |
-| process           | 进程控制                            |
-| os                | 操作系统信息                        |
-| http              | HTTP 客户端（绕过 CORS）            |
-| shell             | 子进程 / 系统打开                   |
-| log               | 平台特定日志输出                    |
-| tauri-nspanel     | macOS 浮动面板（NSPanel）           |
-
-## 跨平台支持
-
-| 平台    | 标题栏            | 窗口控件   | 安装包格式  |
-| ------- | ----------------- | ---------- | ----------- |
-| macOS   | 透明 + 毛玻璃效果 | 红绿灯控件 | `.dmg`      |
-| Windows | 无边框            | 右侧控件   | `.msi`      |
-| Linux   | 原生 + 工具栏     | 原生       | `.AppImage` |
-
-平台检测缓存在模块级（`usePlatform()` Hook）。各平台独立 Tauri 配置覆盖处理窗口装饰、透明度和毛玻璃效果。平台特定 UI 字符串集中管理在 `lib/platform-strings.ts`。
-
 ## 架构模式
 
 ### 三层状态管理
@@ -175,7 +154,7 @@ my-app/
 useState（组件）  ->  Zustand（全局 UI，4 个 Store）  ->  TanStack Query（持久化数据）
 ```
 
-组件用 `useState` 管理局部状态。跨组件 UI 状态放在 Zustand Store（使用选择器语法防止渲染级联）。服务端/持久化数据走 TanStack Query（5 分钟 stale time，10 分钟 GC）。
+组件用 `useState` 管理局部状态。跨组件 UI 状态放在 Zustand Store（选择器语法防止渲染级联）。服务端/持久化数据走 TanStack Query（5 分钟 stale time，10 分钟 GC）。
 
 ### 命令中心化设计
 
@@ -188,7 +167,7 @@ executeCommand('toggle-left-sidebar', context)
 
 ### 事件驱动桥接
 
-Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-changed` 同步快捷面板窗口。快捷面板提交 emit `quick-pane-submit` 更新主窗口。无直接窗口间调用。
+Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-changed` 同步快捷面板窗口；快捷面板提交 emit `quick-pane-submit` 更新主窗口。无直接窗口间调用。
 
 ### 架构强制执行（ast-grep）
 
@@ -225,6 +204,31 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 5. 在三个层面添加测试（纯函数、MockRuntime、集成测试）
 
 详见 [docs/developer/tauri-commands.zh.md](docs/developer/tauri-commands.zh.md)。
+
+## Tauri 插件（20 个预配置）
+
+| 插件              | 用途                                |
+| ----------------- | ----------------------------------- |
+| single-instance   | 防止多实例运行                      |
+| window-state      | 记忆窗口位置/大小                   |
+| positioner        | 托盘相对定位                        |
+| autostart         | 开机自启                            |
+| deep-link         | 自定义 URL Scheme（`tauri-app://`） |
+| updater           | 应用内自动更新（含签名验证）        |
+| global-shortcut   | 全局快捷键                          |
+| fs                | 文件系统访问                        |
+| persisted-scope   | 持久化文件访问范围                  |
+| dialog            | 原生打开/保存对话框                 |
+| store             | 键值持久化（原子写入）              |
+| opener            | 用默认应用打开 URL/文件             |
+| clipboard-manager | 剪贴板读写                          |
+| notification      | 系统通知                            |
+| process           | 进程控制                            |
+| os                | 操作系统信息                        |
+| http              | HTTP 客户端（绕过 CORS）            |
+| shell             | 子进程 / 系统打开                   |
+| log               | 平台特定日志输出                    |
+| tauri-nspanel     | macOS 浮动面板（NSPanel）           |
 
 ## 文档
 
