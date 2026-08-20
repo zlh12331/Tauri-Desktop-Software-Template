@@ -60,7 +60,13 @@ jobs:
     name: Code Quality
     runs-on: ubuntu-22.04
     steps:
+      # Full history is required: `npm run changelog` runs git-cliff, which
+      # groups commits by tag. A shallow checkout (fetch-depth: 1) hides all
+      # ancestors, so the regenerated CHANGELOG would omit earlier entries and
+      # fail the `git diff --exit-code` guard below.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
