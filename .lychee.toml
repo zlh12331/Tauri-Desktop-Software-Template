@@ -6,10 +6,7 @@ max_retries = 2
 retry_wait_secs = 2
 
 # Skip generated/private files that are not source-authored content.
-exclude_path = [
-  "docs/conversations/**",
-  "CHANGELOG.md",
-]
+exclude_path = ["CHANGELOG.md"]
 
 # Allow patterns that lychee would otherwise flag (common false positives):
 #   - localhost is only referenced as a dev-server example.

@@ -9,9 +9,5 @@
     "MD051": false,
   },
   "globs": ["docs/**/*.md", "README.md", "README.zh.md"],
-  "ignores": [
-    "docs/conversations/**",
-    "docs/tasks-done/**",
-    "docs/tasks-todo/**",
-  ],
+  "ignores": ["docs/tasks-done/**", "docs/tasks-todo/**"],
 }

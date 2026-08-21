@@ -27,11 +27,8 @@ function collectMarkdownFiles(dir, files = [], prefix = '') {
     if (statSync(fullPath).isDirectory()) {
       collectMarkdownFiles(fullPath, files, relPath)
     } else if (extname(entry) === '.md') {
-      // 会话记录（conversations/）为单语文档，不属于双语配对范围，跳过。
-      if (
-        entry.toLowerCase() === 'readme.md' ||
-        relPath.includes('conversations/')
-      ) {
+      // 顶层 README 不在 `docs/` 配对体系内，跳过。
+      if (entry.toLowerCase() === 'readme.md') {
         continue
       }
       files.push(relPath)
