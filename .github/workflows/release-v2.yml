@@ -308,19 +308,19 @@ jobs:
           node-version: '24'
 
       - name: Download macOS bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: bundle-macos
           path: artifacts/macos
 
       - name: Download Windows bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: bundle-windows
           path: artifacts/windows
 
       - name: Download Linux bundle
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: bundle-linux
           path: artifacts/linux
