@@ -122,8 +122,8 @@ src/
 │   ├── preferences/     # 偏好设置对话框，包含多个面板 (通用、外观、高级)
 │   ├── quick-pane/      # 快速面板浮窗应用
 │   ├── crash-report/    # 崩溃报告同意对话框
-│   └── ui/              # shadcn/ui 基础组件 (36 个组件)
-├── hooks/               # 自定义 React Hook (10 个 Hook)
+│   └── ui/              # shadcn/ui 基础组件 (37 个组件)
+├── hooks/               # 自定义 React Hook (11 个 Hook)
 ├── i18n/                # 国际化配置 (i18next + react-i18next)
 ├── lib/
 │   ├── commands/        # 命令系统实现 (注册表 + 命令组)

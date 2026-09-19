@@ -1,6 +1,13 @@
 import '@testing-library/jest-dom/vitest'
 import { vi } from 'vitest'
 
+// `jsdom` is deliberately held at 29.x. On jsdom 30, a Radix Select opened by any
+// test leaves state that makes a later test in the same file unable to open one:
+// `data-state` goes open -> closed inside the very click that opened it, so 9
+// AppearancePane cases fail. Reproduce with two tests that each render a plain
+// shadcn <Select> and click its trigger — a clean close in the first test does
+// not prevent it. Do not bump jsdom until that is fixed upstream.
+
 // Mock matchMedia for tests
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

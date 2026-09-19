@@ -13,7 +13,7 @@ vi.mock('@/store/sidebar-store', () => ({
   useSidebarStore: mockSidebarStore,
 }))
 
-const { registerCommands, getAllCommands, executeCommand } =
+const { registerCommands, getAllCommands, executeCommand, clearCommands } =
   await import('./registry')
 const { navigationCommands } = await import('./navigation-commands')
 
@@ -44,6 +44,7 @@ describe('Simplified Command System', () => {
 
   beforeEach(() => {
     mockContext = createMockContext()
+    clearCommands()
     registerCommands(navigationCommands)
   })
 
@@ -145,6 +146,30 @@ describe('Simplified Command System', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('Test error')
+    })
+  })
+
+  describe('Command Reset', () => {
+    it('clearCommands drops every registered command', async () => {
+      const probe: AppCommand = {
+        id: 'probe-command',
+        // Test fixture: fake key on purpose (see index.test.ts for rationale)
+        labelKey: 'commands.probe.label' as AppCommand['labelKey'],
+        execute: vi.fn(),
+      }
+      registerCommands([probe])
+
+      expect(getAllCommands(mockContext)).toContain(probe)
+      expect((await executeCommand('probe-command', mockContext)).success).toBe(
+        true
+      )
+
+      clearCommands()
+
+      expect(getAllCommands(mockContext)).toEqual([])
+      const afterClear = await executeCommand('probe-command', mockContext)
+      expect(afterClear.success).toBe(false)
+      expect(afterClear.error).toContain('not found')
     })
   })
 })

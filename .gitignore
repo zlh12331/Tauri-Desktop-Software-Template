@@ -21,6 +21,8 @@ jscpd-report
 
 # Test coverage reports
 coverage/
+# tsc project references write build info next to the root configs
+*.tsbuildinfo
 # Rust LLVM coverage artifacts (cargo-llvm-cov)
 src-tauri/target/llvm-cov/
 
@@ -35,6 +37,9 @@ bundle-analysis.html
 
 # CodeGraph index (local code intelligence database)
 .codegraph/
+
+# Trae editor "share HTML" snapshots (duplicates of tracked entry points)
+.trae-html-share-packages/
 
 # Editor directories and files
 .idea

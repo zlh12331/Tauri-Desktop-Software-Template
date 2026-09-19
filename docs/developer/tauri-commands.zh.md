@@ -19,14 +19,15 @@
 
 ```typescript
 import { commands, type AppPreferences } from '@/lib/tauri-bindings'
+import { logger } from '@/lib/logger'
 
 // 命令返回 Result 类型用于错误处理
 const result = await commands.loadPreferences()
 
 if (result.status === 'ok') {
-  console.log(result.data.theme) // 类型安全的访问
+  logger.debug('Preferences loaded', { theme: result.data.theme }) // 类型安全的访问
 } else {
-  console.error(result.error) // 类型安全的错误
+  logger.error('Failed to load preferences', { error: result.error }) // 类型安全的错误
 }
 ```
 
@@ -46,7 +47,7 @@ type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E }
 const result = await commands.savePreferences({ theme: 'dark' })
 
 if (result.status === 'error') {
-  toast.error('保存失败', { description: result.error })
+  toast.error('保存失败', { description: result.error.message })
   return
 }
 
@@ -54,36 +55,54 @@ if (result.status === 'error') {
 toast.success('已保存！')
 ```
 
-### unwrapResult 辅助函数
+### 让错误传播而不是内联处理
 
-当你希望错误传播（抛出）而非内联处理时，使用 `unwrapResult` 辅助函数：
+`@/lib/tauri-bindings` 只导出 `commands` 与生成的类型——项目里并没有 `unwrapResult`
+辅助函数。请在调用处解包，并抛出 `Error` 而不是裸的 `AppError`，这样下游的
+`error instanceof Error` 判断才不会失效：
 
 ```typescript
-import { commands, unwrapResult } from '@/lib/tauri-bindings'
-
-// 出错时抛出，成功时返回 data
-const preferences = unwrapResult(await commands.loadPreferences())
+const result = await commands.loadPreferences()
+if (result.status === 'error') {
+  throw new Error(result.error.message)
+}
+const preferences = result.data // 已收窄为 AppPreferences
 ```
 
 **何时使用每种模式：**
 
 | 模式           | 适用场景                                       |
 | -------------- | ---------------------------------------------- |
-| `unwrapResult` | TanStack Query 函数，错误应传播到边界          |
+| 解包 + `throw` | TanStack Query 函数，错误应传播到边界          |
 | 手动 `if/else` | 事件处理器，需要显式错误处理（toast、UI 状态） |
 
-**TanStack Query 示例**（数据获取的首选模式）：
+**TanStack Query 示例**——`src/queries/preferences.ts` 就是这么写的：
 
 ```typescript
-import { useQuery } from '@tanstack/react-query'
-import { commands, unwrapResult } from '@/lib/tauri-bindings'
+export function useSavePreferences() {
+  const queryClient = useQueryClient()
 
-const { data, error } = useQuery({
-  queryKey: ['preferences'],
-  queryFn: async () => unwrapResult(await commands.loadPreferences()),
-})
-// TanStack Query 自动处理抛出的错误
+  return useMutation({
+    mutationFn: async (preferences: AppPreferences) => {
+      const result = await commands.savePreferences(preferences)
+      if (result.status === 'error') {
+        toast.error('Could not save preferences', {
+          description: result.error.message,
+        })
+        throw new Error(result.error.message)
+      }
+    },
+    onSuccess: (_, preferences) =>
+      queryClient.setQueryData(['preferences'], preferences),
+  })
+}
 ```
+
+查询走另一条分支：`usePreferences()` 会把任何后端错误转成一条 warn 日志加默认值，
+保证窗口照样渲染，参见 [error-handling.md](./error-handling.zh.md) 的模式 3。
+
+如果调用处在跨边界之后仍需要 `kind` 判别字段，请就地捕获错误，不要为此拓宽抛出的
+值类型——`new Error()` 只携带 message。
 
 **事件处理器示例**（显式错误处理）：
 
@@ -91,7 +110,7 @@ const { data, error } = useQuery({
 const handleSave = async () => {
   const result = await commands.savePreferences(preferences)
   if (result.status === 'error') {
-    toast.error('保存失败', { description: result.error })
+    toast.error('保存失败', { description: result.error.message })
     return
   }
   toast.success('偏好设置已保存！')
@@ -173,7 +192,7 @@ const result = await commands.myNewCommand('arg')
 src-tauri/src/
 ├── lib.rs              # 应用设置、插件注册、run() 入口
 ├── bindings.rs         # tauri-specta 命令注册 + TS 导出
-├── error.rs            # AppError 枚举（10 个变体，error_code() 映射）
+├── error.rs            # AppError 枚举（10 个变体，serde `kind` 标签）
 ├── types.rs            # 共享类型：AppPreferences, CrashReportData, RecoveryError
 ├── commands/           # 按领域划分的命令处理器
 │   ├── mod.rs

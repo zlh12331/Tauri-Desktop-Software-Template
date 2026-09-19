@@ -7,6 +7,12 @@ export function registerCommands(commands: AppCommand[]): void {
   commands.forEach(cmd => commandRegistry.set(cmd.id, cmd))
 }
 
+// The registry is module-level state, so it outlives a single test unless a
+// caller empties it; initializeCommandSystem() registers into the same Map.
+export function clearCommands(): void {
+  commandRegistry.clear()
+}
+
 export function getAllCommands(
   context: CommandContext,
   searchValue = '',

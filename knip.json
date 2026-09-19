@@ -15,8 +15,7 @@
     "@tauri-apps/plugin-opener",
     "@tauri-apps/plugin-shell",
     "@tauri-apps/plugin-store",
-    "@tauri-apps/plugin-window-state",
-    "brace-expansion"
+    "@tauri-apps/plugin-window-state"
   ],
   "ignoreBinaries": [
     "git-cliff",

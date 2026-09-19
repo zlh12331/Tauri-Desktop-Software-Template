@@ -47,6 +47,24 @@ npm run lint:fix    # Auto-fix issues
 
 Configuration in `eslint.config.js`.
 
+**Pinned versions (deliberate — do not re-bump them):**
+
+- `brace-expansion` stays on the 1.x line inside the one subtree that needs it.
+  `package.json` overrides it to `^1.1.18` scoped to `eslint-plugin-react → minimatch`.
+  The 1.x ceiling is not ours to lift: `minimatch@3.1.5` declares
+  `brace-expansion@^1.1.7`, so 5.x can never resolve there. The caret still floats, so
+  that subtree keeps taking 1.x patches (`1.1.21` is installed) — the override raises a
+  floor, it does not freeze a release. Nothing else waits on it — `glob`, `i18next-cli`
+  and `@typescript-eslint/typescript-estree` each resolve `brace-expansion@5.0.12` nested
+  under their own `minimatch@10.2.6`. There is deliberately no direct `brace-expansion`
+  dependency: the override is the only load-bearing piece, and a direct entry just makes
+  `npm outdated` and Dependabot report a `1.1.21 → 5.0.12` bump that the pinned subtree
+  cannot accept. Revisit only if `eslint-plugin-react` drops `minimatch@3`, then delete
+  the override.
+- `jsdom` stays at 29.x for an unrelated reason: on jsdom 30 a Radix Select cannot be
+  reopened by a later test in the same file. See the note at the top of
+  `src/test/setup.ts`.
+
 ### Prettier
 
 Consistent code formatting.

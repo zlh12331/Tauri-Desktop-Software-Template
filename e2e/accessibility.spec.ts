@@ -37,6 +37,13 @@ async function openPreferences(page: Page) {
   await page.keyboard.press('Enter')
   const dialog = page.getByRole('dialog', { name: /^preferences$/i })
   await expect(dialog).toBeVisible()
+  // The palette stays mounted while it animates out, and its list is already
+  // reset to the unfiltered commands (CommandPalette clears the search on close).
+  // Axe samples those half-transparent nodes, reads near-white text composited
+  // over the white page, and reports false color-contrast violations. Waiting on
+  // the role locator is useless here — once Radix drops the title, the accessible
+  // name stops matching and the locator resolves to zero elements mid-animation.
+  await expect(page.locator('[cmdk-root]')).toHaveCount(0)
   return dialog
 }
 

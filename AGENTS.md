@@ -56,7 +56,8 @@ All via `npm` (never pnpm). Run from repo root unless noted.
 - **Six ast-grep rules block anti-patterns at CI** (enforced, not advisory): `hooks-in-hooks-dir` (no React hooks in `lib/`), `no-store-in-lib` (no store subscriptions in `lib/`, only `getState()`), `no-destructure` (no Zustand destructuring — use selector syntax), `no-console` (no `console.*` in `src/`; use `@/lib/logger`), `no-ts-ignore` (use `@ts-expect-error`), `no-direct-invoke` (no raw `invoke()` imports outside `bindings.ts`).
 - **Never use raw `invoke()`.** All Rust→frontend calls go through typed `commands` from `@/lib/tauri-bindings`.
 - **`lib/` is pure logic** — no React, no hooks, no store subscriptions. UI/state belong in `components/`, `hooks/`, `store/`.
-- **Rust error flow**: commands return `Result<T, AppError>`; `AppError` serializes as `{ kind, message }` with stable codes (`ERR_IO`, `ERR_VALIDATION`, …). Match on `.status === 'ok'` on the TS side.
+- **Rust error flow**: commands return `Result<T, AppError>`; `AppError` serializes as `{ kind, message }` where `kind` is the Rust variant name (`'Io'`, `'Validation'`, …) — there is no `ERR_*` code system and no frontend mirror file. Match on `.status === 'ok'` on the TS side.
+- **Two result envelopes — never mix them**: Rust IPC gives `{ status, data } | { status: 'error', error: AppError }` (so `result.error.message`, branch on `result.error.kind`), while the frontend command bus `executeCommand()` in `src/lib/commands/registry.ts` gives `{ success, error?: string }` (already a display string). Passing an `AppError` where a string belongs renders `[object Object]` in a toast, and there is no `unwrapResult` helper — unwrap and `throw new Error(...)` at the call site. See `docs/developer/error-handling.en.md` → Two Result Conventions.
 - **Prettier is the formatter**, not ESLint's — `lint:fix` runs eslint, `format` runs prettier; both run on save in VSCode.
 
 ## Architecture Patterns (CRITICAL)
@@ -102,10 +103,13 @@ const handleAction = () => {
 ```typescript
 // GOOD: Type-safe commands with Result handling
 import { commands } from '@/lib/tauri-bindings'
+import { logger } from '@/lib/logger'
 
 const result = await commands.loadPreferences()
 if (result.status === 'ok') {
-  console.log(result.data.theme)
+  logger.debug('Preferences loaded', { theme: result.data.theme })
+} else {
+  toast.error(result.error.message) // .error is an object; never pass it raw
 }
 
 // BAD: String-based invoke (no type safety)
@@ -147,7 +151,7 @@ i18n.t('key')                 // Or call directly for occasional use
 ### Documentation & Versions
 
 - **Context7 First**: Always use Context7 for framework docs before WebSearch
-- **Version Requirements**: Tauri v2.x, shadcn/ui v4.x, Tailwind v4.x, React 19.x, Zustand v5.x, Vite v8.x, Vitest v4.x, TypeScript v6.x
+- **Version Requirements**: Tauri v2.x, shadcn/ui v4.x, Tailwind v4.x, React 19.x, Zustand v5.x, Vite v8.x, Vitest v5.x, TypeScript v6.x
 
 ## Developer Documentation
 

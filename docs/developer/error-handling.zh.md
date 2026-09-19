@@ -16,6 +16,35 @@ Rust `Result<T, E>` 类型会变成 TypeScript 可辨识联合：
 type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E }
 ```
 
+## 两套结果约定
+
+这个应用里有两种不同的结果信封，它们不能混用，而且用错判别字段是一个静默 bug 而不是
+类型错误，因为两者都是"看起来正常"的对象。
+
+| 边界          | 形态                                                              | 由谁产生                                               | 错误字段                             |
+| ------------- | ----------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------ |
+| Rust → TS IPC | `{ status: 'ok', data }` / `{ status: 'error', error: AppError }` | `src/lib/bindings.ts` 里的 `commands.*()`              | 对象——取 `.message`，按 `.kind` 分支 |
+| 前端命令总线  | `{ success: boolean, error?: string }`                            | `src/lib/commands/registry.ts` 里的 `executeCommand()` | 已经是可直接展示的字符串             |
+
+```typescript
+// Rust IPC：先看 .status，再读 .error.message
+const result = await commands.savePreferences(prefs)
+if (result.status === 'error') {
+  toast.error(result.error.message) // 不能直接传 result.error，那是个对象
+}
+
+// 命令总线：看 .success；.error 已经是给 UI 用的字符串
+const dispatched = await executeCommand('toggle-left-sidebar', context)
+if (!dispatched.success && dispatched.error) {
+  context.showToast(dispatched.error, 'error')
+}
+```
+
+目前的命令只操作 store 和窗口 API，所以两种信封还没有真正交汇。等某个命令开始调用
+Rust 命令时，请在它自己的 `execute()` 里处理 `result.status`，或者重新抛出一个带用户
+可读 message 的 `Error`。别让裸 `AppError` 冒到调用方：`executeCommand()` 只对
+`error instanceof Error` 做字符串化，其他值一律变成 `Unknown error`。
+
 ## Rust 错误类型
 
 ### 简单命令
@@ -51,7 +80,7 @@ pub enum AppError {
 }
 ```
 
-`thiserror` 会自动生成 `Display` 和 `Error`。每个变体都有一个通过 `error_code()` 获得的稳定错误码（例如 `ERR_IO`、`ERR_VALIDATION`），并在 `src/lib/error-codes.ts` 中有镜像。
+`thiserror` 会自动生成 `Display` 和 `Error`。线上传输的稳定标识就是 serde 的 `kind` 标签本身——也就是变体名（`Io`、`Validation` 等），TypeScript 通过下面的生成联合类型对它做分支。项目里没有单独的 `ERR_*` 错误码体系，也没有 `src/lib/error-codes.ts`；再加一套只会重复联合类型已经携带的信息。
 
 TypeScript 接收到的类型：
 
@@ -77,23 +106,36 @@ type AppError =
 
 ```typescript
 // ✅ 好：内联处理错误并提供用户反馈
-const handleSave = async () => {
-  const result = await commands.saveData(data)
+const handleSave = async (prefs: AppPreferences) => {
+  const result = await commands.savePreferences(prefs)
   if (result.status === 'error') {
-    toast.error('保存失败', { description: result.error })
+    toast.error('保存失败', { description: result.error.message })
     return
   }
   toast.success('已保存！')
 }
 ```
 
-### 模式 2：unwrapResult（TanStack Query）
+### 模式 2：在 mutation 内转成 throw
+
+这个代码库里并没有 `unwrapResult` 辅助函数。TanStack Query 接管错误的方式是让
+mutation 函数自己抛出，`src/queries/preferences.ts` 就是这么做的：
 
 ```typescript
-// ✅ 好：让 TanStack Query 处理错误
-const { data, error } = useQuery({
-  queryKey: ['data'],
-  queryFn: async () => unwrapResult(await commands.loadData()),
+// ✅ 好：先提示用户，再抛出，让 mutation 状态携带错误
+return useMutation({
+  mutationFn: async (preferences: AppPreferences) => {
+    const result = await commands.savePreferences(preferences)
+    if (result.status === 'error') {
+      logger.error('Failed to save preferences', { error: result.error })
+      toast.error(t('toast.error.preferencesSaveFailed'), {
+        description: result.error.message,
+      })
+      throw new Error(result.error.message)
+    }
+  },
+  onSuccess: (_, preferences) =>
+    queryClient.setQueryData(['preferences'], preferences),
 })
 ```
 
@@ -134,10 +176,12 @@ pub async fn load_file(path: &str) -> Result<String, String> {
 
 ```typescript
 // ✅ 好：将用户反馈与技术日志分离
-const result = await commands.saveData(data)
+const result = await commands.savePreferences(prefs)
 if (result.status === 'error') {
-  logger.error('保存失败', { error: result.error, data }) // 技术
-  toast.error('保存失败') // 面向用户
+  logger.error('Failed to save preferences', { error: result.error }) // 技术
+  toast.error('无法保存你的设置', {
+    description: result.error.message, // 面向用户
+  })
 }
 ```
 
@@ -166,29 +210,26 @@ const { data } = useQuery({
 | Queries   | 1        | 瞬时故障可能恢复         |
 | Mutations | 1        | 避免在慢速保存时重复写入 |
 
-## 全局错误 Toast
+## 错误 Toast：在调用处处理
 
-避免为每个查询单独显示错误 Toast（会导致重复）。使用全局处理：
+`query-client.ts` 里并没有全局的 `QueryCache`/`MutationCache` 错误处理器——已对照该
+文件核实，它只设置了 `retry`、`staleTime`、`gcTime` 和 `refetchOnWindowFocus`。因此
+每一条错误 Toast 都属于最清楚用户当时在做什么的那段代码：
 
 ```typescript
-// ✅ 好：在 query-client.ts 中集中处理
-const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: (error, query) => {
-      if (query.meta?.errorToast !== false) {
-        toast.error('出错了')
-      }
-    },
-  }),
-})
-
-// 为特定查询 opt out
-useQuery({
-  queryKey: ['optional-feature'],
-  queryFn: loadOptional,
-  meta: { errorToast: false },
-})
+// ✅ 项目当前的做法（src/queries/preferences.ts）
+const result = await commands.savePreferences(preferences)
+if (result.status === 'error') {
+  toast.error(i18n.t('toast.error.preferencesSaveFailed'), {
+    description: result.error.message,
+  })
+  throw new Error(result.error.message)
+}
 ```
+
+相对地，查询不应该弹 toast——`usePreferences()` 会回退到默认值，让界面照常渲染。
+如果将来要加全局处理器，位置就在 `query-client.ts`，并且必须避免与上面这种调用处
+toast 重复弹出。
 
 ## React 错误边界
 
@@ -200,7 +241,7 @@ useQuery({
 | 生命周期方法中的错误 | 异步代码（Promise） |
 | 构造函数中的错误     | 错误边界自身的错误  |
 
-对于异步 Tauri 命令错误，使用显式处理或配合 TanStack Query 使用 `unwrapResult`。
+对于异步 Tauri 命令错误，请在调用处显式处理，或在 TanStack Query 函数里解包后抛出 `Error`。
 
 ## 回滚模式
 
@@ -231,13 +272,14 @@ const handleChange = async (newValue: string) => {
 
 ## 快速参考
 
-| 场景         | Rust 错误类型                | TypeScript 模式 | 用户反馈     |
-| ------------ | ---------------------------- | --------------- | ------------ |
-| 简单命令     | `AppError`                   | if/else + toast | 出错时 Toast |
-| 多种失败模式 | `AppError` / `RecoveryError` | 匹配 `.kind`    | 上下文相关   |
-| 数据获取     | `AppError`                   | `unwrapResult`  | 查询错误 UI  |
-| 可选功能     | `AppError`                   | 优雅降级        | 静默回退     |
-| 关键操作     | `AppError`                   | 显式处理 + 回滚 | Toast + 恢复 |
+| 场景         | Rust 错误类型                | TypeScript 模式                 | 用户反馈     |
+| ------------ | ---------------------------- | ------------------------------- | ------------ |
+| 简单命令     | `AppError`                   | if/else + toast                 | 出错时 Toast |
+| 多种失败模式 | `AppError` / `RecoveryError` | 匹配 `.kind`                    | 上下文相关   |
+| 数据获取     | `AppError`                   | 解包 + `throw`                  | 查询错误 UI  |
+| 可选功能     | `AppError`                   | 优雅降级                        | 静默回退     |
+| 关键操作     | `AppError`                   | 显式处理 + 回滚                 | Toast + 恢复 |
+| 命令总线     | 不适用（纯前端）             | `executeCommand()` → `.success` | 失败时 Toast |
 
 另请参阅：[tauri-commands.md](./tauri-commands.zh.md) 了解 Result 类型模式。
 

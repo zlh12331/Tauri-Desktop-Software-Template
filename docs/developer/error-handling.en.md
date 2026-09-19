@@ -16,6 +16,37 @@ Rust `Result<T, E>` types become TypeScript discriminated unions:
 type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E }
 ```
 
+## Two Result Conventions
+
+Two different envelopes cross function boundaries in this app. They are not
+interchangeable, and picking the wrong discriminator is a silent bug, not a type
+error, because both are truthy-ish objects.
+
+| Boundary             | Shape                                                             | Produced by                                          | Error field                                |
+| -------------------- | ----------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| Rust → TS IPC        | `{ status: 'ok', data }` / `{ status: 'error', error: AppError }` | `commands.*()` in `src/lib/bindings.ts`              | object — use `.message`, branch on `.kind` |
+| Frontend command bus | `{ success: boolean, error?: string }`                            | `executeCommand()` in `src/lib/commands/registry.ts` | already a display string                   |
+
+```typescript
+// Rust IPC: check .status, then read .error.message
+const result = await commands.savePreferences(prefs)
+if (result.status === 'error') {
+  toast.error(result.error.message) // not `result.error` — that is an object
+}
+
+// Command bus: check .success; .error is a string ready for the UI
+const dispatched = await executeCommand('toggle-left-sidebar', context)
+if (!dispatched.success && dispatched.error) {
+  context.showToast(dispatched.error, 'error')
+}
+```
+
+Commands today only touch stores and the window API, so nothing mixes the two
+envelopes yet. When a command does call a Rust command, handle `result.status`
+inside `execute()` — or rethrow as an `Error` with a user-readable message. Do not
+let the raw `AppError` reach the caller: `executeCommand()` stringifies only
+`error instanceof Error`, so anything else is reported as `Unknown error`.
+
 ## Rust Error Types
 
 ### Simple Commands
@@ -51,8 +82,10 @@ pub enum AppError {
 }
 ```
 
-`thiserror` auto-generates `Display` and `Error`. Each variant has a stable error code
-via `error_code()` (e.g., `ERR_IO`, `ERR_VALIDATION`), mirrored in `src/lib/error-codes.ts`.
+`thiserror` auto-generates `Display` and `Error`. The stable identifier on the wire is the
+serde `kind` tag itself — the variant name (`Io`, `Validation`, ...) — and TypeScript switches
+on it via the generated union below. There is no separate `ERR_*` code system and no
+`src/lib/error-codes.ts`; adding one would duplicate information the union already carries.
 
 TypeScript receives:
 
@@ -79,23 +112,36 @@ with named-field variants like `DataTooLarge { max_bytes: u32 }`.
 
 ```typescript
 // ✅ GOOD: Handle errors inline with user feedback
-const handleSave = async () => {
-  const result = await commands.saveData(data)
+const handleSave = async (prefs: AppPreferences) => {
+  const result = await commands.savePreferences(prefs)
   if (result.status === 'error') {
-    toast.error('Save failed', { description: result.error })
+    toast.error('Save failed', { description: result.error.message })
     return
   }
   toast.success('Saved!')
 }
 ```
 
-### Pattern 2: unwrapResult (TanStack Query)
+### Pattern 2: Convert to a Throw Inside a Mutation
+
+There is no `unwrapResult` helper in this codebase. TanStack Query owns errors by
+having the mutation function throw, which is what `src/queries/preferences.ts` does:
 
 ```typescript
-// ✅ GOOD: Let TanStack Query handle errors
-const { data, error } = useQuery({
-  queryKey: ['data'],
-  queryFn: async () => unwrapResult(await commands.loadData()),
+// ✅ GOOD: Report to the user, then throw so the mutation state carries it
+return useMutation({
+  mutationFn: async (preferences: AppPreferences) => {
+    const result = await commands.savePreferences(preferences)
+    if (result.status === 'error') {
+      logger.error('Failed to save preferences', { error: result.error })
+      toast.error(t('toast.error.preferencesSaveFailed'), {
+        description: result.error.message,
+      })
+      throw new Error(result.error.message)
+    }
+  },
+  onSuccess: (_, preferences) =>
+    queryClient.setQueryData(['preferences'], preferences),
 })
 ```
 
@@ -136,10 +182,12 @@ pub async fn load_file(path: &str) -> Result<String, String> {
 
 ```typescript
 // ✅ GOOD: Separate user feedback from technical logging
-const result = await commands.saveData(data)
+const result = await commands.savePreferences(prefs)
 if (result.status === 'error') {
-  logger.error('Save failed', { error: result.error, data }) // Technical
-  toast.error('Failed to save') // User-facing
+  logger.error('Failed to save preferences', { error: result.error }) // Technical
+  toast.error('Could not save your settings', {
+    description: result.error.message, // User-facing
+  })
 }
 ```
 
@@ -168,29 +216,27 @@ Default retry settings in `query-client.ts`:
 | Queries    | 1       | Transient failures may recover       |
 | Mutations  | 1       | Avoid duplicate writes on slow saves |
 
-## Global Error Toasts
+## Error Toasts: Handled at the Call Site
 
-Avoid per-query error toasts (causes duplicates). Use global handling:
+`query-client.ts` has no global `QueryCache`/`MutationCache` error handler — verified
+against the file, which only sets `retry`, `staleTime`, `gcTime` and
+`refetchOnWindowFocus`. Every error toast therefore belongs to the code that knows
+what the user was doing:
 
 ```typescript
-// ✅ GOOD: Centralized in query-client.ts
-const queryClient = new QueryClient({
-  queryCache: new QueryCache({
-    onError: (error, query) => {
-      if (query.meta?.errorToast !== false) {
-        toast.error('Something went wrong')
-      }
-    },
-  }),
-})
-
-// Opt out for specific queries
-useQuery({
-  queryKey: ['optional-feature'],
-  queryFn: loadOptional,
-  meta: { errorToast: false },
-})
+// ✅ What the project does today (src/queries/preferences.ts)
+const result = await commands.savePreferences(preferences)
+if (result.status === 'error') {
+  toast.error(i18n.t('toast.error.preferencesSaveFailed'), {
+    description: result.error.message,
+  })
+  throw new Error(result.error.message)
+}
 ```
+
+Queries, by contrast, should not toast — `usePreferences()` falls back to defaults so
+the UI keeps rendering. If a global handler is ever added, `query-client.ts` is the
+place, and must avoid doubling up with the call-site toasts above.
 
 ## React Error Boundaries
 
@@ -202,7 +248,7 @@ Error boundaries catch render errors, not async errors:
 | Errors in lifecycle methods | Async code (promises)               |
 | Errors in constructors      | Errors in the error boundary itself |
 
-For async Tauri command errors, use explicit handling or `unwrapResult` with TanStack Query.
+For async Tauri command errors, handle them at the call site or unwrap and throw inside a TanStack Query function.
 
 ## Rollback Pattern
 
@@ -233,13 +279,14 @@ const handleChange = async (newValue: string) => {
 
 ## Quick Reference
 
-| Scenario               | Rust Error Type              | TypeScript Pattern   | User Feedback    |
-| ---------------------- | ---------------------------- | -------------------- | ---------------- |
-| Simple command         | `AppError`                   | if/else + toast      | Toast on error   |
-| Multiple failure modes | `AppError` / `RecoveryError` | Match on `.kind`     | Context-specific |
-| Data fetching          | `AppError`                   | `unwrapResult`       | Query error UI   |
-| Optional feature       | `AppError`                   | Graceful degradation | Silent fallback  |
-| Critical operation     | `AppError`                   | Explicit + rollback  | Toast + recovery |
+| Scenario               | Rust Error Type              | TypeScript Pattern              | User Feedback    |
+| ---------------------- | ---------------------------- | ------------------------------- | ---------------- |
+| Simple command         | `AppError`                   | if/else + toast                 | Toast on error   |
+| Multiple failure modes | `AppError` / `RecoveryError` | Match on `.kind`                | Context-specific |
+| Data fetching          | `AppError`                   | Unwrap + `throw`                | Query error UI   |
+| Optional feature       | `AppError`                   | Graceful degradation            | Silent fallback  |
+| Critical operation     | `AppError`                   | Explicit + rollback             | Toast + recovery |
+| Command bus            | n/a (frontend only)          | `executeCommand()` → `.success` | Toast on error   |
 
 See also: [tauri-commands.md](./tauri-commands.en.md) for Result type patterns.
 
