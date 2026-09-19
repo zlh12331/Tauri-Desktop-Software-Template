@@ -82,8 +82,8 @@
     "docs:check": "npm run docs:lint && npm run docs:pairs",
     "ast:lint": "ast-grep scan",
     "ast:fix": "ast-grep scan --fix",
-    "cspell:check": "cspell lint --no-progress \"src/**/*.{ts,tsx}\" \"locales/*.json\" \"docs/**/*.md\" \"*.md\" \"*.json\"",
-    "cspell:fix": "cspell lint --no-progress --fix \"src/**/*.{ts,tsx}\" \"locales/*.json\" \"docs/**/*.md\" \"*.md\" \"*.json\"",
+    "cspell:check": "cspell lint --no-progress \"src/**/*.{ts,tsx}\" \"locales/*.json\" \"docs/**/*.md\" \"*.md\" \"*.json\" \".github/**/*.{yml,yaml}\"",
+    "cspell:fix": "cspell lint --no-progress --fix \"src/**/*.{ts,tsx}\" \"locales/*.json\" \"docs/**/*.md\" \"*.md\" \"*.json\" \".github/**/*.{yml,yaml}\"",
     "prepare": "husky"
   },
   "lint-staged": {
