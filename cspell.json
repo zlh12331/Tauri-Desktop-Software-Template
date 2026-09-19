@@ -27,6 +27,7 @@
     "Frameless",
     "initialised",
     "initialiser",
+    "jsdom",
     "keypair",
     "knip",
     "libappindicator",
@@ -79,6 +80,8 @@
     "Unsub",
     "userguide",
     "vadimcn",
+    "vitejs",
+    "vitest",
     "WCAG",
     "worktree",
     "yourusername"
