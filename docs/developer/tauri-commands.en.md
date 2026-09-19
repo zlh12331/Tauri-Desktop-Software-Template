@@ -326,4 +326,4 @@ Note: Using exact versions (`=`) during RC phase to prevent breaking changes.
 ## References
 
 - [tauri-specta GitHub](https://github.com/specta-rs/tauri-specta)
-- [Specta documentation](https://specta.dev/docs/tauri-specta/v2)
+- [Specta documentation](https://specta.dev/docs/tauri-specta)

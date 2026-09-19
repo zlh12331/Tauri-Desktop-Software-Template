@@ -323,4 +323,4 @@ specta-typescript = "=0.0.12"
 ## 参考
 
 - [tauri-specta GitHub](https://github.com/specta-rs/tauri-specta)
-- [Specta 文档](https://specta.dev/docs/tauri-specta/v2)
+- [Specta 文档](https://specta.dev/docs/tauri-specta)
