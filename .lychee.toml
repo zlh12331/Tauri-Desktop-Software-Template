@@ -3,7 +3,7 @@
 cache = false
 max_concurrency = 8
 max_retries = 2
-retry_wait_secs = 2
+retry_wait_time = 2
 
 # Skip generated/private files that are not source-authored content.
 exclude_path = ["CHANGELOG.md"]
@@ -18,5 +18,6 @@ exclude = [
   "file://",
 ]
 
-# External status codes considered a failure even for otherwise-ok requests.
+# Do not pull links out of fenced code blocks, so illustrative placeholders like
+# `https://github.com/<your-username>/<your-repo>` are not treated as real URLs.
 include_verbatim = false

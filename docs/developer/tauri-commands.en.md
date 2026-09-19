@@ -19,14 +19,15 @@ This app uses tauri-specta to generate TypeScript bindings from Rust commands, p
 
 ```typescript
 import { commands, type AppPreferences } from '@/lib/tauri-bindings'
+import { logger } from '@/lib/logger'
 
 // Commands return Result types for error handling
 const result = await commands.loadPreferences()
 
 if (result.status === 'ok') {
-  console.log(result.data.theme) // Type-safe access
+  logger.debug('Preferences loaded', { theme: result.data.theme }) // Type-safe access
 } else {
-  console.error(result.error) // Type-safe error
+  logger.error('Failed to load preferences', { error: result.error }) // Type-safe error
 }
 ```
 
@@ -46,7 +47,7 @@ Handle both cases:
 const result = await commands.savePreferences({ theme: 'dark' })
 
 if (result.status === 'error') {
-  toast.error('Failed to save', { description: result.error })
+  toast.error('Failed to save', { description: result.error.message })
   return
 }
 
@@ -54,36 +55,55 @@ if (result.status === 'error') {
 toast.success('Saved!')
 ```
 
-### unwrapResult Helper
+### Propagating Errors Instead of Handling Them Inline
 
-For cases where you want errors to propagate (throw) rather than handle them inline, use the `unwrapResult` helper:
+`@/lib/tauri-bindings` exports `commands` and the generated types only — there is no
+`unwrapResult` helper. Unwrap at the call site and throw an `Error`, not the raw
+`AppError`, so that `error instanceof Error` checks downstream keep working:
 
 ```typescript
-import { commands, unwrapResult } from '@/lib/tauri-bindings'
-
-// Throws on error, returns data on success
-const preferences = unwrapResult(await commands.loadPreferences())
+const result = await commands.loadPreferences()
+if (result.status === 'error') {
+  throw new Error(result.error.message)
+}
+const preferences = result.data // narrowed to AppPreferences
 ```
 
 **When to use each pattern:**
 
 | Pattern          | Use When                                                        |
 | ---------------- | --------------------------------------------------------------- |
-| `unwrapResult`   | TanStack Query functions, errors should propagate to a boundary |
+| Unwrap + `throw` | TanStack Query functions, errors should propagate to a boundary |
 | Manual `if/else` | Event handlers, need explicit error handling (toasts, UI state) |
 
-**TanStack Query example** (preferred pattern for data fetching):
+**TanStack Query example** — this is what `src/queries/preferences.ts` does:
 
 ```typescript
-import { useQuery } from '@tanstack/react-query'
-import { commands, unwrapResult } from '@/lib/tauri-bindings'
+export function useSavePreferences() {
+  const queryClient = useQueryClient()
 
-const { data, error } = useQuery({
-  queryKey: ['preferences'],
-  queryFn: async () => unwrapResult(await commands.loadPreferences()),
-})
-// TanStack Query handles the thrown error automatically
+  return useMutation({
+    mutationFn: async (preferences: AppPreferences) => {
+      const result = await commands.savePreferences(preferences)
+      if (result.status === 'error') {
+        toast.error('Could not save preferences', {
+          description: result.error.message,
+        })
+        throw new Error(result.error.message)
+      }
+    },
+    onSuccess: (_, preferences) =>
+      queryClient.setQueryData(['preferences'], preferences),
+  })
+}
 ```
+
+Queries take the other branch: `usePreferences()` turns any backend error into a
+logged warning plus default values, so the window still renders. See
+[error-handling.md](./error-handling.en.md) → Pattern 3.
+
+If a call site needs the `kind` discriminator after the boundary, catch it there
+rather than widening the thrown value — `new Error()` carries only the message.
 
 **Event handler example** (explicit error handling):
 
@@ -91,7 +111,7 @@ const { data, error } = useQuery({
 const handleSave = async () => {
   const result = await commands.savePreferences(preferences)
   if (result.status === 'error') {
-    toast.error('Failed to save', { description: result.error })
+    toast.error('Failed to save', { description: result.error.message })
     return
   }
   toast.success('Preferences saved!')
@@ -174,7 +194,7 @@ Always commit:
 src-tauri/src/
 ├── lib.rs              # App setup, plugin registration, run() entry
 ├── bindings.rs         # tauri-specta command registration + TS export
-├── error.rs            # AppError enum (10 variants, error_code() mapping)
+├── error.rs            # AppError enum (10 variants, serde `kind` tag)
 ├── types.rs            # Shared types: AppPreferences, CrashReportData, RecoveryError
 ├── commands/           # Command handlers by domain
 │   ├── mod.rs
@@ -306,4 +326,4 @@ Note: Using exact versions (`=`) during RC phase to prevent breaking changes.
 ## References
 
 - [tauri-specta GitHub](https://github.com/specta-rs/tauri-specta)
-- [Specta documentation](https://specta.dev/docs/tauri-specta/v2)
+- [Specta documentation](https://specta.dev/docs/tauri-specta)

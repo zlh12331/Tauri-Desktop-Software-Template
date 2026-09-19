@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type UserConfig } from 'vite'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
@@ -9,18 +9,18 @@ import { readFileSync } from 'fs'
 // Read package.json via fs to avoid JSON import syntax that oxc-parser
 // (used by knip) cannot handle. See: https://knip.dev/reference/known-issues
 const packageJson = JSON.parse(
-  readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
+  readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf-8')
 ) as { version: string }
 
-const host = process.env.TAURI_DEV_HOST
+const host = process.env['TAURI_DEV_HOST']
 
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
-  const sentryDsn = process.env.VITE_SENTRY_DSN;
+  const sentryDsn = process.env['VITE_SENTRY_DSN'];
 
-  return {
+  const config: UserConfig = {
     define: {
-      __APP_VERSION__: JSON.stringify(packageJson.version),
+      __APP_VERSION__: JSON.stringify(packageJson.version)
     },
     plugins: [
       react(),
@@ -30,23 +30,28 @@ export default defineConfig(async ({ mode }) => {
       tailwindcss(),
       // Sentry Vite plugin: uploads source maps and sets release automatically.
       // Only activates when SENTRY_DSN is configured (build & dev).
-      sentryDsn &&
-        sentryVitePlugin({
-          org: 'sentry',
-          project: 'tauri-desktop-software-template',
-          authToken: process.env.SENTRY_AUTH_TOKEN, // needed for source map upload
-          // Source maps: generate hidden maps in production, upload to Sentry.
-          sourcemaps: {
-            assets: './dist/**',
-            ignore: ['node_modules'],
-          },
-          // Disable in dev mode — Sentry Vite plugin interferes with HMR.
-          disabled: mode === 'development',
-        }),
-    ].filter(Boolean),
+      ...(sentryDsn
+        ? [
+            // Disable in dev mode — Sentry Vite plugin interferes with HMR.
+            // The option is `disable` (`disabled` is silently ignored, which is
+            // what this file shipped with until now).
+            sentryVitePlugin({
+              org: 'sentry',
+              project: 'tauri-desktop-software-template',
+              authToken: process.env['SENTRY_AUTH_TOKEN'], // needed for source map upload
+              // Source maps: generate hidden maps in production, upload to Sentry.
+              sourcemaps: {
+                assets: './dist/**',
+                ignore: ['node_modules'],
+              },
+              disable: mode === 'development',
+            }),
+          ]
+        : []),
+    ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src'),
+        '@': path.resolve(import.meta.dirname, './src'),
       },
     },
     build: {
@@ -54,8 +59,8 @@ export default defineConfig(async ({ mode }) => {
       sourcemap: mode === 'production' ? 'hidden' : false,
       rolldownOptions: {
         input: {
-          main: resolve(__dirname, 'index.html'),
-          'quick-pane': resolve(__dirname, 'quick-pane.html'),
+          main: resolve(import.meta.dirname, 'index.html'),
+          'quick-pane': resolve(import.meta.dirname, 'quick-pane.html'),
         },
       },
     },
@@ -68,17 +73,23 @@ export default defineConfig(async ({ mode }) => {
     port: 1420,
     strictPort: true,
     host: host || false,
-    hmr: host
+    // Omit `hmr` when TAURI_DEV_HOST is unset: assigning `undefined` breaks
+    // exactOptionalPropertyTypes.
+    ...(host
       ? {
-          protocol: 'ws',
-          host,
-          port: 1421,
+          hmr: {
+            protocol: 'ws' as const,
+            host,
+            port: 1421,
+          },
         }
-      : undefined,
+      : {}),
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ['**/src-tauri/**'],
     },
   },
   }
+
+  return config
 })

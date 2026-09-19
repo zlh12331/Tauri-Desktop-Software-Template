@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { usePanelRef } from 'react-resizable-panels'
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -26,6 +28,9 @@ import {
  * Layout sizing configuration for resizable panels.
  * All values are percentages of total width.
  * Sidebar defaults + main default must equal 100.
+ *
+ * react-resizable-panels v4 reads bare numbers as pixels, so these are
+ * interpolated into unit-less strings at the call sites to stay percentages.
  */
 const LAYOUT = {
   leftSidebar: { default: 20, min: 15, max: 40 },
@@ -46,20 +51,41 @@ export function MainWindow() {
     (state: SidebarState) => state.rightSidebarVisible
   )
 
+  const leftPanelRef = usePanelRef()
+  const rightPanelRef = usePanelRef()
+
   // Set up global event listeners (keyboard shortcuts, etc.)
   useMainWindowEventListeners()
+
+  // v4 applies className to a nested div, so `hidden` no longer removes the
+  // panel itself — collapse it to zero width instead.
+  useEffect(() => {
+    const panel = leftPanelRef.current
+    if (!panel) return
+    if (leftSidebarVisible) panel.expand()
+    else panel.collapse()
+  }, [leftPanelRef, leftSidebarVisible])
+
+  useEffect(() => {
+    const panel = rightPanelRef.current
+    if (!panel) return
+    if (rightSidebarVisible) panel.expand()
+    else panel.collapse()
+  }, [rightPanelRef, rightSidebarVisible])
 
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden rounded-[var(--app-corner-radius)] bg-background">
       <TitleBar />
 
       <div className="flex flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
+        <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel
-            defaultSize={LAYOUT.leftSidebar.default}
-            minSize={LAYOUT.leftSidebar.min}
-            maxSize={LAYOUT.leftSidebar.max}
-            className={cn(!leftSidebarVisible && 'hidden')}
+            panelRef={leftPanelRef}
+            defaultSize={`${LAYOUT.leftSidebar.default}`}
+            minSize={`${LAYOUT.leftSidebar.min}`}
+            maxSize={`${LAYOUT.leftSidebar.max}`}
+            collapsible
+            collapsedSize={0}
           >
             <motion.div
               variants={slideRightVariants}
@@ -72,22 +98,30 @@ export function MainWindow() {
             </motion.div>
           </ResizablePanel>
 
-          <ResizableHandle className={cn(!leftSidebarVisible && 'hidden')} />
+          <ResizableHandle
+            disabled={!leftSidebarVisible}
+            className={cn(!leftSidebarVisible && 'hidden')}
+          />
 
           <ResizablePanel
-            defaultSize={MAIN_CONTENT_DEFAULT}
-            minSize={LAYOUT.main.min}
+            defaultSize={`${MAIN_CONTENT_DEFAULT}`}
+            minSize={`${LAYOUT.main.min}`}
           >
             <MainWindowContent />
           </ResizablePanel>
 
-          <ResizableHandle className={cn(!rightSidebarVisible && 'hidden')} />
+          <ResizableHandle
+            disabled={!rightSidebarVisible}
+            className={cn(!rightSidebarVisible && 'hidden')}
+          />
 
           <ResizablePanel
-            defaultSize={LAYOUT.rightSidebar.default}
-            minSize={LAYOUT.rightSidebar.min}
-            maxSize={LAYOUT.rightSidebar.max}
-            className={cn(!rightSidebarVisible && 'hidden')}
+            panelRef={rightPanelRef}
+            defaultSize={`${LAYOUT.rightSidebar.default}`}
+            minSize={`${LAYOUT.rightSidebar.min}`}
+            maxSize={`${LAYOUT.rightSidebar.max}`}
+            collapsible
+            collapsedSize={0}
           >
             <motion.div
               variants={slideLeftVariants}

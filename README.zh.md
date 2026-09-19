@@ -27,7 +27,7 @@
 - **双层崩溃报告** — Rust panic 钩子将崩溃写入磁盘（即使在 OOM 下也能存活），Sentry 同意门控尊重用户隐私，敏感数据在上传前脱敏。
 - **NSPanel 浮动窗口** — 原生 macOS `NSPanel` 集成，实现类 Spotlight 的快捷面板，可跨所有 Space 浮动；Windows/Linux 优雅降级为 `always_on_top`。
 - **架构强制执行** — ast-grep 规则在 CI 阶段拦截反模式：`lib/` 中禁止 Hook、纯逻辑中禁止 Store 订阅、禁止 Zustand 解构。
-- **1,457 个测试** — 1011 前端 + 430 Rust + 16 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
+- **1,527 个测试** — 1013 前端 + 417 Rust + 97 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
 
 ## 快速开始
 
@@ -48,21 +48,21 @@ npm run tauri:dev
 
 ## 特性概览
 
-| 领域         | 开箱即得的能力                                                                        |
-| ------------ | ------------------------------------------------------------------------------------- |
-| **IPC**      | 17 个类型安全命令 + 10 变体 `AppError`，带稳定错误码（`ERR_IO`、`ERR_VALIDATION` 等） |
-| **可靠性**   | 自动更新（minisign 签名验证）、双层崩溃报告、原子化偏好写入                           |
-| **用户体验** | 命令面板（`Cmd+K`）、跨平台标题栏、系统托盘、全局快捷键、深链接                       |
-| **平台能力** | macOS NSPanel + 毛玻璃、Windows 无边框、Linux 原生装饰                                |
-| **工程质量** | 15+ 质量门禁、三层 Rust 测试、axe 无障碍 E2E、cargo-deny                              |
-| **AI 友好**  | `AGENTS.md` 规则、26 篇开发者文档，讲透每个模式背后的"为什么"                         |
+| 领域         | 开箱即得的能力                                                                      |
+| ------------ | ----------------------------------------------------------------------------------- |
+| **IPC**      | 17 个类型安全命令 + 10 变体 `AppError`，序列化为 `{ kind, message }` 可辨识联合类型 |
+| **可靠性**   | 自动更新（minisign 签名验证）、双层崩溃报告、原子化偏好写入                         |
+| **用户体验** | 命令面板（`Cmd+K`）、跨平台标题栏、系统托盘、全局快捷键、深链接                     |
+| **平台能力** | macOS NSPanel + 毛玻璃、Windows 无边框、Linux 原生装饰                              |
+| **工程质量** | 15+ 质量门禁、三层 Rust 测试、axe 无障碍 E2E、cargo-deny                            |
+| **AI 友好**  | `AGENTS.md` 规则、26 篇开发者文档，讲透每个模式背后的"为什么"                       |
 
 ## 核心特性详解
 
 ### 端到端类型安全
 
 - **17 个 Tauri 命令** 通过 [tauri-specta](https://github.com/specta-rs/tauri-specta) 从 Rust 自动生成类型——前端调用 `commands.savePreferences(prefs)` 获得的是 `Result<AppPreferences, AppError>` 联合类型，而不是 `Promise<any>`。
-- **10 变体 `AppError` 枚举**，使用 `#[serde(tag = "kind", content = "message")]`——结构化错误从 Rust 流向 TypeScript，带稳定可匹配的错误码。
+- **10 变体 `AppError` 枚举**，使用 `#[serde(tag = "kind", content = "message")]`——结构化错误从 Rust 流向 TypeScript，成为以 Rust 变体名为 `kind` 的可辨识联合类型，可用 `switch` 穷尽收窄。
 - **Schema-first 表单** — Zod schema 同时作为运行时验证和 TypeScript 类型的唯一来源；`react-hook-form` + `zodResolver` 将其连接到 UI。
 - **编译时 i18n** — 翻译键经过类型检查，`t('prefrences.title')` 是编译错误，而非运行时事故。
 
@@ -74,7 +74,7 @@ npm run tauri:dev
 | Windows | 无边框            | 右侧控件   | `.msi`      |
 | Linux   | 原生 + 工具栏     | 原生       | `.AppImage` |
 
-平台检测缓存在模块级（`usePlatform()` Hook）。各平台独立 Tauri 配置覆盖处理窗口装饰、透明度和毛玻璃效果；平台特定 UI 字符串集中管理在 `lib/platform-strings.ts`。
+平台检测缓存在模块级（`usePlatform()` Hook）。各平台独立 Tauri 配置覆盖处理窗口装饰、透明度和毛玻璃效果。
 
 ### 生产级基础设施
 
@@ -189,9 +189,9 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 | `npm run tauri:build`     | 构建当前平台桌面应用                  |
 | `npm run check:all`       | 运行全部 15+ 质量门禁                 |
 | `npm run fix:all`         | 自动修复所有可修复的问题              |
-| `npm run test:run`        | 运行 Vitest 单元测试（1011 个）       |
-| `npm run rust:test`       | 运行 Rust 测试（430 个）              |
-| `npm run e2e`             | 运行 Playwright E2E 测试（16 个场景） |
+| `npm run test:run`        | 运行 Vitest 单元测试（1013 个）       |
+| `npm run rust:test`       | 运行 Rust 测试（417 个）              |
+| `npm run e2e`             | 运行 Playwright E2E 测试（97 个场景） |
 | `npm run rust:bindings`   | 重新生成 tauri-specta TypeScript 类型 |
 | `npm run release:prepare` | 准备发布（版本号更新 + 检查）         |
 

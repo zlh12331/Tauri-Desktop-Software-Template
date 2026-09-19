@@ -45,6 +45,21 @@ npm run lint:fix    # 自动修复问题
 
 配置在 `eslint.config.js`。
 
+**有意钉住的版本（不要再抬）：**
+
+- `brace-expansion` 只在真正需要它的那个子树里留在 1.x 线上。`package.json` 把它在
+  `eslint-plugin-react → minimatch` 这一子树内 override 成 `^1.1.18`。1.x 的上限不是我们
+  定的：`minimatch@3.1.5` 自己声明的是 `brace-expansion@^1.1.7`，所以 5.x 永远不可能在该
+  子树内解析出来。caret 仍然浮动，因此该子树照旧接收 1.x 的补丁（实装 `1.1.21`）——这条
+  override 抬的是下限，不是把版本冻住。没有任何东西被它拖住——`glob`、`i18next-cli`、
+  `@typescript-eslint/typescript-estree` 各自在自己嵌套的 `minimatch@10.2.6` 下解析到
+  `brace-expansion@5.0.12`。这里刻意不再保留直接的 `brace-expansion` 依赖：起作用的只有
+  override 本身，多一条直接依赖只会让 `npm outdated` 和 Dependabot 报出一个被钉住的子树
+  根本无法接受的 `1.1.21 → 5.0.12` 升级。只有当 `eslint-plugin-react` 不再依赖
+  `minimatch@3` 时才需要重新评估，届时删掉这条 override。
+- `jsdom` 留在 29.x 是另一个原因：jsdom 30 下，同一个测试文件里后面的用例无法再次打开 Radix
+  Select。见 `src/test/setup.ts` 顶部的说明。
+
 ### Prettier
 
 一致的代码格式化。

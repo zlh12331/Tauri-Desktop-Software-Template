@@ -15,8 +15,11 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, basename, extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = new URL('..', import.meta.url).pathname
+// `.pathname` keeps a leading slash on Windows (`/F:/...`), which then
+// double-joins into `F:\F:\...` — Linux CI never sees it.
+const root = fileURLToPath(new URL('..', import.meta.url))
 const docsDir = join(root, 'docs')
 
 /** 递归收集目录下所有 `.md` 文件的相对路径列表。 */

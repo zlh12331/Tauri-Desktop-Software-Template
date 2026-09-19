@@ -27,7 +27,7 @@ Most Tauri starters hand you a "hello world" and leave the hard parts to you. Th
 - **Dual-layer crash reporting** — a Rust panic hook captures crashes to disk (surviving even OOM), a Sentry consent gate respects user privacy, and sensitive data is redacted before anything leaves the device.
 - **NSPanel floating window** — a native macOS `NSPanel` integration for a Spotlight-style quick pane that floats across all Spaces, with a graceful `always_on_top` fallback on Windows and Linux.
 - **Enforced architecture** — ast-grep rules block anti-patterns at CI time: no React hooks in `lib/`, no store subscriptions in pure logic, no Zustand destructuring.
-- **1,457 tests** — 1011 frontend + 430 Rust + 16 E2E, including WCAG 2.1 AA accessibility audits. Every command is tested at three layers: pure function, mocked runtime, and full integration.
+- **1,527 tests** — 1013 frontend + 417 Rust + 97 E2E, including WCAG 2.1 AA accessibility audits. Every command is tested at three layers: pure function, mocked runtime, and full integration.
 
 ## Quick Start
 
@@ -48,21 +48,21 @@ The app launches as a desktop window (frontend dev server runs at `http://localh
 
 ## Features at a Glance
 
-| Area            | What you get out of the box                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------------- |
-| **IPC**         | 17 typed commands + 10-variant `AppError` with stable error codes (`ERR_IO`, `ERR_VALIDATION`, ...) |
-| **Reliability** | Auto-updates with minisign verification, dual-layer crash reporting, atomic preference writes       |
-| **UX**          | Command palette (`Cmd+K`), cross-platform title bar, system tray, global shortcuts, deep links      |
-| **Platform**    | macOS NSPanel + vibrancy, Windows frameless window, Linux native decorations                        |
-| **Engineering** | 15+ quality gates, three-layer Rust testing, E2E with axe accessibility audits, cargo-deny          |
-| **AI-ready**    | `AGENTS.md` rules, 26 developer docs explaining the _why_ behind every pattern                      |
+| Area            | What you get out of the box                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| **IPC**         | 17 typed commands + 10-variant `AppError` serialized as a `{ kind, message }` discriminated union |
+| **Reliability** | Auto-updates with minisign verification, dual-layer crash reporting, atomic preference writes     |
+| **UX**          | Command palette (`Cmd+K`), cross-platform title bar, system tray, global shortcuts, deep links    |
+| **Platform**    | macOS NSPanel + vibrancy, Windows frameless window, Linux native decorations                      |
+| **Engineering** | 15+ quality gates, three-layer Rust testing, E2E with axe accessibility audits, cargo-deny        |
+| **AI-ready**    | `AGENTS.md` rules, 26 developer docs explaining the _why_ behind every pattern                    |
 
 ## Feature Deep Dive
 
 ### Type-Safe End-to-End
 
 - **17 Tauri commands** with types auto-generated from Rust via [tauri-specta](https://github.com/specta-rs/tauri-specta) — the frontend calls `commands.savePreferences(prefs)` and receives a `Result<AppPreferences, AppError>` union type, never a `Promise<any>`.
-- **10-variant `AppError` enum** with `#[serde(tag = "kind", content = "message")]` — structured errors flow from Rust to TypeScript with stable, matchable codes.
+- **10-variant `AppError` enum** with `#[serde(tag = "kind", content = "message")]` — structured errors flow from Rust to TypeScript as a discriminated union whose `kind` is the Rust variant name, so `switch` on it can be narrowed exhaustively.
 - **Schema-first forms** — Zod schemas are the single source of truth for both runtime validation and TypeScript types; `react-hook-form` + `zodResolver` wire them into the UI.
 - **Compile-time i18n** — translation keys are type-checked, so `t('prefrences.title')` is a build error, not a runtime surprise.
 
@@ -74,7 +74,7 @@ The app launches as a desktop window (frontend dev server runs at `http://localh
 | Windows  | Frameless              | Right side      | `.msi`      |
 | Linux    | Native + toolbar       | Native          | `.AppImage` |
 
-Platform detection is cached at module level (`usePlatform()`). Per-platform Tauri config overlays handle decorations, transparency, and vibrancy; platform-specific UI strings are centralized in `lib/platform-strings.ts`.
+Platform detection is cached at module level (`usePlatform()`). Per-platform Tauri config overlays handle decorations, transparency, and vibrancy.
 
 ### Production Infrastructure
 
@@ -189,9 +189,9 @@ Three AST rules are enforced in CI:
 | `npm run tauri:build`     | Build desktop app for current platform    |
 | `npm run check:all`       | Run all 15+ quality gates                 |
 | `npm run fix:all`         | Auto-fix all fixable issues               |
-| `npm run test:run`        | Run Vitest unit tests (1011 tests)        |
-| `npm run rust:test`       | Run Rust tests (430 tests)                |
-| `npm run e2e`             | Run Playwright E2E tests (16 scenarios)   |
+| `npm run test:run`        | Run Vitest unit tests (1013 tests)        |
+| `npm run rust:test`       | Run Rust tests (417 tests)                |
+| `npm run e2e`             | Run Playwright E2E tests (97 scenarios)   |
 | `npm run rust:bindings`   | Regenerate tauri-specta TypeScript types  |
 | `npm run release:prepare` | Prepare a release (version bump + checks) |
 

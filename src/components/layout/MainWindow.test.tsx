@@ -12,19 +12,34 @@ vi.mock('@/components/ui/resizable', () => ({
   ),
   ResizablePanel: ({
     defaultSize,
-    className,
+    collapsible,
     children,
   }: {
-    defaultSize?: number
-    className?: string
+    defaultSize?: string
+    collapsible?: boolean
     children: React.ReactNode
   }) => (
-    <div data-testid="panel" data-size={defaultSize} className={className}>
+    <div
+      data-testid="panel"
+      data-size={defaultSize}
+      data-size-type={typeof defaultSize}
+      data-collapsible={collapsible ? 'true' : 'false'}
+    >
       {children}
     </div>
   ),
-  ResizableHandle: ({ className }: { className?: string }) => (
-    <div data-testid="panel-handle" className={className} />
+  ResizableHandle: ({
+    className,
+    disabled,
+  }: {
+    className?: string
+    disabled?: boolean
+  }) => (
+    <div
+      data-testid="panel-handle"
+      className={className}
+      data-disabled={disabled ? 'true' : 'false'}
+    />
   ),
 }))
 
@@ -111,39 +126,51 @@ describe('MainWindow', () => {
   })
 
   describe('边界用例 — 侧边栏可见性', () => {
-    it('左侧栏可见时 panel 不含 hidden 类', () => {
+    it('panel 折叠能力已接线，尺寸以字符串百分比传入', () => {
       useSidebarStore.setState({ leftSidebarVisible: true })
       render(<MainWindow />)
       const leftPanel = screen.getAllByTestId('panel')[0] as HTMLElement
-      expect(leftPanel.className).not.toContain('hidden')
+      expect(leftPanel).toHaveAttribute('data-collapsible', 'true')
+      // v4 把裸数字当像素，百分比必须是字符串
+      expect(leftPanel).toHaveAttribute('data-size-type', 'string')
+      expect(leftPanel).toHaveAttribute('data-size', '20')
     })
 
-    it('左侧栏隐藏时左侧 panel 含 hidden 类', () => {
+    it('左侧栏可见时 handle 无 hidden 类且可拖拽', () => {
+      useSidebarStore.setState({ leftSidebarVisible: true })
+      render(<MainWindow />)
+      const leftHandle = screen.getAllByTestId('panel-handle')[0] as HTMLElement
+      expect(leftHandle.className).not.toContain('hidden')
+      expect(leftHandle).toHaveAttribute('data-disabled', 'false')
+    })
+
+    it('左侧栏隐藏时 handle 隐藏并禁用', () => {
       useSidebarStore.setState({ leftSidebarVisible: false })
       render(<MainWindow />)
-      const leftPanel = screen.getAllByTestId('panel')[0] as HTMLElement
-      expect(leftPanel.className).toContain('hidden')
-      // 隐藏时 handle 也隐藏
       const leftHandle = screen.getAllByTestId('panel-handle')[0] as HTMLElement
       expect(leftHandle.className).toContain('hidden')
+      expect(leftHandle).toHaveAttribute('data-disabled', 'true')
     })
 
-    it('右侧栏隐藏时右侧 panel 含 hidden 类', () => {
+    it('右侧栏隐藏时右侧 handle 隐藏并禁用', () => {
       useSidebarStore.setState({ rightSidebarVisible: false })
       render(<MainWindow />)
-      const rightPanel = screen.getAllByTestId('panel')[2] as HTMLElement
-      expect(rightPanel.className).toContain('hidden')
+      const rightHandle = screen.getAllByTestId(
+        'panel-handle'
+      )[1] as HTMLElement
+      expect(rightHandle.className).toContain('hidden')
+      expect(rightHandle).toHaveAttribute('data-disabled', 'true')
     })
 
-    it('两侧栏均可见时无 hidden 类', () => {
+    it('两侧栏均可见时 handle 均无 hidden 类', () => {
       useSidebarStore.setState({
         leftSidebarVisible: true,
         rightSidebarVisible: true,
       })
       render(<MainWindow />)
-      const panels = screen.getAllByTestId('panel')
-      for (const p of panels) {
-        expect(p.className).not.toContain('hidden')
+      const handles = screen.getAllByTestId('panel-handle')
+      for (const h of handles) {
+        expect(h.className).not.toContain('hidden')
       }
     })
   })

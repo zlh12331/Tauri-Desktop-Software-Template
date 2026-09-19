@@ -106,8 +106,8 @@ chore(deps): upgrade tauri to 2.11.5
 | `npm run lint`         | ESLint (0 warnings allowed)         |
 | `npm run ast:lint`     | ast-grep architecture rules         |
 | `npm run format:check` | Prettier format check               |
-| `npm run test:run`     | Vitest unit tests (821 tests)       |
-| `npm run e2e`          | Playwright E2E tests (16 scenarios) |
+| `npm run test:run`     | Vitest unit tests (1013 tests)      |
+| `npm run e2e`          | Playwright E2E tests (97 scenarios) |
 | `npm run knip`         | Dead code detection                 |
 | `npm run jscpd`        | Code duplication detection          |
 
@@ -117,7 +117,7 @@ chore(deps): upgrade tauri to 2.11.5
 | ----------------------------- | ------------------------- |
 | `cargo fmt --check`           | Rust formatting check     |
 | `cargo clippy -- -D warnings` | Rust linting (0 warnings) |
-| `cargo test`                  | Rust tests (239 tests)    |
+| `cargo test`                  | Rust tests (417 tests)    |
 
 ### All-in-one
 
@@ -132,11 +132,11 @@ This project uses a three-layer testing strategy:
 
 ### Frontend Unit Tests (Vitest)
 
-- 821 tests across 46 test files
+- 1013 tests across 57 test files
 - Testing Library + jsdom environment
 - Tauri APIs mocked in `src/test/setup.ts`
 - Custom render helper in `src/test/test-utils.tsx` (wraps QueryClient + i18n + ThemeProvider)
-- Coverage threshold: 60% (lines, functions, branches, statements)
+- Coverage threshold: 80% (lines, functions, branches, statements)
 
 ### E2E Tests (Playwright)
 
@@ -144,14 +144,17 @@ This project uses a three-layer testing strategy:
 - Runs against Vite dev server with mocked Tauri APIs
 - Complete Tauri runtime mock in `e2e/mocks/tauri-mock.ts`
 - Includes WCAG 2.1 AA accessibility audits via `@axe-core/playwright`
+- Axe must not sample a dialog mid-fade: half-transparent nodes composite toward the
+  page background and produce false `color-contrast` violations, so the helpers wait for
+  full opacity (opening) or for `[cmdk-root]` to leave the DOM (closing)
 - Chromium only (matches Tauri's WebView2/WebKit usage)
 
 ### Rust Tests (cargo test)
 
-- 239 tests (inline unit tests + 3 integration test files)
+- 417 tests (294 inline unit tests + 122 across 6 integration test files + 1 doc-test)
 - Three-layer architecture: `#[tauri::command]` wrapper -> `_impl<R: Runtime>` generic -> `_to_path()` pure function
 - Uses `MockRuntime` for AppHandle mocking and `TempDir` for filesystem isolation
-- Coverage threshold: 60% lines (CI enforced via `cargo +nightly llvm-cov`)
+- Coverage threshold: 75% lines (CI enforced via `cargo +nightly llvm-cov`)
 
 ### Adding Tauri Commands
 

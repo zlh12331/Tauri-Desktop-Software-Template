@@ -122,8 +122,8 @@ src/
 │   ├── preferences/     # Preferences dialog with panes (general, appearance, advanced)
 │   ├── quick-pane/      # Quick pane floating window app
 │   ├── crash-report/    # Crash report consent dialog
-│   └── ui/              # shadcn/ui base components (36 components)
-├── hooks/               # Custom React hooks (10 hooks)
+│   └── ui/              # shadcn/ui base components (37 components)
+├── hooks/               # Custom React hooks (11 hooks)
 ├── i18n/                # Internationalization config (i18next + react-i18next)
 ├── lib/
 │   ├── commands/        # Command system implementation (registry + command groups)

@@ -1,4 +1,11 @@
+import type { Locator } from '@playwright/test'
 import { test, expect } from './fixtures'
+
+const boxOf = async (locator: Locator) => {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('Element has no layout box')
+  return box
+}
 
 test.describe('Sidebar toggle', () => {
   test.beforeEach(async ({ mockPage }) => {
@@ -78,5 +85,41 @@ test.describe('Sidebar toggle', () => {
     // Both sidebars are visible at the same time
     await expect(leftSidebar).toBeVisible()
     await expect(rightSidebar).toBeVisible()
+  })
+
+  test('left sidebar keeps a percentage width and grows when its handle is dragged', async ({
+    mockPage,
+  }) => {
+    const leftSidebar = mockPage
+      .locator('[data-slot="resizable-panel"]')
+      .first()
+    const group = mockPage.locator('[data-slot="resizable-panel-group"]')
+    const leftHandle = mockPage
+      .locator('[data-slot="resizable-handle"]')
+      .first()
+
+    // react-resizable-panels v4 reads a bare number as pixels, so a `defaultSize`
+    // regression would leave a 20px panel clamped up to `minSize` (15%) — still
+    // "visible", so only a measurement against the 20% default catches it.
+    const groupWidth = (await boxOf(group)).width
+    const initialWidth = (await boxOf(leftSidebar)).width
+    const initialRatio = initialWidth / groupWidth
+    expect(initialRatio).toBeGreaterThan(0.18)
+    expect(initialRatio).toBeLessThan(0.22)
+
+    const handle = await boxOf(leftHandle)
+    const handleX = handle.x + handle.width / 2
+    const handleY = handle.y + handle.height / 2
+
+    await mockPage.mouse.move(handleX, handleY)
+    await mockPage.mouse.down()
+    await mockPage.mouse.move(handleX + 120, handleY, { steps: 12 })
+    await mockPage.mouse.up()
+
+    await expect
+      .poll(async () => (await boxOf(leftSidebar)).width, {
+        message: 'Left panel should follow the handle to the right',
+      })
+      .toBeGreaterThan(initialWidth + 80)
   })
 })

@@ -172,9 +172,37 @@ All user action entry points route through `executeCommand()`:
 
 This ensures `isAvailable` checks are always enforced and actions are consistent across all entry points.
 
+### Result Shape
+
+`executeCommand()` never throws. It resolves to a flat envelope:
+
+```typescript
+type CommandResult = { success: boolean; error?: string }
+```
+
+`error` is already a user-displayable string (`Command 'x' not found`,
+`Command 'x' is not available`, or `Failed to execute command 'x': <message>`), so
+entry points can hand it straight to a toast:
+
+```typescript
+const result = await executeCommand(commandId, context)
+if (!result.success && result.error) {
+  context.showToast(result.error, 'error') // CommandPalette.tsx, TitleBarContent.tsx
+}
+```
+
+Do not confuse this with the Rust IPC envelope from `@/lib/tauri-bindings`, where
+`result.error` is an `AppError` **object** and you need `result.error.message` /
+`result.error.kind`. Some entry points ignore the envelope on purpose — `menu.ts`
+calls `void executeCommand(...)`, and `MacOSWindowControls.tsx` awaits without
+checking — because the window commands already toast their own failures from inside
+`execute()`. See `docs/developer/error-handling.en.md` → Two Result Conventions.
+
 ## Key Simplifications
 
 - ✅ **Registry**: Extensible Map-based storage
+- ✅ **Test isolation**: `clearCommands()` empties that Map, which is module state and
+  therefore survives between tests in the same file unless a `beforeEach` resets it
 - ✅ **Performance**: Direct getState() access in commands
 - ✅ **Essential Context**: Only actions, no state subscriptions
 - ✅ **Routing**: All entry points (shortcuts, menu, palette) use executeCommand()

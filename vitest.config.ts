@@ -6,11 +6,11 @@ import path from 'path'
 export default defineConfig({
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
       // Workaround: Vite's package exports resolver fails on non-ASCII paths.
       // Map the subpath export directly to the physical file.
       '@testing-library/jest-dom/vitest': path.resolve(
-        __dirname,
+        import.meta.dirname,
         'node_modules/@testing-library/jest-dom/dist/vitest.mjs'
       ),
     },
@@ -18,6 +18,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Vitest 5 enables automatic mock cleanup by default, which wipes the call
+    // records made by module-scope `await import()` side effects in
+    // i18n/config.test.ts and theme-context.test.ts. Keep v4 semantics.
+    clearMocks: false,
+    mockReset: false,
+    restoreMocks: false,
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['node_modules', 'dist', 'e2e', 'playwright-report', 'test-results'],
