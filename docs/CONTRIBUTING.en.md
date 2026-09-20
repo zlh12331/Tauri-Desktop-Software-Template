@@ -51,20 +51,25 @@ npm run check:all
 
 - Use `cargo fmt` and `cargo clippy`
 - Use `Result<T, AppError>` for Tauri commands (see `src-tauri/src/error.rs`)
-- See `docs/developer/rust-architecture.en.md`
+- See `docs/developer/error-handling.en.md` and `docs/developer/architecture-guide.en.md`
 
 ## Quality Gates
 
-All PRs must pass `npm run check:all`, which includes:
+All PRs must pass `npm run check:all`, which chains:
 
-- TypeScript type checking (`tsc --noEmit`)
-- ESLint with strict rules
-- Prettier format check
-- ast-grep architecture rules (3 rules: hooks-in-hooks-dir, no-store-in-lib, no-destructure)
-- React Compiler validation
-- Rust `cargo fmt` and `cargo clippy`
-- Vitest unit tests (800+ tests)
-- Rust `cargo test` (200+ tests)
+- `npm run typecheck` — `tsc --noEmit` for the app and the Node-side configs
+- `npm run lint` — ESLint with `--max-warnings 0`, including react-hooks and react-compiler rules
+- `npm run cspell:check` — spell check over `src/`, `locales/`, `docs/`, and config files
+- `npm run ast:lint` — 6 ast-grep architecture rules: `hooks-in-hooks-dir`, `no-console`,
+  `no-direct-invoke`, `no-store-in-lib`, `no-ts-ignore`, `no-destructure`
+- `npm run format:check` — Prettier
+- `npm run i18n:check` — catalog drift, missing keys, `{{placeholder}}` alignment
+- `npm run rust:fmt:check`, `npm run rust:clippy`, `npm run rust:machete`
+- `npm run test:run` — Vitest unit tests (1013 tests)
+- `npm run rust:test` — Rust `cargo test` (417 tests)
+
+Playwright E2E (97 scenarios) is **not** in `check:all`; CI runs it as its own job.
+Locally use `npm run e2e`.
 
 Additional tools (run manually):
 
@@ -83,7 +88,9 @@ refactor(store): simplify state management
 test: add preferences tests
 ```
 
-Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`,
+`chore`, `revert` — the list enforced by `commitlint.config.js`, and a header longer
+than 100 characters is rejected too.
 
 ## Code Review
 

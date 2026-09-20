@@ -202,12 +202,10 @@ async function prepareRelease() {
       exec(['git', 'push', 'origin', 'main', '--tags'])
 
       console.log(`\n🎊 Release ${tagVersion} has been published!`)
-      console.log(
-        '📱 Check GitHub Actions: https://github.com/YOUR_USERNAME/YOUR_REPO/actions'
-      )
-      console.log(
-        '📦 Draft release will appear at: https://github.com/YOUR_USERNAME/YOUR_REPO/releases'
-      )
+      // Point at the current repository through gh, so the hint stays correct
+      // after a fork renames itself.
+      console.log('📱 Check GitHub Actions: gh run list')
+      console.log(`📦 Draft release: gh release view ${tagVersion} --web`)
       console.log(
         '\n⚠️  Remember: You need to manually publish the draft release on GitHub!'
       )
