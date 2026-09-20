@@ -156,12 +156,18 @@ pub struct MyType {
 // src-tauri/src/bindings.rs
 
 pub fn generate_bindings() -> Builder<tauri::Wry> {
+    use crate::commands::preferences; // 现有的 use 行就在这个函数内部
+
     Builder::<tauri::Wry>::new().commands(collect_commands![
         // ... 现有命令
-        crate::my_new_command,  // 在此添加
+        preferences::my_new_command, // 在此添加
     ])
 }
 ```
+
+命令按领域分组放在 `src-tauri/src/commands/`（`preferences`、`recovery`、`quick_pane`、
+`tray`、`crash_report`、`notifications`）——把函数加进负责该领域的模块，再用对应的模块
+路径登记。
 
 ### 4. 重新生成 TypeScript 绑定
 

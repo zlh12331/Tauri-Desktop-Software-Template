@@ -248,27 +248,31 @@ toast 重复弹出。
 对于多步操作，失败时回滚：
 
 ```typescript
-// ✅ 好：失败时回滚
-const handleChange = async (newValue: string) => {
-  const oldValue = currentValue
+// ✅ 好：持久化失败时回滚缓存
+const changeTheme = async (theme: string) => {
+  const previousPreferences = queryClient.getQueryData<AppPreferences>(
+    preferencesQueryKeys.preferences()
+  )
 
-  // 步骤 1：更新后端
-  const result = await commands.updateValue(newValue)
-  if (result.status === 'error') {
-    toast.error('更新失败')
-    return
-  }
+  queryClient.setQueryData(preferencesQueryKeys.preferences(), {
+    ...previousPreferences,
+    theme,
+  })
 
-  // 步骤 2：持久化
   try {
-    await savePreferences.mutateAsync({ ...prefs, value: newValue })
+    // useSavePreferences() 已经解包 AppError、弹出 toast 并重新抛出。
+    await savePreferences.mutateAsync({ ...previousPreferences, theme })
   } catch {
-    // 回滚步骤 1
-    await commands.updateValue(oldValue)
-    toast.error('保存失败，更改已回滚')
+    queryClient.setQueryData(
+      preferencesQueryKeys.preferences(),
+      previousPreferences
+    )
   }
 }
 ```
+
+catch 块里只做「撤销」这一件事。[`useSavePreferences()`](../../src/queries/preferences.ts)
+是唯一把 `AppError` 转成 toast 的地方，这里再弹一次会让同一个失败被报告两遍。
 
 ## 快速参考
 

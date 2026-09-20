@@ -28,11 +28,20 @@
 
 ```typescript
 const { data, isLoading, error } = useQuery({
-  queryKey: ['user', userId],
-  queryFn: () => commands.getUser({ userId }),
-  enabled: !!userId,
+  queryKey: ['preferences'],
+  queryFn: async () => {
+    const result = await commands.loadPreferences()
+    if (result.status === 'error') throw new Error(result.error.message)
+    return result.data
+  },
 })
 ```
+
+`queryFn` 必须自己解开 Rust 的 `{ status, data }` 信封——项目里没有 `unwrapResult`
+这样的辅助函数，而直接把信封返回会让 `error` 永远为 `null`。抛出 `Error` 才能让
+`AppError` 进入查询的错误状态。随模板发货的
+[`usePreferences()`](../../src/queries/preferences.ts) 刻意不抛错：首次启动时偏好设置
+文件本来就不存在，属于正常情况，所以它只记录一条警告并返回默认值。
 
 有关重试配置和错误显示模式，请参阅 [error-handling.md](./error-handling.zh.md)。
 

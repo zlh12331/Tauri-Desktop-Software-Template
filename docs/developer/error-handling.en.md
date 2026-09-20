@@ -255,27 +255,32 @@ For async Tauri command errors, handle them at the call site or unwrap and throw
 For multi-step operations, rollback on failure:
 
 ```typescript
-// ✅ GOOD: Rollback on failure
-const handleChange = async (newValue: string) => {
-  const oldValue = currentValue
+// ✅ GOOD: Roll the cache back when the persist step fails
+const changeTheme = async (theme: string) => {
+  const previousPreferences = queryClient.getQueryData<AppPreferences>(
+    preferencesQueryKeys.preferences()
+  )
 
-  // Step 1: Update backend
-  const result = await commands.updateValue(newValue)
-  if (result.status === 'error') {
-    toast.error('Update failed')
-    return
-  }
+  queryClient.setQueryData(preferencesQueryKeys.preferences(), {
+    ...previousPreferences,
+    theme,
+  })
 
-  // Step 2: Persist
   try {
-    await savePreferences.mutateAsync({ ...prefs, value: newValue })
+    // useSavePreferences() already unwraps AppError, toasts, and re-throws.
+    await savePreferences.mutateAsync({ ...previousPreferences, theme })
   } catch {
-    // Rollback step 1
-    await commands.updateValue(oldValue)
-    toast.error('Save failed, changes reverted')
+    queryClient.setQueryData(
+      preferencesQueryKeys.preferences(),
+      previousPreferences
+    )
   }
 }
 ```
+
+Keep the catch block to the undo only. [`useSavePreferences()`](../../src/queries/preferences.ts)
+is the single place that turns an `AppError` into a toast, so a second toast here
+would report one failure twice.
 
 ## Quick Reference
 

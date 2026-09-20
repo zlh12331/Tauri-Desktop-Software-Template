@@ -158,12 +158,18 @@ pub struct MyType {
 // src-tauri/src/bindings.rs
 
 pub fn generate_bindings() -> Builder<tauri::Wry> {
+    use crate::commands::preferences; // existing `use` lines live inside the fn
+
     Builder::<tauri::Wry>::new().commands(collect_commands![
         // ... existing commands
-        crate::my_new_command,  // Add here
+        preferences::my_new_command, // Add here
     ])
 }
 ```
+
+Commands live in `src-tauri/src/commands/`, grouped by domain (`preferences`,
+`recovery`, `quick_pane`, `tray`, `crash_report`, `notifications`) — add your
+function to the module that owns the domain, then list it under that module path.
 
 ### 4. Regenerate TypeScript bindings
 
