@@ -35,32 +35,41 @@ npm run tauri:dev
 
 ### 配置清单
 
-| 文件                            | 需更新的字段                                                        |
-| ------------------------------- | ------------------------------------------------------------------- |
-| `package.json`                  | `name`、`author`、`copyright`、`description`                        |
-| `index.html`                    | `<title>` 标签                                                      |
-| `src-tauri/tauri.conf.json`     | `productName`、`identifier`、`windows[0].title`、打包信息、更新端点 |
-| `src-tauri/Cargo.toml`          | `name`、`description`、`authors`                                    |
-| `.github/workflows/release.yml` | 工作流名称、发布名称                                                |
-| `AGENTS.md`                     | 概述部分中的应用名称/描述                                           |
-| `README.md`                     | 将模板引用替换为您的应用                                            |
-| `docs/SECURITY.zh.md`           | 替换 `YOUR_SECURITY_EMAIL` 占位符                                   |
-| `docs/CONTRIBUTING.zh.md`       | 替换 `YOUR_USERNAME/YOUR_REPO` 占位符                               |
+| 文件                               | 需更新的字段                                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `package.json`                     | `name`、`author`、`copyright`、`license`                                                            |
+| `index.html`                       | `<title>` 标签                                                                                      |
+| `src-tauri/tauri.conf.json`        | `productName`、`identifier`、`app.windows[0].title`、`bundle.publisher`/`copyright`、更新端点与公钥 |
+| `src-tauri/Cargo.toml`             | `package.name`、`package.description`、`package.authors`                                            |
+| `.github/workflows/release-v2.yml` | 产品名在文件中字面出现三处（产物前缀、`finalize` 参数、Release 标题）                               |
+| `SECURITY.md`（仓库根目录）        | 私有安全公告链接，其中写死了当前的 owner/repo                                                       |
+| `AGENTS.md` / `README.md`          | 应用名称与描述文案                                                                                  |
 
-### 需要替换的占位符
+### 没有占位符字符串——先读这一段
 
-以下占位符字符串出现在配置文件中，请逐一搜索并替换：
+本模板发货的是作者本人的真实值，不是占位符。搜索 `YOUR_USERNAME`、`YOUR_REPO`、
+`YOUR_PUBLIC_KEY_HERE`、`Your Name`、`Danny Smith`、`com.tauri-app.app`，除本页（及
+其英文版）之外找不到任何结果——早期版本的这份文档恰好列出了这些字符串，照着做的人
+白找了一场。请按字段路径修改：
 
-| 占位符                 | 位置                                       | 替换为                             |
-| ---------------------- | ------------------------------------------ | ---------------------------------- |
-| `Your Name`            | `tauri.conf.json`（publisher、copyright）  | 您的真实姓名或公司名称             |
-| `YOUR_USERNAME`        | `tauri.conf.json`（更新端点 URL）          | 您的 GitHub 用户名                 |
-| `YOUR_REPO`            | `tauri.conf.json`（更新端点 URL）          | 您的 GitHub 仓库名称               |
-| `YOUR_PUBLIC_KEY_HERE` | `tauri.conf.json`（更新公钥）              | `tauri signer generate` 生成的公钥 |
-| `YOUR_SECURITY_EMAIL`  | `docs/SECURITY.zh.md`                      | 您的安全联系邮箱                   |
-| `Danny Smith`          | `package.json`（author、copyright）        | 您的真实姓名                       |
-| `com.tauri-app.app`    | `tauri.conf.json`（identifier）            | `com.yourusername.your-app-name`   |
-| `tauri-app`            | `tauri.conf.json`（productName、窗口标题） | 您的应用显示名称                   |
+| 字段                                                         | 发货时的值                                                                                         | 为什么重要                                                                                              |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `identifier`                                                 | `com.zlh12331.tauri-desktop-software-template`                                                     | 应用数据目录、单实例锁、开机自启项                                                                      |
+| `plugins.updater.endpoints`                                  | `https://github.com/zlh12331/Tauri-Desktop-Software-Template/releases/latest/download/latest.json` | 你的应用去哪里找更新                                                                                    |
+| `plugins.updater.pubkey`                                     | 一个 `dW50cnVzdGVk...` 开头的 minisign 公钥                                                        | 你的应用信任哪个签名                                                                                    |
+| `bundle.publisher` / `copyright`、`package.json` 的 `author` | `zlh12331`                                                                                         | Windows 安装包元数据                                                                                    |
+| `plugins.deep-link.desktop.schemes`                          | `["tauri-app"]`                                                                                    | 注册给操作系统的 URL scheme；`tauri-app://preferences` 是已发货的功能，改不改是产品决策，不是清理占位符 |
+
+用 `npm run tauri -- signer generate` 重新生成更新密钥对，把私钥放进 `TAURI_PRIVATE_KEY`
+secret，再把打印出的公钥粘进 `tauri.conf.json`。跳过这一步，你的 fork 就会继续轮询别人的
+release、并用别人的公钥校验签名。
+
+要找出模板身份信息的每一处残留：
+
+```bash
+grep -rn "zlh12331\|Tauri-Desktop-Software-Template" \
+  --exclude-dir=node_modules --exclude-dir=target --exclude-dir=.git .
+```
 
 ### 标识符格式
 
@@ -145,7 +154,7 @@ tauri signer generate -w ~/.tauri/myapp.key
 {
   "plugins": {
     "updater": {
-      "pubkey": "YOUR_PUBLIC_KEY_HERE"
+      "pubkey": "<粘贴 signer generate 打印出的公钥>"
     }
   }
 }

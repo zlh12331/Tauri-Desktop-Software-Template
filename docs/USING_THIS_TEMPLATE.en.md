@@ -35,32 +35,43 @@ npm run tauri:dev
 
 ### Configuration Checklist
 
-| File                            | Fields to Update                                                               |
-| ------------------------------- | ------------------------------------------------------------------------------ |
-| `package.json`                  | `name`, `author`, `copyright`, `description`                                   |
-| `index.html`                    | `<title>` tag                                                                  |
-| `src-tauri/tauri.conf.json`     | `productName`, `identifier`, `windows[0].title`, bundle info, updater endpoint |
-| `src-tauri/Cargo.toml`          | `name`, `description`, `authors`                                               |
-| `.github/workflows/release.yml` | Workflow name, release name                                                    |
-| `AGENTS.md`                     | Overview section with app name/description                                     |
-| `README.md`                     | Replace template references with your app                                      |
-| `docs/SECURITY.en.md`           | Replace `YOUR_SECURITY_EMAIL` placeholder                                      |
-| `docs/CONTRIBUTING.en.md`       | Replace `YOUR_USERNAME/YOUR_REPO` placeholder                                  |
+| File                               | Fields to Update                                                                                               |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `package.json`                     | `name`, `author`, `copyright`, `license`                                                                       |
+| `index.html`                       | `<title>` tag                                                                                                  |
+| `src-tauri/tauri.conf.json`        | `productName`, `identifier`, `app.windows[0].title`, bundle `publisher`/`copyright`, updater endpoint + pubkey |
+| `src-tauri/Cargo.toml`             | `package.name`, `package.description`, `package.authors`                                                       |
+| `.github/workflows/release-v2.yml` | the product name is written literally three times (asset prefix, `finalize` argument, release title)           |
+| `SECURITY.md` (repo root)          | private-advisory URL, which embeds the current owner/repo                                                      |
+| `AGENTS.md` / `README.md`          | app name and description text                                                                                  |
 
-### Placeholder Values to Replace
+### There are no placeholder strings — read this first
 
-The following placeholder strings appear in configuration files. Search and replace each one:
+This template ships the author's real values, not placeholders. Searching for
+`YOUR_USERNAME`, `YOUR_REPO`, `YOUR_PUBLIC_KEY_HERE`, `Your Name`, `Danny Smith`
+or `com.tauri-app.app` finds nothing outside this page (and its zh twin) — earlier
+revisions of these instructions listed exactly those strings, and following them
+left people with nothing to replace. Edit by field path instead:
 
-| Placeholder            | Location                                      | Replace With                            |
-| ---------------------- | --------------------------------------------- | --------------------------------------- |
-| `Your Name`            | `tauri.conf.json` (publisher, copyright)      | Your real name or company name          |
-| `YOUR_USERNAME`        | `tauri.conf.json` (updater endpoint URL)      | Your GitHub username                    |
-| `YOUR_REPO`            | `tauri.conf.json` (updater endpoint URL)      | Your GitHub repository name             |
-| `YOUR_PUBLIC_KEY_HERE` | `tauri.conf.json` (updater pubkey)            | Public key from `tauri signer generate` |
-| `YOUR_SECURITY_EMAIL`  | `docs/SECURITY.en.md`                         | Your security contact email             |
-| `Danny Smith`          | `package.json` (author, copyright)            | Your real name                          |
-| `com.tauri-app.app`    | `tauri.conf.json` (identifier)                | `com.yourusername.your-app-name`        |
-| `tauri-app`            | `tauri.conf.json` (productName, window title) | Your app's display name                 |
+| Field                                                     | Value as shipped                                                                                   | Why it matters                                                                                                                                               |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `identifier`                                              | `com.zlh12331.tauri-desktop-software-template`                                                     | app-data directory, single-instance lock, autostart entry                                                                                                    |
+| `plugins.updater.endpoints`                               | `https://github.com/zlh12331/Tauri-Desktop-Software-Template/releases/latest/download/latest.json` | where your app looks for updates                                                                                                                             |
+| `plugins.updater.pubkey`                                  | a `dW50cnVzdGVk...` minisign public key                                                            | which signature your app trusts                                                                                                                              |
+| `bundle.publisher` / `copyright`, `package.json` `author` | `zlh12331`                                                                                         | Windows installer metadata                                                                                                                                   |
+| `plugins.deep-link.desktop.schemes`                       | `["tauri-app"]`                                                                                    | the URL scheme the OS registers; `tauri-app://preferences` is shipped functionality, so renaming it is a deliberate choice, not leftover placeholder cleanup |
+
+Regenerate the updater pair with `npm run tauri -- signer generate`, put the private
+key in the `TAURI_PRIVATE_KEY` secret, and paste the printed public key into
+`tauri.conf.json`. Skip it and your fork keeps polling somebody else's releases and
+verifying them against somebody else's key.
+
+To find every remaining occurrence of the template identity:
+
+```bash
+grep -rn "zlh12331\|Tauri-Desktop-Software-Template" \
+  --exclude-dir=node_modules --exclude-dir=target --exclude-dir=.git .
+```
 
 ### Identifier Format
 
@@ -145,7 +156,7 @@ Add your public key to `src-tauri/tauri.conf.json`:
 {
   "plugins": {
     "updater": {
-      "pubkey": "YOUR_PUBLIC_KEY_HERE"
+      "pubkey": "<paste the public key signer generate printed>"
     }
   }
 }
