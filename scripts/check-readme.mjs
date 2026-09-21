@@ -2,19 +2,41 @@
 /**
  * Test-count guard.
  *
- * README.md, README.zh.md and docs/CONTRIBUTING.{en,zh}.md hard-code suite sizes.
- * This script keeps them honest against the numbers CI measured:
+ * README.md, README.zh.md, CONTRIBUTING.md and docs/CONTRIBUTING.{en,zh}.md
+ * hard-code suite sizes. This script keeps them honest against reality:
  *
  *   node scripts/check-readme.mjs --frontend <n> --rust <n> --e2e <n>
  *
- * Every captured number must equal the value passed in, so a stale count fails even
- * when the surrounding prose still matches the pattern. `--update` rewrites them.
+ * Test counts come from the run CI measured (measured, never derived), while test
+ * *file* counts are counted from the tree here. Every captured number must equal the
+ * expected value, so a stale count fails even when the prose still matches the
+ * pattern. `--update` rewrites them.
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+function walk(dir, files = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) walk(full, files)
+    else files.push(full)
+  }
+  return files
+}
+
+// Mirrors vitest.config.ts `include`, whose src/ matches are all *.test.* today.
+const unitTestFiles = String(
+  walk(join(root, 'src')).filter(file => /\.(test|spec)\.[jt]sx?$/.test(file))
+    .length
+)
+// Mirrors playwright config: specs live directly under e2e/.
+const e2eSpecFiles = String(
+  readdirSync(join(root, 'e2e')).filter(file => file.endsWith('.spec.ts'))
+    .length
+)
 
 function arg(name) {
   const i = process.argv.indexOf(`--${name}`)
@@ -162,6 +184,43 @@ const docs = [
         re: /Playwright E2E（([\d,]+) 个场景）/,
         expected: [e2e],
         replacement: `Playwright E2E（${e2e} 个场景）`,
+      },
+    ],
+  },
+  {
+    // The root file is the one GitHub renders for contributors, so its claims get
+    // the same treatment as README's.
+    file: 'CONTRIBUTING.md',
+    rules: [
+      {
+        label: 'frontend count',
+        re: /Vitest unit tests \(([\d,]+) tests\)/,
+        expected: [frontend],
+        replacement: `Vitest unit tests (${frontend} tests)`,
+      },
+      {
+        label: 'e2e count',
+        re: /Playwright E2E tests \(([\d,]+) scenarios\)/,
+        expected: [e2e],
+        replacement: `Playwright E2E tests (${e2e} scenarios)`,
+      },
+      {
+        label: 'rust count',
+        re: /Rust tests \(([\d,]+) tests\)/,
+        expected: [rust],
+        replacement: `Rust tests (${rust} tests)`,
+      },
+      {
+        label: 'unit suite size',
+        re: /([\d,]+) tests across (\d+) test files/,
+        expected: [frontend, unitTestFiles],
+        replacement: `${frontend} tests across ${unitTestFiles} test files`,
+      },
+      {
+        label: 'e2e spec count',
+        re: /(\d+) test files covering all major features/,
+        expected: [e2eSpecFiles],
+        replacement: `${e2eSpecFiles} test files covering all major features`,
       },
     ],
   },
