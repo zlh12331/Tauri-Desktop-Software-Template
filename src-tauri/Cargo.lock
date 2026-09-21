@@ -5235,7 +5235,7 @@ dependencies = [
 
 [[package]]
 name = "tauri-desktop-software-template"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "embed-resource",
  "log",

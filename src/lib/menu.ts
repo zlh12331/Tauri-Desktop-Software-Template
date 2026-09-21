@@ -10,11 +10,11 @@ import {
   Submenu,
   PredefinedMenuItem,
 } from '@tauri-apps/api/menu'
-import { check } from '@tauri-apps/plugin-updater'
 import i18n from '@/i18n/config'
 import { useDialogStore } from '@/store/dialog-store'
 import { logger } from '@/lib/logger'
 import { notifications } from '@/lib/notifications'
+import { checkForUpdates } from '@/lib/updater'
 import { executeCommand } from '@/lib/commands/registry'
 import type { CommandContext } from '@/lib/commands/types'
 
@@ -168,20 +168,7 @@ function handleAbout(): void {
 
 async function handleCheckForUpdates(): Promise<void> {
   logger.info('Check for Updates menu item clicked')
-  try {
-    const update = await check()
-    if (update) {
-      notifications.info(
-        'Update Available',
-        `Version ${update.version} is available`
-      )
-    } else {
-      notifications.success('Up to Date', 'You are running the latest version')
-    }
-  } catch (error) {
-    logger.error('Update check failed', { error })
-    notifications.error('Update Check Failed', 'Could not check for updates')
-  }
+  await checkForUpdates({ interactive: true })
 }
 
 function handleOpenPreferences(): void {

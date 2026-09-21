@@ -51,20 +51,25 @@ npm run check:all
 
 - 使用 `cargo fmt` 和 `cargo clippy`
 - Tauri 命令使用 `Result<T, AppError>` 返回类型（参见 `src-tauri/src/error.rs`）
-- 参见 `docs/developer/rust-architecture.zh.md`
+- 参见 `docs/developer/error-handling.zh.md` 与 `docs/developer/architecture-guide.zh.md`
 
 ## 质量门禁
 
-所有合并请求必须通过 `npm run check:all`，包括：
+所有合并请求必须通过 `npm run check:all`，该命令依次执行：
 
-- TypeScript 类型检查（`tsc --noEmit`）
-- ESLint 严格规则检查
-- Prettier 格式检查
-- ast-grep 架构规则（3 条规则：hooks-in-hooks-dir、no-store-in-lib、no-destructure）
-- React Compiler 验证
-- Rust `cargo fmt` 和 `cargo clippy`
-- Vitest 单元测试（800+ 测试）
-- Rust `cargo test`（200+ 测试）
+- `npm run typecheck` —— 应用与 Node 侧配置的 `tsc --noEmit`
+- `npm run lint` —— ESLint `--max-warnings 0`，含 react-hooks 与 react-compiler 规则
+- `npm run cspell:check` —— 拼写检查，覆盖 `src/`、`locales/`、`docs/` 与配置文件
+- `npm run ast:lint` —— 6 条 ast-grep 架构规则：`hooks-in-hooks-dir`、`no-console`、
+  `no-direct-invoke`、`no-store-in-lib`、`no-ts-ignore`、`no-destructure`
+- `npm run format:check` —— Prettier
+- `npm run i18n:check` —— 词条抽取漂移、缺失键、`{{placeholder}}` 对齐
+- `npm run rust:fmt:check`、`npm run rust:clippy`、`npm run rust:machete`
+- `npm run test:run` —— Vitest 单元测试（1022 个测试）
+- `npm run rust:test` —— Rust `cargo test`（417 个测试）
+
+Playwright E2E（97 个场景）**不在** `check:all` 里，CI 有独立作业执行；本地用
+`npm run e2e`。
 
 附加工具（手动运行）：
 
@@ -83,7 +88,8 @@ refactor(store): simplify state management
 test: add preferences tests
 ```
 
-类型：`feat`、`fix`、`docs`、`style`、`refactor`、`test`、`chore`
+类型：`feat`、`fix`、`docs`、`style`、`refactor`、`perf`、`test`、`build`、`ci`、`chore`、
+`revert` —— 以 `commitlint.config.js` 中强制的清单为准；标题超过 100 个字符同样会被拒绝。
 
 ## 代码审查
 

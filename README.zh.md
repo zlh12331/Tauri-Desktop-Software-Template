@@ -27,7 +27,7 @@
 - **双层崩溃报告** — Rust panic 钩子将崩溃写入磁盘（即使在 OOM 下也能存活），Sentry 同意门控尊重用户隐私，敏感数据在上传前脱敏。
 - **NSPanel 浮动窗口** — 原生 macOS `NSPanel` 集成，实现类 Spotlight 的快捷面板，可跨所有 Space 浮动；Windows/Linux 优雅降级为 `always_on_top`。
 - **架构强制执行** — ast-grep 规则在 CI 阶段拦截反模式：`lib/` 中禁止 Hook、纯逻辑中禁止 Store 订阅、禁止 Zustand 解构。
-- **1,527 个测试** — 1013 前端 + 417 Rust + 97 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
+- **1,536 个测试** — 1022 前端 + 417 Rust + 97 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
 
 ## 快速开始
 
@@ -78,7 +78,7 @@ npm run tauri:dev
 
 ### 生产级基础设施
 
-- **自动更新** — GitHub Releases 集成，minisign 签名验证，静默下载并自动重启
+- **自动更新** — 集成 GitHub Releases，minisign 签名校验；应用内弹出具新版本，下载、安装、重启都由你点头
 - **崩溃报告** — 自托管 Sentry 三层架构：Rust panic 钩子（写入磁盘）→ 同意门控（`AtomicU8` 状态）→ 脱敏过滤器（8 类敏感键模式）
 - **系统托盘** — 驻留托盘模式（关闭即隐藏而非退出），托盘图标状态管理，窗口相对托盘定位
 - **全局快捷键** — 运行时注册，用户可通过偏好设置自定义（默认：`Cmd+Shift+.` 打开快捷面板）
@@ -189,7 +189,7 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 | `npm run tauri:build`     | 构建当前平台桌面应用                  |
 | `npm run check:all`       | 运行全部 15+ 质量门禁                 |
 | `npm run fix:all`         | 自动修复所有可修复的问题              |
-| `npm run test:run`        | 运行 Vitest 单元测试（1013 个）       |
+| `npm run test:run`        | 运行 Vitest 单元测试（1022 个）       |
 | `npm run rust:test`       | 运行 Rust 测试（417 个）              |
 | `npm run e2e`             | 运行 Playwright E2E 测试（97 个场景） |
 | `npm run rust:bindings`   | 重新生成 tauri-specta TypeScript 类型 |

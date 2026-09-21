@@ -29,11 +29,15 @@ This project uses [Husky](https://typicode.github.io/husky/) for Git hooks. Hook
 
 Runs [lint-staged](https://github.com/lint-staged/lint-staged) on staged files:
 
-| File type                       | Commands                                            |
-| ------------------------------- | --------------------------------------------------- |
-| `*.{ts,tsx,js,jsx}`             | `eslint --fix --max-warnings 0`, `prettier --write` |
-| `*.{json,css,md,yml,yaml,html}` | `prettier --write`                                  |
-| `*.rs`                          | `rustfmt`                                           |
+| File type                       | Commands                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `*.{ts,tsx,js,jsx}`             | `eslint --fix --max-warnings 0 --no-warn-ignored`, `prettier --write`, `cspell lint` |
+| `*.{json,css,md,yml,yaml,html}` | `prettier --write`, `cspell lint`                                                    |
+| `*.rs`                          | `cargo fmt --manifest-path src-tauri/Cargo.toml --`                                  |
+
+The spell-check step is not decoration: `cspell.json` holds the project vocabulary,
+so a new proper noun (a tool, a package, an identifier) has to be added there before
+the hook will accept the file.
 
 ### Commit message (`commit-msg`)
 
@@ -42,12 +46,13 @@ Validates commit messages using [commitlint](https://commitlint.js.org/) with
 
 ### Pre-push (`pre-push`)
 
-Runs the full test suite before allowing a push:
+Runs the whole gate chain — `npm run check:all` — before anything is pushed:
+typecheck, ESLint, cspell, ast-grep, Prettier, i18n checks, `cargo fmt --check`,
+`cargo clippy -D warnings`, `cargo machete`, the Vitest suite and `cargo test`.
 
-1. **Vitest** unit tests (`npm run test:run`)
-2. **Playwright** E2E tests (`npm run e2e`)
-
-If any test fails, the push is aborted.
+E2E is **not** part of it on purpose: Playwright needs a dev server, so the hook
+would either launch one for you or silently skip the work. CI runs the E2E job
+instead; locally use `npm run e2e`.
 
 ## Commit Message Convention
 
@@ -106,7 +111,7 @@ chore(deps): upgrade tauri to 2.11.5
 | `npm run lint`         | ESLint (0 warnings allowed)         |
 | `npm run ast:lint`     | ast-grep architecture rules         |
 | `npm run format:check` | Prettier format check               |
-| `npm run test:run`     | Vitest unit tests (1013 tests)      |
+| `npm run test:run`     | Vitest unit tests (1022 tests)      |
 | `npm run e2e`          | Playwright E2E tests (97 scenarios) |
 | `npm run knip`         | Dead code detection                 |
 | `npm run jscpd`        | Code duplication detection          |
@@ -122,8 +127,10 @@ chore(deps): upgrade tauri to 2.11.5
 ### All-in-one
 
 ```bash
-npm run check:all   # Run all quality gates
+npm run check:all   # Every gate except E2E, knip, jscpd and the docs checks
 npm run fix:all     # Auto-fix all fixable issues
+npm run e2e         # Playwright (spins its own dev server)
+npm run docs:check  # markdownlint + en/zh pairing
 ```
 
 ## Testing
@@ -132,7 +139,7 @@ This project uses a three-layer testing strategy:
 
 ### Frontend Unit Tests (Vitest)
 
-- 1013 tests across 57 test files
+- 1022 tests across 58 test files
 - Testing Library + jsdom environment
 - Tauri APIs mocked in `src/test/setup.ts`
 - Custom render helper in `src/test/test-utils.tsx` (wraps QueryClient + i18n + ThemeProvider)
@@ -172,7 +179,10 @@ See `docs/developer/tauri-commands.en.md` for detailed guidance.
 
 GitHub Actions workflows are defined in `.github/workflows/`:
 
-- **ci.yml** - Runs on push/PR to main: security audit -> quality gates -> E2E -> three-platform build
-- **release.yml** - Runs on version tags: quality gates -> signed release builds with auto-updater JSON
+- **ci.yml** - Runs on push/PR to main: workflow lint, docs links, security audit, quality gates, E2E, then three-platform build jobs
+- **release-v2.yml** - Runs on version tags (`v*`): builds signed installers for all three platforms, renames assets per platform, rebuilds `latest.json` for the auto-updater, and opens a draft release
+- **codeql.yml** - Language-level static analysis on push/PR
+
+`main` is protected: history stays linear, so contributions arrive as squash merges.
 
 All contributions must pass CI before merging.

@@ -17,6 +17,16 @@ const host = process.env['TAURI_DEV_HOST']
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   const sentryDsn = process.env['VITE_SENTRY_DSN'];
+  const sentryAuthToken = process.env['SENTRY_AUTH_TOKEN'];
+
+  // Tauri embeds every file under `frontendDist` into the binary, so a .map that
+  // survives in dist ships to users (the four maps measured 5.7 MB of a 7.3 MB
+  // dist). Maps are therefore generated only when this same build can hand them
+  // to Sentry, which deletes them after a successful upload. Note the delete runs
+  // in a `finally` inside the plugin, so emitting maps it cannot upload would
+  // destroy them rather than keep them for a retry.
+  const emitSourcemaps =
+    mode === 'production' && Boolean(sentryDsn && sentryAuthToken)
 
   const config: UserConfig = {
     define: {
@@ -29,7 +39,7 @@ export default defineConfig(async ({ mode }) => {
       }),
       tailwindcss(),
       // Sentry Vite plugin: uploads source maps and sets release automatically.
-      // Only activates when SENTRY_DSN is configured (build & dev).
+      // Only instantiated when VITE_SENTRY_DSN is configured (build & dev).
       ...(sentryDsn
         ? [
             // Disable in dev mode — Sentry Vite plugin interferes with HMR.
@@ -38,11 +48,14 @@ export default defineConfig(async ({ mode }) => {
             sentryVitePlugin({
               org: 'sentry',
               project: 'tauri-desktop-software-template',
-              authToken: process.env['SENTRY_AUTH_TOKEN'], // needed for source map upload
-              // Source maps: generate hidden maps in production, upload to Sentry.
+              authToken: sentryAuthToken, // without it the upload below is skipped
+              // Maps are emitted (see emitSourcemaps) precisely because an auth
+              // token exists, so they are deleted once handed to Sentry instead of
+              // being embedded into the Tauri binary.
               sourcemaps: {
                 assets: './dist/**',
                 ignore: ['node_modules'],
+                filesToDeleteAfterUpload: './dist/**/*.map',
               },
               disable: mode === 'development',
             }),
@@ -56,7 +69,7 @@ export default defineConfig(async ({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 600, // Prevent warnings for template's bundled components
-      sourcemap: mode === 'production' ? 'hidden' : false,
+      sourcemap: emitSourcemaps ? 'hidden' : false,
       rolldownOptions: {
         input: {
           main: resolve(import.meta.dirname, 'index.html'),

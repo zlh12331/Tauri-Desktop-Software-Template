@@ -28,11 +28,21 @@ Use for data that:
 
 ```typescript
 const { data, isLoading, error } = useQuery({
-  queryKey: ['user', userId],
-  queryFn: () => commands.getUser({ userId }),
-  enabled: !!userId,
+  queryKey: ['preferences'],
+  queryFn: async () => {
+    const result = await commands.loadPreferences()
+    if (result.status === 'error') throw new Error(result.error.message)
+    return result.data
+  },
 })
 ```
+
+`queryFn` has to unwrap the Rust `{ status, data }` envelope itself — there is no
+`unwrapResult` helper, and returning the envelope would make `error` always `null`.
+Throwing is what routes an `AppError` into the query's error state. The shipped
+[`usePreferences()`](../../src/queries/preferences.ts) deliberately does _not_ throw:
+a missing preferences file is normal on first launch, so it logs a warning and
+returns defaults.
 
 See [error-handling.md](./error-handling.en.md) for retry configuration and error display patterns.
 

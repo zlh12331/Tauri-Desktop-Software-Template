@@ -248,27 +248,31 @@ toast 重复弹出。
 对于多步操作，失败时回滚：
 
 ```typescript
-// ✅ 好：失败时回滚
-const handleChange = async (newValue: string) => {
-  const oldValue = currentValue
+// ✅ 好：持久化失败时回滚缓存
+const changeTheme = async (theme: string) => {
+  const previousPreferences = queryClient.getQueryData<AppPreferences>(
+    preferencesQueryKeys.preferences()
+  )
 
-  // 步骤 1：更新后端
-  const result = await commands.updateValue(newValue)
-  if (result.status === 'error') {
-    toast.error('更新失败')
-    return
-  }
+  queryClient.setQueryData(preferencesQueryKeys.preferences(), {
+    ...previousPreferences,
+    theme,
+  })
 
-  // 步骤 2：持久化
   try {
-    await savePreferences.mutateAsync({ ...prefs, value: newValue })
+    // useSavePreferences() 已经解包 AppError、弹出 toast 并重新抛出。
+    await savePreferences.mutateAsync({ ...previousPreferences, theme })
   } catch {
-    // 回滚步骤 1
-    await commands.updateValue(oldValue)
-    toast.error('保存失败，更改已回滚')
+    queryClient.setQueryData(
+      preferencesQueryKeys.preferences(),
+      previousPreferences
+    )
   }
 }
 ```
+
+catch 块里只做「撤销」这一件事。[`useSavePreferences()`](../../src/queries/preferences.ts)
+是唯一把 `AppError` 转成 toast 的地方，这里再弹一次会让同一个失败被报告两遍。
 
 ## 快速参考
 
@@ -311,4 +315,16 @@ Rust flow:
 
 ### Source Map
 
-生产构建会生成隐藏的 source map（`vite.config.ts` 中的 `build.sourcemap: 'hidden'`），并通过 `@sentry/vite-plugin` 上传到 Sentry。这使得 Sentry 能够显示从压缩代码到源码的堆栈跟踪。上传需要 `SENTRY_AUTH_TOKEN` 环境变量（在生产构建中设置在 CI 密钥中）。
+`vite.config.ts` 只为"确实能把 map 交给 Sentry"的构建生成隐藏 source map，也就是同时
+设置 `VITE_SENTRY_DSN` 与 `SENTRY_AUTH_TOKEN` 的情况。原因是打包而非成本：Tauri 会把
+`frontendDist` 下的每个文件嵌进二进制，留在 `dist` 里的 `.map` 就会跟着发货——实测 4 个
+map 占了 7.3 MB `dist` 里的 5.7 MB。两个变量都设置时，`@sentry/vite-plugin` 先上传，再靠
+`filesToDeleteAfterUpload` 把它们删掉，于是 Sentry 拿到可符号化的堆栈，而嵌入体积停在
+1.5 MB 左右。
+
+目前 `release-v2.yml` 与 `ci.yml` 都没有设置这两个变量，所以发布出去的构建里崩溃上报是
+关闭的。要启用，请把 `VITE_SENTRY_DSN` 和 `SENTRY_AUTH_TOKEN` 加进构建作业的环境变量。
+
+关于那个删除动作有个坑：插件是在 `finally` 里调用它的，因此上传失败也会把本地 map 删掉。
+所以发布构建日志里出现 `[sentry-vite-plugin] Warning: ... will not upload source maps`
+就意味着这次发布没有符号化能力，应当当成发布阻塞项，而不是可忽略的噪声。
