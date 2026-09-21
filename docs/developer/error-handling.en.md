@@ -334,8 +334,19 @@ consent dialog, or silently deletes it.
 
 ### Source Maps
 
-Production builds generate hidden source maps (`build.sourcemap: 'hidden'` in
-`vite.config.ts`) and upload them to Sentry via `@sentry/vite-plugin`. This
-allows Sentry to display minified-to-source stack traces. Upload requires the
-`SENTRY_AUTH_TOKEN` environment variable (set it in CI secrets for production
-builds).
+`vite.config.ts` emits hidden source maps only for a build that can actually hand
+them to Sentry, which needs both `VITE_SENTRY_DSN` and `SENTRY_AUTH_TOKEN`. The
+reason is packaging, not cost: Tauri embeds every file under `frontendDist`, so a
+`.map` left in `dist` ships inside the binary — four maps measured 5.7 MB of a
+7.3 MB `dist`. With both variables set, `@sentry/vite-plugin` uploads the maps and
+then removes them through `filesToDeleteAfterUpload`, so Sentry gets symbolicated
+stacks while the embedded payload stays around 1.5 MB.
+
+`release-v2.yml` and `ci.yml` set neither variable today, so published builds run
+with crash reporting disabled. To enable it, add `VITE_SENTRY_DSN` and
+`SENTRY_AUTH_TOKEN` to the build job's environment.
+
+One caveat about that delete: the plugin calls it from a `finally`, so a failed
+upload still discards the local maps. A `[sentry-vite-plugin] Warning: ... will not
+upload source maps` line in a release build log therefore means the release has no
+symbolication — treat it as a release blocker rather than noise.
