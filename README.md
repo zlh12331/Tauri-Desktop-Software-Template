@@ -27,7 +27,7 @@ Most Tauri starters hand you a "hello world" and leave the hard parts to you. Th
 - **Dual-layer crash reporting** — a Rust panic hook captures crashes to disk (surviving even OOM), a Sentry consent gate respects user privacy, and sensitive data is redacted before anything leaves the device.
 - **NSPanel floating window** — a native macOS `NSPanel` integration for a Spotlight-style quick pane that floats across all Spaces, with a graceful `always_on_top` fallback on Windows and Linux.
 - **Enforced architecture** — ast-grep rules block anti-patterns at CI time: no React hooks in `lib/`, no store subscriptions in pure logic, no Zustand destructuring.
-- **1,527 tests** — 1013 frontend + 417 Rust + 97 E2E, including WCAG 2.1 AA accessibility audits. Every command is tested at three layers: pure function, mocked runtime, and full integration.
+- **1,536 tests** — 1022 frontend + 417 Rust + 97 E2E, including WCAG 2.1 AA accessibility audits. Every command is tested at three layers: pure function, mocked runtime, and full integration.
 
 ## Quick Start
 
@@ -78,7 +78,7 @@ Platform detection is cached at module level (`usePlatform()`). Per-platform Tau
 
 ### Production Infrastructure
 
-- **Auto-updates** — GitHub Releases integration with minisign signature verification, silent download, and relaunch
+- **Auto-updates** — GitHub Releases integration with minisign signature verification; the app offers the new version in a toast and only downloads, installs and restarts when you say so
 - **Crash reporting** — self-hosted Sentry in three layers: Rust panic hook (writes to disk) → consent gate (`AtomicU8` state) → redaction filter (8 sensitive key patterns)
 - **System tray** — dock-to-tray mode (close hides instead of quitting), tray icon state management, window positioning relative to the tray
 - **Global shortcuts** — runtime-registered and user-configurable from preferences (default: `Cmd+Shift+.` opens the quick pane)
@@ -189,7 +189,7 @@ Three AST rules are enforced in CI:
 | `npm run tauri:build`     | Build desktop app for current platform    |
 | `npm run check:all`       | Run all 15+ quality gates                 |
 | `npm run fix:all`         | Auto-fix all fixable issues               |
-| `npm run test:run`        | Run Vitest unit tests (1013 tests)        |
+| `npm run test:run`        | Run Vitest unit tests (1022 tests)        |
 | `npm run rust:test`       | Run Rust tests (417 tests)                |
 | `npm run e2e`             | Run Playwright E2E tests (97 scenarios)   |
 | `npm run rust:bindings`   | Regenerate tauri-specta TypeScript types  |

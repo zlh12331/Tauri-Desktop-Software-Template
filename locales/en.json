@@ -3,6 +3,8 @@
   "commandPalette.noResults": "No results found.",
   "commandPalette.placeholder": "Type a command or search...",
   "commandPalette.title": "Command Palette",
+  "commands.checkForUpdates.description": "Check for an app update and install it when you say so",
+  "commands.checkForUpdates.label": "Check for Updates",
   "commands.group.debug": "Debug",
   "commands.group.navigation": "Navigation",
   "commands.group.notification": "Notifications",
@@ -160,5 +162,14 @@
   "toast.error.windowMinimizeFailed": "Failed to minimize window: {{message}}",
   "toast.success.preferencesSaved": "Preferences saved",
   "toast.success.testToast": "Test notification sent",
-  "toast.success.testToastDescription": "Check your system notifications"
+  "toast.success.testToastDescription": "Check your system notifications",
+  "updater.available": "Update available: {{version}}",
+  "updater.checkFailed": "Could not check for updates",
+  "updater.install": "Install update",
+  "updater.installed": "{{version}} is installed",
+  "updater.installFailed": "Update installation failed",
+  "updater.installing": "Downloading {{version}}",
+  "updater.later": "Later",
+  "updater.restart": "Restart now",
+  "updater.upToDate": "You are running the latest version ({{version}})"
 }

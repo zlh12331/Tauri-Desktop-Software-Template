@@ -56,11 +56,14 @@ All menu items have keyboard shortcuts and are also available in the command pal
 
 ## Updates
 
-The app checks for updates automatically:
+The app checks for updates shortly after launch, and you can ask it to check:
 
-- Manual check: App menu → Check for Updates
-- Updates download from GitHub releases
-- You'll be notified when updates are available
+- Manual check: App menu → Check for Updates, or Cmd+K → "Check for Updates"
+- Updates download from GitHub releases and are verified against a signed manifest
+- An available update appears as a persistent toast with its version and release
+  notes. Nothing is downloaded until you press **Install update**, and the app does
+  not restart itself — it offers **Restart now** once the install finishes.
+- **Later** just dismisses the toast; you'll be asked again next launch.
 
 ---
 

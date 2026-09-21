@@ -10,7 +10,7 @@
 
 - 自动化 GitHub Actions 工作流用于构建发布
 - 版本管理脚本用于更新所有版本文件
-- 自动更新器实现无缝用户更新
+- 基于同意的自动更新：应用提出更新，装不装由用户决定
 - 跨平台构建（macOS、Windows、Linux）
 
 ## 初始设置
@@ -18,8 +18,7 @@
 ### 1. 生成签名密钥
 
 ```bash
-npm install -g @tauri-apps/cli
-tauri signer generate -w ~/.tauri/myapp.key
+npm run tauri -- signer generate -w ~/.tauri/myapp.key
 # 输出私钥（已保存）和公钥（已显示）
 ```
 
@@ -38,11 +37,9 @@ tauri signer generate -w ~/.tauri/myapp.key
 {
   "plugins": {
     "updater": {
-      "active": true,
       "endpoints": [
         "https://github.com/<your-username>/<your-repo>/releases/latest/download/latest.json"
       ],
-      "dialog": false,
       "pubkey": "<your-public-key-from-step-1>"
     }
   }
@@ -127,48 +124,93 @@ git push origin main --tags
 
 ### 行为
 
-- 应用启动 5 秒后检查更新
-- 静默在后台下载并安装更新
-- 更新就绪后自动重启应用
-- 网络问题时静默失败（不打扰用户）
+- 检查在启动 5 秒后进行，不与窗口创建争抢启动路径。
+- 有更新时只**征求同意，绝不自行安装**：一条常驻提示写出新版本号，并展示清单里的
+  `Update.body`（发布说明），按钮是「安装更新」与「稍后」。
+- 只有用户点「安装更新」才开始下载与安装；完成后第二条提示给出「立即重启」。应用不会
+  自己重启——用户正在编辑时重启就是丢数据。
+- 「稍后」只关掉提示。下次启动会再检查；同一会话里重复检查只会替换已有提示，不会叠出
+  第二条。
+- 启动侧的检查把网络失败视为正常（debug 日志，不弹提示）；用户主动发起的检查会明确报告
+  失败。
 
 ### 更新流程
 
 ```
-应用启动 →（5 秒延迟）→ 检查 GitHub → 显示对话框 → 下载 → 安装 → 重启
+启动 →（5 秒）→ 检查端点 ─→ 无更新 ─→（静默；主动检查则回「已是最新」）
+                     │
+                     └→ 有更新 ─→ 提示(版本、发布说明、安装更新 | 稍后)
+                                     │
+                                     安装更新 → 下载并校验签名
+                                               → 提示(已安装、立即重启)
+                                               → relaunch
 ```
 
-### 实现
+`downloadAndInstall()` 内部有平台差异：Windows 上安装器会在安装过程中直接结束进程，
+所以「立即重启」这颗按钮实际只对 macOS / Linux 有意义。
 
-```typescript
-// src/hooks/use-auto-updater.ts
-import { check } from '@tauri-apps/plugin-updater'
-import { relaunch } from '@tauri-apps/plugin-process'
+### 一套实现，三个入口
 
-useEffect(() => {
-  const checkForUpdates = async () => {
-    try {
-      const update = await check()
-      if (update) {
-        await update.downloadAndInstall()
-        await relaunch()
-      }
-    } catch {
-      // 静默失败 - 不要用网络问题打扰用户
+整个流程都在 `src/lib/updater.ts`（`checkForUpdates`、`installPendingUpdate`）。调用
+它的是：启动后的 hook（`src/hooks/use-auto-updater.ts`）、应用菜单（应用 → 检查更新）、
+命令面板（`check-for-updates`）。要再加入口就调
+`checkForUpdates({ interactive: true })`，不要绕过它直接 import
+`@tauri-apps/plugin-updater`。
+
+### 配置
+
+```json
+{
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/<your-username>/<your-repo>/releases/latest/download/latest.json"
+      ],
+      "pubkey": "<your-public-key-from-step-1>"
     }
   }
-
-  const timer = setTimeout(checkForUpdates, 5000)
-  return () => clearTimeout(timer)
-}, [])
+}
 ```
+
+真正被读取的只有这些键。`tauri-plugin-updater` 2.11.0 反序列化的 `Config` 只有
+`endpoints`、`pubkey`、`windows` 以及三个 `dangerous*` 开关——所以 v1 时代示例里常见的
+`active` 与 `dialog` 会被接受然后忽略。本模板不再写它们，因为 `"dialog": false` 从来没
+有关掉过任何原生对话框，只是看起来关掉了。静默不是设计目标；界面在
+`src/lib/updater.ts`。
+
+`bundle.createUpdaterArtifacts` 必须保持 `true`，否则构建不会产出 `.sig`，也就没有可供
+指向的 `latest.json`。
+
+### 轮换签名密钥
+
+清单与产物是用「已安装客户端里编译进去的公钥」校验的，因此换密钥是一次兼容性断裂：用旧
+密钥构建的客户端会拒绝新签名，并且无法自我更新。
+
+1. 先用**旧密钥**发布一个正常版本，内容里说明即将轮换——这是旧安装还能自动到达的最后一个
+   版本。
+2. 生成新密钥对（`npm run tauri -- signer generate`），替换 `tauri.conf.json` 里的
+   `pubkey`，并替换 `TAURI_PRIVATE_KEY` secret。
+3. 版本号要高于第 1 步发布的任何版本，然后发版；同时告知仍在旧构建上的用户：这一版需要
+   手动下载安装包。
+
+### 本地验证一次更新
+
+端点可以指向普通 HTTP 服务，但插件默认拒绝非 HTTPS，需要显式放行，而这个放行只是临时改动：
+
+1. 准备一个发布（或本地伪造一个），产物平台与当前一致，版本号**高于** `tauri.conf.json`
+   ——版本相同意味着「无更新」，忘了 bump 就什么都不会出现。
+2. 用本地目录提供更新产物，把 `plugins.updater.endpoints` 指向该 `http://` 地址，并加上
+   `"dangerousInsecureTransportProtocol": true`。
+3. 运行 `npm run tauri:dev`，确认提示里有版本与发布说明、「稍后」能关掉、点「安装更新」
+   能看到进度。
+4. 提交前把这两处配置改回去。永远不要带着 `dangerousInsecureTransportProtocol` 发布。
 
 ### 手动检查更新
 
-用户可以通过以下方式手动检查：
+用户可以通过以下方式主动检查：
 
 - **菜单**：应用 → 检查更新
-- **命令面板**：Cmd+K → "Check for Updates"
+- **命令面板**：Cmd+K → 检查更新
 
 ## 发布产物
 
@@ -189,12 +231,13 @@ useEffect(() => {
 
 ## 故障排除
 
-| 问题         | 解决方案                                          |
-| ------------ | ------------------------------------------------- |
-| 工作流未触发 | 确保标签以 `v` 开头并已推送                       |
-| 构建失败     | 检查 GitHub secrets，本地运行 `npm run check:all` |
-| 未检测到更新 | 验证端点 URL 和公钥是否匹配                       |
-| 下载失败     | 检查签名、文件权限、磁盘空间                      |
+| 问题             | 解决方案                                                |
+| ---------------- | ------------------------------------------------------- |
+| 工作流未触发     | 确保标签以 `v` 开头并已推送                             |
+| 构建失败         | 检查 GitHub secrets，本地运行 `npm run check:all`       |
+| 未检测到更新     | 验证端点 URL 与公钥是否匹配，并确认版本号**确实**改高过 |
+| 已提示更新但没装 | 这是预期行为——必须点「安装更新」，见上文「行为」        |
+| 下载失败         | 检查签名、文件权限、磁盘空间                            |
 
 ## Rust API 文档
 

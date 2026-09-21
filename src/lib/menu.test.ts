@@ -19,11 +19,11 @@ vi.mock('@tauri-apps/api/menu', () => ({
 }))
 
 // ---------------------------------------------------------------------------
-// Mock @tauri-apps/plugin-updater
+// Mock @/lib/updater — the menu delegates the whole update flow there
 // ---------------------------------------------------------------------------
-const mockCheck = vi.fn().mockResolvedValue(null)
-vi.mock('@tauri-apps/plugin-updater', () => ({
-  check: mockCheck,
+const mockCheckForUpdates = vi.fn().mockResolvedValue('up-to-date')
+vi.mock('@/lib/updater', () => ({
+  checkForUpdates: (...args: unknown[]) => mockCheckForUpdates(...(args as [])),
 }))
 
 // ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ function getAction(id: string): (() => void | Promise<void>) | undefined {
 describe('buildAppMenu — 菜单构建', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockCheck.mockResolvedValue(null)
+    mockCheckForUpdates.mockResolvedValue('up-to-date')
     mockSetAsAppMenu.mockResolvedValue(undefined)
   })
 
@@ -293,7 +293,7 @@ describe('buildAppMenu — 菜单构建', () => {
 describe('setupMenuLanguageListener — 语言变更监听', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockCheck.mockResolvedValue(null)
+    mockCheckForUpdates.mockResolvedValue('up-to-date')
     mockSetAsAppMenu.mockResolvedValue(undefined)
   })
 
@@ -350,7 +350,7 @@ describe('setupMenuLanguageListener — 语言变更监听', () => {
 describe('菜单 action 处理器', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockCheck.mockResolvedValue(null)
+    mockCheckForUpdates.mockResolvedValue('up-to-date')
     mockSetAsAppMenu.mockResolvedValue(undefined)
     // 构建菜单以填充 action 处理器
     await buildAppMenu()
@@ -377,61 +377,25 @@ describe('菜单 action 处理器', () => {
     })
   })
 
-  describe('正向用例 — handleCheckForUpdates (有更新)', () => {
-    it('检测到更新时发送 info 通知', async () => {
-      mockCheck.mockResolvedValue({ version: '2.0.0' })
-
+  describe('正向用例 — handleCheckForUpdates', () => {
+    it('点击时记录 info 日志并交给 updater 模块', async () => {
       const action = getAction('check-updates')
       expect(action).toBeDefined()
-      await action?.()
-
-      expect(mockCheck).toHaveBeenCalled()
-      expect(mockNotificationsInfo).toHaveBeenCalledWith(
-        'Update Available',
-        'Version 2.0.0 is available'
-      )
-    })
-
-    it('记录 info 日志', async () => {
-      mockCheck.mockResolvedValue({ version: '2.0.0' })
-
-      const action = getAction('check-updates')
       await action?.()
 
       expect(logger.info).toHaveBeenCalledWith(
         'Check for Updates menu item clicked'
       )
+      expect(mockCheckForUpdates).toHaveBeenCalledWith({ interactive: true })
     })
-  })
 
-  describe('正向用例 — handleCheckForUpdates (无更新)', () => {
-    it('无更新时发送 success 通知', async () => {
-      mockCheck.mockResolvedValue(null)
-
+    it('菜单自己不再拼提示文案', async () => {
       const action = getAction('check-updates')
       await action?.()
 
-      expect(mockNotificationsSuccess).toHaveBeenCalledWith(
-        'Up to Date',
-        'You are running the latest version'
-      )
-    })
-  })
-
-  describe('异常用例 — handleCheckForUpdates (检查失败)', () => {
-    it('check() 抛出错误时发送 error 通知', async () => {
-      mockCheck.mockRejectedValue(new Error('Network error'))
-
-      const action = getAction('check-updates')
-      await action?.()
-
-      expect(logger.error).toHaveBeenCalledWith('Update check failed', {
-        error: expect.any(Error),
-      })
-      expect(mockNotificationsError).toHaveBeenCalledWith(
-        'Update Check Failed',
-        'Could not check for updates'
-      )
+      expect(mockNotificationsInfo).not.toHaveBeenCalled()
+      expect(mockNotificationsSuccess).not.toHaveBeenCalled()
+      expect(mockNotificationsError).not.toHaveBeenCalled()
     })
   })
 
@@ -493,7 +457,7 @@ const flush = () => new Promise<void>(r => setTimeout(r, 0))
 describe('菜单 command context — showToast 分支路由', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockCheck.mockResolvedValue(null)
+    mockCheckForUpdates.mockResolvedValue('up-to-date')
     mockSetAsAppMenu.mockResolvedValue(undefined)
     // Execute the command with the real context so showToast branches run.
     mockExecuteCommand.mockImplementation(
@@ -543,7 +507,7 @@ describe('菜单 command context — 缓存单例', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockCheck.mockResolvedValue(null)
+    mockCheckForUpdates.mockResolvedValue('up-to-date')
     mockSetAsAppMenu.mockResolvedValue(undefined)
     // Capture the context passed on each executeCommand call.
     capturedContexts = []

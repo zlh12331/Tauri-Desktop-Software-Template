@@ -9,6 +9,13 @@ vi.mock('@/store/dialog-store', () => ({
   useDialogStore: { getState: mockGetState },
 }))
 
+// Mock @/lib/updater — check-for-updates delegates to it
+const mockCheckForUpdates = vi.fn().mockResolvedValue('up-to-date')
+
+vi.mock('@/lib/updater', () => ({
+  checkForUpdates: (...args: unknown[]) => mockCheckForUpdates(...(args as [])),
+}))
+
 // Import the module under test AFTER mocks are hoisted.
 // lucide-react is left unmocked (it already loads cleanly under jsdom, matching
 // the existing navigation-commands.test.ts convention) and only provides icon
@@ -48,13 +55,13 @@ describe('appCommands', () => {
   })
 
   describe('正向用例 — module structure', () => {
-    it('exports one app command', () => {
-      expect(appCommands).toHaveLength(1)
+    it('exports the app commands', () => {
+      expect(appCommands).toHaveLength(2)
     })
 
-    it('contains the expected command id', () => {
+    it('contains the expected command ids', () => {
       const ids = appCommands.map(c => c.id)
-      expect(ids).toEqual(['toggle-command-palette'])
+      expect(ids).toEqual(['toggle-command-palette', 'check-for-updates'])
     })
 
     it('toggle-command-palette belongs to the tools group', () => {
@@ -94,6 +101,15 @@ describe('appCommands', () => {
     it('has no isAvailable function (always available)', () => {
       expect(findCommand('toggle-command-palette')?.isAvailable).toBeUndefined()
     })
+
+    it('check-for-updates is a tools command with translated labels', () => {
+      const cmd = findCommand('check-for-updates')
+      expect(cmd?.group).toBe('tools')
+      expect(cmd?.labelKey).toBe('commands.checkForUpdates.label')
+      expect(cmd?.descriptionKey).toBe('commands.checkForUpdates.description')
+      expect(cmd?.icon).toBeDefined()
+      expect(cmd?.keywords).toEqual(['update', 'upgrade', 'version', 'check'])
+    })
   })
 
   describe('正向用例 — execute', () => {
@@ -111,6 +127,16 @@ describe('appCommands', () => {
       findCommand('toggle-command-palette')?.execute(ctx)
 
       expect(ctx.openPreferences).not.toHaveBeenCalled()
+      expect(ctx.showToast).not.toHaveBeenCalled()
+    })
+
+    it('check-for-updates asks for an interactive check and ignores the outcome', async () => {
+      const ctx = createMockContext()
+      await expect(
+        findCommand('check-for-updates')?.execute(ctx)
+      ).resolves.toBeUndefined()
+
+      expect(mockCheckForUpdates).toHaveBeenCalledWith({ interactive: true })
       expect(ctx.showToast).not.toHaveBeenCalled()
     })
   })
