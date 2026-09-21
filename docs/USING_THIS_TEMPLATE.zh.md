@@ -48,9 +48,9 @@ npm run tauri:dev
 ### 没有占位符字符串——先读这一段
 
 本模板发货的是作者本人的真实值，不是占位符。搜索 `YOUR_USERNAME`、`YOUR_REPO`、
-`YOUR_PUBLIC_KEY_HERE`、`Your Name`、`Danny Smith`、`com.tauri-app.app`，除本页（及
-其英文版）之外找不到任何结果——早期版本的这份文档恰好列出了这些字符串，照着做的人
-白找了一场。请按字段路径修改：
+`YOUR_PUBLIC_KEY_HERE`、`Your Name`、`Danny Smith`、`com.tauri-app.app`，除这两页（英文
+版与本页）之外找不到任何结果——早期版本的这份文档恰好列出了这些字符串，照着做的人白找了
+一场。请按字段路径修改：
 
 | 字段                                                         | 发货时的值                                                                                         | 为什么重要                                                                                              |
 | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -133,8 +133,7 @@ npm run task:complete <task-name>
 ### 1. 生成签名密钥
 
 ```bash
-npm install -g @tauri-apps/cli
-tauri signer generate -w ~/.tauri/myapp.key
+npm run tauri -- signer generate -w ~/.tauri/myapp.key
 ```
 
 保存显示的公钥以供下一步使用。

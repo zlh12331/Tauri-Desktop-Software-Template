@@ -49,9 +49,9 @@ npm run tauri:dev
 
 This template ships the author's real values, not placeholders. Searching for
 `YOUR_USERNAME`, `YOUR_REPO`, `YOUR_PUBLIC_KEY_HERE`, `Your Name`, `Danny Smith`
-or `com.tauri-app.app` finds nothing outside this page (and its zh twin) — earlier
-revisions of these instructions listed exactly those strings, and following them
-left people with nothing to replace. Edit by field path instead:
+or `com.tauri-app.app` finds nothing but these two pages — earlier revisions of
+these instructions listed exactly those strings, and following them left people with
+nothing to replace. Edit by field path instead:
 
 | Field                                                     | Value as shipped                                                                                   | Why it matters                                                                                                                                               |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -135,8 +135,7 @@ To enable automated builds and auto-updates via GitHub Actions:
 ### 1. Generate Signing Keys
 
 ```bash
-npm install -g @tauri-apps/cli
-tauri signer generate -w ~/.tauri/myapp.key
+npm run tauri -- signer generate -w ~/.tauri/myapp.key
 ```
 
 Save the displayed public key for the next step.
