@@ -2,8 +2,10 @@
 /**
  * Coverage exemption register guard.
  *
- * The Coverage Exemption Register in docs/developer/testing.en.md/.zh.md is
- * maintained by hand. This script closes the drift loop:
+ * The Coverage Exemption Register lives in docs/developer/testing.en.md/.zh.md.
+ * Those two files are currently absent from the repository, so step 4 warns
+ * instead of writing; steps 1-3 (the part CI relies on) do not depend on them.
+ * This script closes the drift loop:
  *
  *   1. Read the vitest v8 coverage summary (coverage/coverage-final.json)
  *      and compute global statements/branches/functions/lines percentages.
@@ -159,12 +161,21 @@ if (!checkOnly) {
       replacement: `全量覆盖率：语句 ${actual.statements}% / 分支 ${actual.branches}% / 函数 ${actual.functions}% / 行 ${actual.lines}%`,
     },
   ]
+  let missingRegister = 0
   for (const { file, pattern, replacement } of docs) {
     let content
     try {
       content = readFileSync(file, 'utf8')
     } catch (error) {
-      if (error.code === 'ENOENT') continue
+      if (error.code === 'ENOENT') {
+        // The floor assertion above still runs; only the doc sync is skipped.
+        // Say so instead of quietly doing nothing, which reads as "up to date".
+        console.warn(
+          `⚠ Register doc missing: ${file} — numbers not written back`
+        )
+        missingRegister++
+        continue
+      }
       throw error
     }
     const updated = content.replace(pattern, replacement)
@@ -177,6 +188,11 @@ if (!checkOnly) {
       renameSync(tmpFile, file)
       console.log(`✓ Updated coverage numbers in ${file}`)
     }
+  }
+  if (missingRegister) {
+    console.warn(
+      `⚠ ${missingRegister} register doc(s) absent, so the "the doc never drifts" half of this guard is inert. Restore them or drop their paths from this script.`
+    )
   }
 }
 
