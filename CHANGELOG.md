@@ -1,6 +1,43 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Bug fixes
+
+- **gates**: make the test-count guard compare numbers, not just shapes
+
+- **gates**: guard the root contributing guide, not just the docs copy
+
+- **gates**: say so when the coverage register doc is missing
+
+
+### Documentation
+
+- **conversations**: record v0.1.1 final release verification results
+
+- slim down developer docs to core set
+
+- **template-setup**: list the values that actually ship, not placeholders
+
+- **developer**: swap invented commands for the ones that ship
+
+- **template-setup**: correct two claims in the setup page
+
+
+### New features
+
+- **docs**: add markdownlint, en/zh pair check, and lychee link guard
+
+- CI/CD 流程缺失分析
+
+- **updater**: ask before installing an update
+
+
+### Refactoring & performance
+
+- **build**: stop shipping source maps inside the binary
+
 ## [0.1.1] - 2026-08-20
 
 ### Documentation
