@@ -41,6 +41,9 @@ bundle-analysis.html
 # Trae editor "share HTML" snapshots (duplicates of tracked entry points)
 .trae-html-share-packages/
 
+# Qoder agent repowiki cache (regenerates locally; not template content)
+.qoder/
+
 # Editor directories and files
 .idea
 .DS_Store
