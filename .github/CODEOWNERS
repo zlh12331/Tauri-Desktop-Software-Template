@@ -1,26 +1,29 @@
 # CODEOWNERS — automatic review requests for critical paths.
 #
-# Replace the placeholder owners with real GitHub usernames or teams when
-# using this template. These paths change cross-language contracts, generated
-# artifacts, or user-facing content, so they must not be merged unreviewed
-# (especially by AI-generated changes).
+# These paths change cross-language contracts, generated artifacts, or
+# user-facing content, so they must not be merged unreviewed (especially by
+# AI-generated changes).
+#
+# Upstream ownership is @zlh12331. Adopters of this template must replace that
+# handle with their own username or team, otherwise GitHub cannot resolve the
+# owner and these rules stop firing without any visible error.
 #
 # Syntax: <path> <owner>...  (see https://help.github.com/articles/about-codeowners/)
 
 # Auto-generated IPC bindings — regenerate via `npm run rust:bindings` and
 # never hand-edit.
-/src/lib/bindings.ts                       @your-org/maintainers
+/src/lib/bindings.ts                       @zlh12331
 
 # Rust command signatures — changing these alters the IPC type contract.
-/src-tauri/src/commands/                   @your-org/maintainers
-/src-tauri/src/error.rs                    @your-org/maintainers
-/src-tauri/src/types.rs                    @your-org/maintainers
+/src-tauri/src/commands/                   @zlh12331
+/src-tauri/src/error.rs                    @zlh12331
+/src-tauri/src/types.rs                    @zlh12331
 
 # Translation catalogs and i18n wiring.
-/locales/                                  @your-org/maintainers
-/i18next.config.ts                         @your-org/maintainers
-/scripts/check-i18n.mjs                    @your-org/maintainers
+/locales/                                  @zlh12331
+/i18next.config.ts                         @zlh12331
+/scripts/check-i18n.mjs                    @zlh12331
 
 # Release / versioning logic.
-/scripts/prepare-release.js                @your-org/maintainers
-/.github/workflows/release-v2.yml          @your-org/maintainers
+/scripts/prepare-release.js                @zlh12331
+/.github/workflows/release-v2.yml          @zlh12331
