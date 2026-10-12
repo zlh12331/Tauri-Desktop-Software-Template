@@ -1,0 +1,28 @@
+# Unifies the git identities that accumulated in this repository's history so
+# `git log`, `git shortlog` and other mailmap-aware tools report one author per
+# person. This rewrites nothing: commit objects keep their original metadata,
+# only the display resolves through this file.
+#
+# The account is zlh12331 (GitHub user id 202500237). History contains four
+# name/email combinations of it, because the local user.name was once set to the
+# short form "12331" and GitHub's noreply address gained the id prefix partway
+# through:
+#   zlh12331 <zlh12331@users.noreply.github.com>            62 commits
+#   12331    <202500237+zlh12331@users.noreply.github.com>  46 commits
+#   zlh12331 <202500237+zlh12331@users.noreply.github.com>   7 commits (canonical)
+#   12331    <zlh12331@users.noreply.github.com>              7 commits
+zlh12331 <202500237+zlh12331@users.noreply.github.com> zlh12331 <zlh12331@users.noreply.github.com>
+zlh12331 <202500237+zlh12331@users.noreply.github.com> 12331 <202500237+zlh12331@users.noreply.github.com>
+zlh12331 <202500237+zlh12331@users.noreply.github.com> 12331 <zlh12331@users.noreply.github.com>
+
+# Agent-authored commits, folded into the account that directed and merged them.
+#
+# `dev@easy-writing.local` is not a reachable address, so GitHub renders it as an
+# author with no profile. Every other change produced the same way landed through
+# a pull request, where GitHub already records the merging account as the author -
+# so this mapping makes one direct-to-main commit agree with how the rest of the
+# history is already attributed, rather than assigning new credit.
+#
+# To keep agent work distinguishable instead, delete this line and give the bot a
+# real identity; nothing else here depends on it.
+zlh12331 <202500237+zlh12331@users.noreply.github.com> easy-writing-dev <dev@easy-writing.local>
