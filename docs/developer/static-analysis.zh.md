@@ -6,22 +6,23 @@
 
 ## 快速参考
 
-| 工具           | 用途                | 命令                     | 在 check:all 中 |
-| -------------- | ------------------- | ------------------------ | --------------- |
-| TypeScript     | 类型检查            | `npm run typecheck`      | 是              |
-| ESLint         | 语法、风格、TS 规则 | `npm run lint`           | 是              |
-| cspell         | 拼写检查            | `npm run cspell:check`   | 是              |
-| Prettier       | 代码格式化          | `npm run format:check`   | 是              |
-| ast-grep       | 架构模式            | `npm run ast:lint`       | 是              |
-| i18n check     | 提取漂移 + 键同步   | `npm run i18n:check`     | 是              |
-| React Compiler | 自动 memoization    | 构建时                   | 是              |
-| cargo fmt      | Rust 格式化         | `npm run rust:fmt:check` | 是              |
-| clippy         | Rust lint           | `npm run rust:clippy`    | 是              |
-| cargo-machete  | Rust 未使用依赖     | `npm run rust:machete`   | 是              |
-| Vitest         | 前端测试            | `npm run test:run`       | 是              |
-| cargo test     | Rust 测试           | `npm run rust:test`      | 是              |
-| knip           | 未使用代码检测      | `npm run knip`           | 否              |
-| jscpd          | 重复代码检测        | `npm run jscpd`          | 否              |
+| 工具           | 用途                | 命令                           | 在 check:all 中 |
+| -------------- | ------------------- | ------------------------------ | --------------- |
+| TypeScript     | 类型检查            | `npm run typecheck`            | 是              |
+| ESLint         | 语法、风格、TS 规则 | `npm run lint`                 | 是              |
+| cspell         | 拼写检查            | `npm run cspell:check`         | 是              |
+| Prettier       | 代码格式化          | `npm run format:check`         | 是              |
+| ast-grep       | 架构模式            | `npm run ast:lint`             | 是              |
+| i18n check     | 提取漂移 + 键同步   | `npm run i18n:check`           | 是              |
+| React Compiler | 自动 memoization    | 构建时                         | 是              |
+| cargo fmt      | Rust 格式化         | `npm run rust:fmt:check`       | 是              |
+| clippy         | Rust lint           | `npm run rust:clippy`          | 是              |
+| cargo-machete  | Rust 未使用依赖     | `npm run rust:machete`         | 是              |
+| Vitest         | 前端测试            | `npm run test:run`             | 是              |
+| cargo test     | Rust 测试           | `npm run rust:test`            | 是              |
+| npm audit      | 依赖漏洞            | `node scripts/check-audit.mjs` | 仅 CI           |
+| knip           | 未使用代码检测      | `npm run knip`                 | 否              |
+| jscpd          | 重复代码检测        | `npm run jscpd`                | 否              |
 
 CI 额外运行 [actionlint](https://github.com/rhysd/actionlint) 检查所有 GitHub Actions workflow，以及 [gitleaks](https://github.com/gitleaks/gitleaks) 密钥扫描。
 
@@ -127,6 +128,16 @@ npm run jscpd
 ```
 
 使用 `npm run knip` 和 `npm run jscpd` 进行死代码和重复的引导分析和清理。
+
+### npm audit（仅 CI）
+
+不在 `check:all` 中，因为审计接口由 npm 源站提供：镜像源不代理它时，这条命令在一台本身没问题的机器上就会报错。CI 直接对公共源站运行它。
+
+```bash
+node scripts/check-audit.mjs --registry=https://registry.npmjs.org
+```
+
+这个脚本取代裸的 `npm audit --audit-level=high`。部分公告还没有修复版本，而 npm 会把依赖它的每个包都标成同等严重，于是一个无法修补的传递依赖会让整条链变红。脚本 `IGNORED` 数组里列出的公告被豁免，但严重度是按剩余成因重新计算的，所以一条豁免只能隐藏它点名的那条公告。这遵循与 `src-tauri/deny.toml` 中豁免相同的约定：写明理由、给出复查时间，上游一出修复就删掉。
 
 ## CI 集成
 

@@ -12,11 +12,11 @@ updates:
       - javascript
     commit-message:
       prefix: chore(deps)
-    # Two majors are held back on purpose. Without these rules Dependabot
+    # Three majors are held back on purpose. Without these rules Dependabot
     # re-opens the same declined PR every week (it did in September 2026:
     # PR #49 for jsdom and the grouped PR #59 that bundled ESLint 10).
     # Security updates are unaffected by this block, so a real advisory in
-    # either package still gets a PR.
+    # any of these packages still gets a PR.
     ignore:
       # ESLint 10 needs a flat-config + typescript-eslint pairing decision first.
       - dependency-name: eslint
@@ -24,6 +24,11 @@ updates:
       # jsdom 30 breaks Radix Select interactions and leaks state across test
       # files; see src/test/setup.ts.
       - dependency-name: jsdom
+        update-types: ['version-update:semver-major']
+      # The documented stack is TypeScript v6.x (AGENTS.md); 7.x fails the
+      # Code Quality gate until typescript-eslint and the rest of the lint and
+      # build tooling support it. Declined in PR #67.
+      - dependency-name: typescript
         update-types: ['version-update:semver-major']
     groups:
       react:

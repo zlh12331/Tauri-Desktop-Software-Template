@@ -6,22 +6,23 @@ All static analysis tools configured in this app and how to use them.
 
 ## Quick Reference
 
-| Tool           | Purpose                  | Command                  | In check:all |
-| -------------- | ------------------------ | ------------------------ | ------------ |
-| TypeScript     | Type checking            | `npm run typecheck`      | Yes          |
-| ESLint         | Syntax, style, TS rules  | `npm run lint`           | Yes          |
-| cspell         | Spell checking           | `npm run cspell:check`   | Yes          |
-| Prettier       | Code formatting          | `npm run format:check`   | Yes          |
-| ast-grep       | Architecture patterns    | `npm run ast:lint`       | Yes          |
-| i18n check     | Extract drift + key sync | `npm run i18n:check`     | Yes          |
-| React Compiler | Automatic memoization    | Build-time               | Yes          |
-| cargo fmt      | Rust formatting          | `npm run rust:fmt:check` | Yes          |
-| clippy         | Rust linting             | `npm run rust:clippy`    | Yes          |
-| cargo-machete  | Rust unused deps         | `npm run rust:machete`   | Yes          |
-| Vitest         | Frontend tests           | `npm run test:run`       | Yes          |
-| cargo test     | Rust tests               | `npm run rust:test`      | Yes          |
-| knip           | Unused code detection    | `npm run knip`           | No           |
-| jscpd          | Duplicate code detection | `npm run jscpd`          | No           |
+| Tool           | Purpose                  | Command                        | In check:all |
+| -------------- | ------------------------ | ------------------------------ | ------------ |
+| TypeScript     | Type checking            | `npm run typecheck`            | Yes          |
+| ESLint         | Syntax, style, TS rules  | `npm run lint`                 | Yes          |
+| cspell         | Spell checking           | `npm run cspell:check`         | Yes          |
+| Prettier       | Code formatting          | `npm run format:check`         | Yes          |
+| ast-grep       | Architecture patterns    | `npm run ast:lint`             | Yes          |
+| i18n check     | Extract drift + key sync | `npm run i18n:check`           | Yes          |
+| React Compiler | Automatic memoization    | Build-time                     | Yes          |
+| cargo fmt      | Rust formatting          | `npm run rust:fmt:check`       | Yes          |
+| clippy         | Rust linting             | `npm run rust:clippy`          | Yes          |
+| cargo-machete  | Rust unused deps         | `npm run rust:machete`         | Yes          |
+| Vitest         | Frontend tests           | `npm run test:run`             | Yes          |
+| cargo test     | Rust tests               | `npm run rust:test`            | Yes          |
+| npm audit      | Dependency advisories    | `node scripts/check-audit.mjs` | CI only      |
+| knip           | Unused code detection    | `npm run knip`                 | No           |
+| jscpd          | Duplicate code detection | `npm run jscpd`                | No           |
 
 CI additionally runs [actionlint](https://github.com/rhysd/actionlint) on all
 GitHub Actions workflows and [gitleaks](https://github.com/gitleaks/gitleaks)
@@ -132,6 +133,16 @@ npm run jscpd
 ```
 
 Use `npm run knip` and `npm run jscpd` for guided analysis and cleanup of dead code and duplications.
+
+### npm audit (CI only)
+
+Not in `check:all`, because the audit endpoint is served by the npm registry: a mirror that does not proxy it makes the command fail on an otherwise healthy machine. CI runs it against the public registry.
+
+```bash
+node scripts/check-audit.mjs --registry=https://registry.npmjs.org
+```
+
+This script replaces a bare `npm audit --audit-level=high`. Some advisories have no patched release yet, and npm marks every package that depends on one as equally vulnerable, so a single unpatched transitive package would redden its whole chain. Advisories listed in the script's `IGNORED` array are waived, but severity is recomputed from the causes that remain, so an exemption can only ever hide the advisory it names. It follows the same contract as the exemptions in `src-tauri/deny.toml`: a written reason, a review date, and removal as soon as upstream ships a fix.
 
 ## CI Integration
 
