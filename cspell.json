@@ -6,6 +6,7 @@
     "appleid",
     "appimage",
     "appindicator",
+    "argparse",
     "autobuild",
     "Authenticode",
     "AUTOINCREMENT",
