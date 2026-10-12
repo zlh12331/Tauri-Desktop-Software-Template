@@ -85,7 +85,11 @@ jobs:
         run: node scripts/check-audit.mjs
 
       - name: npm license check
-        run: 'npx --yes license-checker --summary --excludePrivatePackages --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;MPL-2.0;CC0-1.0;Unlicense;Zlib;0BSD;WTFPL;Python-2.0;BlueOak-1.0.0;BSD-3-Clause-Clear;MIT OR Apache-2.0;Apache-2.0 OR MIT;Apache-2.0 AND MIT;MIT-0;FSL-1.1-MIT;CC-BY-4.0;Custom: https://github.com/streetsidesoftware/cspell"'
+        # Both spellings of the Python license are allowed because argparse
+        # reports its license as "Python-2.0" at 2.0.1 and "PSF-2.0" at 3.0.2,
+        # which markdown-it 15 pulls in. Same permission set, different SPDX
+        # identifier; neither entry widens what the gate accepts.
+        run: 'npx --yes license-checker --summary --excludePrivatePackages --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;MPL-2.0;CC0-1.0;Unlicense;Zlib;0BSD;WTFPL;Python-2.0;PSF-2.0;BlueOak-1.0.0;BSD-3-Clause-Clear;MIT OR Apache-2.0;Apache-2.0 OR MIT;Apache-2.0 AND MIT;MIT-0;FSL-1.1-MIT;CC-BY-4.0;Custom: https://github.com/streetsidesoftware/cspell"'
 
       - name: Secret leak scan (gitleaks)
         uses: gitleaks/gitleaks-action@v3
