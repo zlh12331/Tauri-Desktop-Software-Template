@@ -19,9 +19,14 @@ env:
   RUST_TOOLCHAIN: '1.98.1'
 
 jobs:
+  # Pinned to ubuntu-24.04 rather than ubuntu-latest: `latest` resolves to 24.04
+  # today and GitHub moves it to 26.04 on 2026-10-19, which would change every
+  # job's environment in a commit that did not ask for it. Naming the image keeps
+  # that move a deliberate decision. The Linux build matrix stays on ubuntu-22.04
+  # on purpose, for the older glibc and webkit2gtk the bundle needs.
   workflow-lint:
     name: Workflow Lint (actionlint)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -30,7 +35,7 @@ jobs:
 
   docs:
     name: Docs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -56,9 +61,11 @@ jobs:
         with:
           args: --config .lychee.toml 'docs/**/*.md' 'README.md' 'README.zh.md'
 
+  # Runs alongside docs and workflow-lint: a failure here is a signal to act on,
+  # not a reason to stop compiling or testing the change under review.
   security-audit:
     name: Security Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # gitleaks-action scans `HEAD^..HEAD` on pull_request events; a shallow
       # checkout (fetch-depth: 1) has no parent commit, so fetch full history.
@@ -130,8 +137,13 @@ jobs:
 
   quality:
     name: Code Quality
-    needs: security-audit
-    runs-on: ubuntu-latest
+    # No `needs: security-audit`. Compliance checks report their result; they must
+    # not gate the correctness checks. With that edge in place, one advisory whose
+    # upstream has no patched release (braces GHSA-vfj7-8cjw-p6xm) marked Security
+    # Audit red, which skipped Code Quality, E2E and all three platform builds, and
+    # also stopped the cargo-deny step behind it in the same job from ever running.
+    # The whole verification suite was silently off for six weeks.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -276,7 +288,7 @@ jobs:
   e2e:
     name: E2E Tests
     needs: quality
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
