@@ -10,6 +10,21 @@ on:
         required: true
         type: string
 
+# Two runs of the same tag must not overlap. `finalize` deletes and recreates a
+# draft release, and it does so with `gh release delete ... || true`, so a
+# superseded run that finishes late can pull the draft out from under the current
+# one. Keyed on github.ref, which is the tag ref for a tag push, so distinct
+# versions still build in parallel. Never cancel mid-release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least privilege as the default. Jobs that need to write say so themselves
+# (`bump-version`, `publish-tauri`, `finalize` each carry `contents: write`);
+# `quality` only reads, builds and compares CHANGELOG text, so it inherits read.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -25,6 +40,7 @@ jobs:
     name: Bump version
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -60,7 +76,12 @@ jobs:
 
   quality:
     name: Code Quality
-    runs-on: ubuntu-22.04
+    # ubuntu-24.04, unlike the Linux entry of the bundle matrix below: that one
+    # stays on 22.04 for the older glibc and webkit2gtk the AppImage needs, while
+    # this job only installs, tests and regenerates CHANGELOG text. It blocks the
+    # release, so the cap sits above a full `check:all` plus cargo coverage.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       # Full history is required: `npm run changelog` runs git-cliff, which
       # groups commits by tag. A shallow checkout (fetch-depth: 1) hides all
@@ -164,6 +185,10 @@ jobs:
   publish-tauri:
     name: Build & rename (${{ matrix.os }})
     needs: quality
+    # A full signed bundle per platform, from a cold Rust cache on the first
+    # release after a dependency bump. Generous on purpose: a release that dies
+    # at a timeout loses its tag slot and has to be re-run end to end.
+    timeout-minutes: 90
     permissions:
       contents: write
     strategy:
@@ -297,6 +322,7 @@ jobs:
     name: Finalize release
     needs: publish-tauri
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:

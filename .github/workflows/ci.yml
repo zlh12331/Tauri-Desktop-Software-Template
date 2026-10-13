@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: [main, master]
 
+# Explicit least privilege. Without this block every job inherits the repository
+# default token scope, so a new step could write without anyone deciding that.
+# Values checked against actual use: `contents: read` for actions/checkout,
+# `pull-requests: read` because gitleaks-action calls GET /pulls/{n}/commits.
+# No job writes — upload-artifact authenticates through ACTIONS_RUNTIME_TOKEN and
+# is unaffected by this block.
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -24,9 +34,15 @@ jobs:
   # job's environment in a commit that did not ask for it. Naming the image keeps
   # that move a deliberate decision. The Linux build matrix stays on ubuntu-22.04
   # on purpose, for the older glibc and webkit2gtk the bundle needs.
+  #
+  # Every job below carries an explicit `timeout-minutes`. Without one, a hung
+  # step holds a runner until GitHub's six-hour ceiling and the PR shows no
+  # signal at all. The caps sit well above the slowest observed run on purpose:
+  # a too-tight timeout manufactures red CI and trains people to ignore it.
   workflow-lint:
     name: Workflow Lint (actionlint)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 
@@ -36,6 +52,7 @@ jobs:
   docs:
     name: Docs
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -66,6 +83,9 @@ jobs:
   security-audit:
     name: Security Audit
     runs-on: ubuntu-24.04
+    # Longest cap in the file: cargo-binstall itself is compiled from source
+    # before binstall can download the audit tools.
+    timeout-minutes: 45
     steps:
       # gitleaks-action scans `HEAD^..HEAD` on pull_request events; a shallow
       # checkout (fetch-depth: 1) has no parent commit, so fetch full history.
@@ -144,6 +164,7 @@ jobs:
     # also stopped the cargo-deny step behind it in the same job from ever running.
     # The whole verification suite was silently off for six weeks.
     runs-on: ubuntu-24.04
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
 
@@ -289,6 +310,7 @@ jobs:
     name: E2E Tests
     needs: quality
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 
@@ -326,6 +348,7 @@ jobs:
           - platform: windows-latest
           - platform: macos-latest
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -369,3 +392,37 @@ jobs:
       # 同时仍能验证跨平台编译是否通过。
       - name: Build Tauri app (compile check)
         run: npx tauri build --no-bundle
+
+  # One stable name for the whole platform matrix.
+  #
+  # The `protect-main` configuration on the remote currently requires three
+  # separate contexts, `Build (ubuntu-22.04)`, `Build (windows-latest)` and
+  # `Build (macos-latest)`, which burns runner image labels into cloud state. A
+  # matrix edit then needs a matching cloud edit, and forgetting one does not
+  # produce a red check: the required context never reports, so every pull
+  # request sits pending with no failure to read. Moving the platforms behind
+  # this job means image changes stay inside the file that declares them.
+  #
+  # `if: always()` is load-bearing: without it a failed `build` skips this job,
+  # and a skipped required check is the same never-reports failure mode.
+  #
+  # Unlike the upstream reference this project has no deliberately-skipped
+  # matrix, so `skipped` here can only mean an earlier gate stopped the run.
+  # That reports red rather than green — the six-week silent outage above is why
+  # passing on a skip is not an option.
+  build-summary:
+    name: Build (all platforms)
+    needs: build
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check matrix result
+        env:
+          MATRIX_RESULT: ${{ needs.build.result }}
+        run: |
+          if [ "$MATRIX_RESULT" != "success" ]; then
+            echo "::error::build result is '$MATRIX_RESULT', expected 'success'. A value of 'skipped' means an earlier gate (quality or e2e) stopped the run — the platform matrix has produced no verdict at all."
+            exit 1
+          fi
+          echo "All platform builds passed."
