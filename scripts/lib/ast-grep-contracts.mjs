@@ -103,15 +103,34 @@ export const EXPECTED_BAD_COUNT = 1
 export const EXPECTED_GOOD_COUNT = 0
 
 /**
- * Rule ids found in `ast-grep --report-style short` output.
+ * Rule ids found in `ast-grep scan --json` output.
  *
- * Messages are multi-line, so this counts the `error[<id>]:` markers rather than
- * splitting lines — one marker per match, regardless of how the message wraps.
+ * The machine-readable report is used instead of the diagnostic text: a human
+ * report's shape is not a contract, and 0.45 -> 0.50 changed nothing in it only
+ * by luck. `ruleId` is the one field a count can rest on.
  */
-export function countFindings(output) {
+export function countFindings(json) {
+  let findings
+  try {
+    findings = JSON.parse(json)
+  } catch (cause) {
+    throw new Error(
+      `ast-grep --json output is not parseable, so no rule can be counted: ${cause.message}`
+    )
+  }
+  if (!Array.isArray(findings)) {
+    throw new Error(
+      `ast-grep --json output is not a findings array: got ${typeof findings}`
+    )
+  }
   const counts = new Map()
-  for (const match of output.matchAll(/error\[([a-z0-9-]+)\]/g)) {
-    counts.set(match[1], (counts.get(match[1]) ?? 0) + 1)
+  for (const finding of findings) {
+    if (typeof finding?.ruleId !== 'string') {
+      throw new Error(
+        `ast-grep finding carries no ruleId: ${JSON.stringify(finding).slice(0, 200)}`
+      )
+    }
+    counts.set(finding.ruleId, (counts.get(finding.ruleId) ?? 0) + 1)
   }
   return counts
 }

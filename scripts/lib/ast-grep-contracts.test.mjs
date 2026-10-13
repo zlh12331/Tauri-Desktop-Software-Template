@@ -12,31 +12,44 @@ import {
   expectedCounts,
 } from './ast-grep-contracts.mjs'
 
-test('findings are counted from markers, not lines, so wrapped messages still count', () => {
-  const output = [
-    'src/lib/a.ts:1:1: error[no-console]: first line of message',
-    '',
-    "  BAD: console.log('x')",
-    '  GOOD: logger.debug()',
-    '',
-    'src/lib/b.ts:2:3: error[no-console]: another',
-    'src/lib/c.ts:9:0: error[no-store-subscription-in-lib]: store',
-    'Clean line with no marker',
-  ].join('\n')
+const finding = ruleId => ({
+  ruleId,
+  file: 'src/lib/a.ts',
+  text: 'planted',
+  severity: 'error',
+})
+
+test('findings are counted by ruleId from the machine-readable report', () => {
+  const output = JSON.stringify([
+    finding('no-console'),
+    finding('no-console'),
+    finding('no-store-subscription-in-lib'),
+  ])
   const counts = countFindings(output)
   assert.equal(counts.get('no-console'), 2)
   assert.equal(counts.get('no-store-subscription-in-lib'), 1)
   assert.equal(counts.size, 2)
 })
 
+test('an unparseable report is an error, not an empty count table', () => {
+  // A report format the parser cannot read would otherwise look identical to a
+  // scanner that found nothing, which is the failure this suite exists to catch.
+  assert.throws(() => countFindings('not json at all'), /not parseable/)
+  assert.throws(
+    () => countFindings('{"ruleId":"no-console"}'),
+    /not a findings array/
+  )
+  assert.throws(() => countFindings('[{"file":"a.ts"}]'), /carries no ruleId/)
+})
+
 test('a rule that sees nothing is reported as missing, not as success', () => {
-  const d = diffCounts(countFindings('nothing here'), { 'no-console': 1 })
+  const d = diffCounts(countFindings('[]'), { 'no-console': 1 })
   assert.deepEqual(d.missing, ['no-console did not fire, expected 1'])
   assert.deepEqual(d.extra, [])
 })
 
 test('a rule firing on compliant code is reported as an over-match', () => {
-  const d = diffCounts(countFindings('x:1:1: error[no-console]: boom'), {
+  const d = diffCounts(countFindings(JSON.stringify([finding('no-console')])), {
     'no-console': 0,
   })
   assert.deepEqual(d.missing, [])
@@ -46,14 +59,16 @@ test('a rule firing on compliant code is reported as an over-match', () => {
 
 test('a double match is wrongCount rather than a pass', () => {
   const d = diffCounts(
-    countFindings('a:1:1: error[no-console]: x\nb:2:2: error[no-console]: y'),
+    countFindings(
+      JSON.stringify([finding('no-console'), finding('no-console')])
+    ),
     { 'no-console': 1 }
   )
   assert.deepEqual(d.wrongCount, ['no-console fired 2x, expected 1'])
 })
 
 test('a finding whose rule has no contract is surfaced instead of ignored', () => {
-  const d = diffCounts(countFindings('a:1:1: error[new-rule]: x'), {
+  const d = diffCounts(countFindings(JSON.stringify([finding('new-rule')])), {
     'no-console': 0,
   })
   assert.match(d.extra.join(), /new-rule fired 1x but has no contract/)

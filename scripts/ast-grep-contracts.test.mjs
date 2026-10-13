@@ -13,6 +13,7 @@ import test, { after } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import {
   CONTRACTS,
@@ -41,14 +42,30 @@ function ruleIdsOnDisk() {
   return ids
 }
 
-// The package's own launcher is a JS shim that resolves the platform binary, which
-// keeps this working on win32 (no shell), macOS and the musl builds alike.
-function launcher() {
-  const p = path.join(root, 'node_modules', '@ast-grep', 'cli', 'ast-grep')
-  if (!fs.existsSync(p)) {
-    throw new Error(`ast-grep launcher missing at ${p} — run npm install`)
+// `node_modules/@ast-grep/cli/ast-grep` is a JS shim only on win32: on Unix the
+// package's postinstall replaces that file with the native binary, and handing a
+// binary to `node` exits 1 with a SyntaxError — which this suite would then read
+// as "the scanner ran, and saw nothing". Ask the package where its own binary
+// lives and exec that, so one invocation serves win32, linux and darwin.
+let bin = null
+function astGrep() {
+  if (bin) return bin
+  const req = createRequire(import.meta.url)
+  let resolveBinaryPath
+  try {
+    ;({ resolveBinaryPath } = req('@ast-grep/cli/postinstall.js'))
+  } catch (cause) {
+    throw new Error(
+      `cannot load the @ast-grep/cli binary resolver: ${cause.message}`
+    )
   }
-  return p
+  bin = resolveBinaryPath()
+  if (!bin) {
+    throw new Error(
+      'ast-grep native binary is missing — optional dependencies were skipped at install'
+    )
+  }
+  return bin
 }
 
 function buildTree(kind) {
@@ -74,18 +91,13 @@ function buildTree(kind) {
 
 function scan(dir) {
   const result = spawnSync(
-    process.execPath,
-    [
-      launcher(),
-      'scan',
-      '--config',
-      path.join(dir, 'sgconfig.yml'),
-      '--report-style',
-      'short',
-      dir,
-    ],
-    { encoding: 'utf8' }
+    astGrep(),
+    ['scan', '--config', path.join(dir, 'sgconfig.yml'), '--json', dir],
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
   )
+  if (result.error) {
+    throw new Error(`ast-grep could not be executed: ${result.error.message}`)
+  }
   // 0 = clean, 1 = findings. Anything else means the scanner itself failed, and a
   // broken scanner must not be able to read as either of those.
   if (result.status !== 0 && result.status !== 1) {
@@ -93,8 +105,7 @@ function scan(dir) {
       `ast-grep scan exited ${result.status}: ${(result.stderr || result.stdout || '').slice(0, 400)}`
     )
   }
-  if (result.error) throw result.error
-  return `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+  return result.stdout ?? ''
 }
 
 after(() => {
@@ -115,8 +126,23 @@ test('every architecture rule on disk has a contract, and no contract is stale',
   )
 })
 
+test('the scanner itself is alive before any of its verdicts are trusted', () => {
+  const probe = spawnSync(astGrep(), ['--version'], { encoding: 'utf8' })
+  assert.equal(
+    probe.status,
+    0,
+    `ast-grep --version exited ${probe.status}: ${(probe.stderr || '').slice(0, 300)}`
+  )
+  assert.match(
+    probe.stdout,
+    /ast-grep \d+\.\d+\.\d+/,
+    `unexpected version line: ${probe.stdout.slice(0, 200)}`
+  )
+})
+
 test('the violating tree makes every rule fire exactly once', () => {
-  const counts = countFindings(scan(buildTree('bad')))
+  const output = scan(buildTree('bad'))
+  const counts = countFindings(output)
   const { missing, extra, wrongCount } = diffCounts(
     counts,
     expectedCounts('bad')
@@ -124,7 +150,7 @@ test('the violating tree makes every rule fire exactly once', () => {
   assert.deepEqual(
     missing,
     [],
-    'rules that matched nothing are silent failures'
+    `rules that matched nothing are silent failures (binary: ${astGrep()})\n${output.slice(0, 600)}`
   )
   assert.deepEqual(extra, [])
   assert.deepEqual(wrongCount, [])
