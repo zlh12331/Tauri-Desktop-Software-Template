@@ -190,6 +190,10 @@ See [docs/developer/releases.en.md](developer/releases.en.md) for the full relea
 
 1. **Try the app**: `npm run tauri:dev`
 2. **Explore features**: Open command palette (Cmd+K), check preferences (Cmd+,)
-3. **Read the docs**: Start with [docs/developer/architecture-guide.en.md](developer/architecture-guide.en.md)
-4. **Set up releases**: Follow the GitHub Releases section above if using CI/CD
-5. **Delete this file**: Once you're comfortable, remove `docs/USING_THIS_TEMPLATE.en.md`
+3. **Cut it down to your app**: [docs/developer/trimming-guide.en.md](developer/trimming-guide.en.md)
+   lists, per feature, every file, command, capability entry, preference field and
+   locale namespace that has to go with it. The template ships a working product;
+   this is the way out of it.
+4. **Read the docs**: Start with [docs/developer/architecture-guide.en.md](developer/architecture-guide.en.md)
+5. **Set up releases**: Follow the GitHub Releases section above if using CI/CD
+6. **Delete this file**: Once you're comfortable, remove `docs/USING_THIS_TEMPLATE.en.md`

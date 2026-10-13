@@ -175,6 +175,9 @@ npm run tauri -- signer generate -w ~/.tauri/myapp.key
 
 1. **试用应用**：`npm run tauri:dev`
 2. **探索功能**：打开命令面板（Cmd+K），查看偏好设置（Cmd+,）
-3. **阅读文档**：从 [docs/developer/architecture-guide.zh.md](developer/architecture-guide.zh.md) 开始
-4. **设置发布**：如使用 CI/CD，请按照上述 GitHub Releases 部分操作
-5. **删除此文件**：当您熟悉后，删除 `docs/USING_THIS_TEMPLATE.zh.md`
+3. **裁剪成你自己的应用**：[docs/developer/trimming-guide.zh.md](developer/trimming-guide.zh.md)
+   按功能逐条列出必须一并移除的文件、命令、capability 条目、偏好字段与文案命名空间。
+   模板发货的是一个能用的产品，这一份就是从中脱身的路径。
+4. **阅读文档**：从 [docs/developer/architecture-guide.zh.md](developer/architecture-guide.zh.md) 开始
+5. **设置发布**：如使用 CI/CD，请按照上述 GitHub Releases 部分操作
+6. **删除此文件**：当您熟悉后，删除 `docs/USING_THIS_TEMPLATE.zh.md`
