@@ -114,11 +114,36 @@ git push origin main --tags
 - **次版本**（x.1.x）：新功能，向后兼容
 - **修订版本**（x.x.1）：Bug 修复
 
-三个文件的版本必须匹配：
+### 版本写在四个地方
+
+发布版本会被写进四个文件，`scripts/prepare-release.js` 用正则替换完成写入：
 
 - `package.json` → `"version": "1.0.0"`
-- `src-tauri/Cargo.toml` → `version = "1.0.0"`
+- `src-tauri/Cargo.toml` → `[package]` 内的 `version = "1.0.0"`
+- `src-tauri/Cargo.lock` → lockfile 里属于本 crate 的那条 `[[package]]` 记录
 - `src-tauri/tauri.conf.json` → `"version": "1.0.0"`
+
+lockfile 那条是最容易被漏的一处——也正因为它，旧文档写的是"三个文件"。改一半会让
+交付出去的包出现应用清单、安装器元数据与更新元数据三者不一致，而这种不一致是在用户
+机器上以"这个应用更新不了"的形式浮现的。`npm run version:check` 断言四处一致，它既进
+`check:all`，也是 CI 的一个步骤。
+
+```bash
+npm run version:check                                 # 只查一致性——CI 门禁用的就是这个
+node scripts/check-version.mjs --pre-release v0.2.0   # 切版本之前跑
+```
+
+预检模式回答的是另一个问题，这也是它必须把版本号作为参数传入的原因：准备发版的当下，
+磁盘上的文件仍是*上一个*版本，读文件等于检查错了对象。它会向 origin 索取 tag 列表（本地
+clone 若从未 fetch 过 tag，否则会报"还没有任何发布"并放行一个重复版本），并拒绝两种情况：
+
+- 该版本已作为 tag 存在——更新器解析的是
+  `/releases/latest/download/latest.json`，它跟随最新的 tag，所以两个都叫 `v0.1.2`
+  的发布不可能同时可达；
+- 该版本不高于已发布的最大 tag，那等于发一个没人能收到的版本。
+
+`prepare-release.js` 会先跑这道预检再跑 `check:all`，于是一个错误的版本号在一秒内就失败，
+而不是等完整套件跑完。
 
 ## 自动更新系统
 

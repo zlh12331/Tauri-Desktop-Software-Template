@@ -192,6 +192,13 @@ jobs:
       - name: i18n catalog consistency
         run: npm run i18n:check
 
+      - name: Version fields agree
+        # One release version is written into package.json, Cargo.toml, Cargo.lock
+        # and tauri.conf.json by regex substitution. Nothing previously proved they
+        # still agreed afterwards, and the mismatch is only discovered by a user
+        # whose installed app cannot update.
+        run: npm run version:check
+
       - name: Gate scripts self-test
         # The custom guards in scripts/ are the ones that decide whether an
         # advisory is exempted and whether coverage moved. A guard with a broken

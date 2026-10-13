@@ -117,11 +117,42 @@ Semantic versioning (`v1.0.0`):
 - **Minor** (x.1.x): New features, backwards compatible
 - **Patch** (x.x.1): Bug fixes
 
-All three files must have matching versions:
+### Four places hold the version
+
+The release is written into four files, and `scripts/prepare-release.js` rewrites
+them with regex substitutions:
 
 - `package.json` → `"version": "1.0.0"`
-- `src-tauri/Cargo.toml` → `version = "1.0.0"`
+- `src-tauri/Cargo.toml` → `version = "1.0.0"` inside `[package]`
+- `src-tauri/Cargo.lock` → the lockfile's own `[[package]]` entry for this crate
 - `src-tauri/tauri.conf.json` → `"version": "1.0.0"`
+
+The lockfile entry is the one that is easy to miss: it is what makes the docs say
+"three". A half-applied bump ships a bundle whose app manifest, installer
+metadata and updater metadata disagree, and the disagreement surfaces on a user's
+machine as an app that cannot update. `npm run version:check` asserts all four
+agree; it runs in `check:all` and as a CI step.
+
+```bash
+npm run version:check                                 # parity only — the CI gate
+node scripts/check-version.mjs --pre-release v0.2.0   # before cutting a release
+```
+
+The pre-flight mode answers a different question, which is why it takes the
+version as an argument: at the moment a release is being prepared, the files on
+disk still carry the _previous_ version, so reading them would check the wrong
+thing. It asks origin for its tags (a local clone with no fetched tags would
+otherwise report "no releases yet" and wave a duplicate through) and rejects two
+cases:
+
+- the version already exists as a tag — the updater resolves
+  `/releases/latest/download/latest.json`, which follows the newest tag, so two
+  releases named `v0.1.2` cannot both be reachable;
+- the version is not newer than the highest published tag, which is a release
+  that reaches nobody.
+
+`prepare-release.js` runs this before `check:all`, so a bad version number fails
+in one second rather than after the full suite.
 
 ## Auto-Update System
 

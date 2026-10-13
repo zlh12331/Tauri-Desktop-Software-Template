@@ -93,6 +93,20 @@ async function prepareRelease() {
     }
     console.log('✅ Working directory is clean')
 
+    // Pre-flight on the version before anything expensive runs. Two failure
+    // modes are worth catching in the first second rather than after the full
+    // suite: the four version fields disagreeing (the release script rewrites
+    // them with regex substitutions, so a missed one ships a bundle whose
+    // manifest, installer metadata and updater metadata disagree), and the
+    // target version already existing as a tag — re-cutting a released version
+    // leaves the older artifacts unreachable because the updater resolves
+    // /releases/latest/download/latest.json against the newest tag.
+    console.log('\n🔍 Checking version parity and release order...')
+    exec(['node', 'scripts/check-version.mjs', '--pre-release', tagVersion])
+    console.log(
+      '✅ Version fields agree and the target advances the release line'
+    )
+
     // Run all checks first
     console.log('\n🔍 Running pre-release checks...')
     exec(npmArgs(['run', 'check:all']))
