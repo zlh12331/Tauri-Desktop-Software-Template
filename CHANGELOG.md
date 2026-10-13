@@ -1,15 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.3] - 2026-10-13
 
 ### Bug fixes
 
-- **gates**: make the test-count guard compare numbers, not just shapes
+- **docs**: give the link checker enough retries to survive a slow host (#96)
 
-- **gates**: guard the root contributing guide, not just the docs copy
-
-- **gates**: say so when the coverage register doc is missing
+- **ast-grep**: 让 lib 禁订阅 store 的规则真的覆盖四个 store
 
 
 ### Documentation
@@ -18,11 +16,7 @@ All notable changes to this project will be documented in this file.
 
 - slim down developer docs to core set
 
-- **template-setup**: list the values that actually ship, not placeholders
-
-- **developer**: swap invented commands for the ones that ship
-
-- **template-setup**: correct two claims in the setup page
+- **template**: 补逐功能拆除指南，把模板从产品降级成地基
 
 
 ### New features
@@ -31,12 +25,10 @@ All notable changes to this project will be documented in this file.
 
 - CI/CD 流程缺失分析
 
-- **updater**: ask before installing an update
-
 
 ### Refactoring & performance
 
-- **build**: stop shipping source maps inside the binary
+- **build**: 给交付体积建预算，并用产物证明 React Compiler 真的跑了
 
 ## [0.1.1] - 2026-08-20
 
