@@ -16,6 +16,7 @@
     "clippy",
     "cmdk",
     "codegen",
+    "contentful",
     "cppvsdbg",
     "creds",
     "dbaeumer",

@@ -6,26 +6,28 @@ All static analysis tools configured in this app and how to use them.
 
 ## Quick Reference
 
-| Tool           | Purpose                  | Command                        | In check:all |
-| -------------- | ------------------------ | ------------------------------ | ------------ |
-| TypeScript     | Type checking            | `npm run typecheck`            | Yes          |
-| ESLint         | Syntax, style, TS rules  | `npm run lint`                 | Yes          |
-| cspell         | Spell checking           | `npm run cspell:check`         | Yes          |
-| Prettier       | Code formatting          | `npm run format:check`         | Yes          |
-| ast-grep       | Architecture patterns    | `npm run ast:lint`             | Yes          |
-| i18n check     | Extract drift + key sync | `npm run i18n:check`           | Yes          |
-| React Compiler | Automatic memoization    | Build-time                     | Yes          |
-| cargo fmt      | Rust formatting          | `npm run rust:fmt:check`       | Yes          |
-| clippy         | Rust linting             | `npm run rust:clippy`          | Yes          |
-| cargo-machete  | Rust unused deps         | `npm run rust:machete`         | Yes          |
-| Vitest         | Frontend tests           | `npm run test:run`             | Yes          |
-| cargo test     | Rust tests               | `npm run rust:test`            | Yes          |
-| gate self-test | Custom guards' own tests | `npm run test:scripts`         | Yes          |
-| bundle budget  | Artifact size + maps     | `npm run bundle:check`         | Yes          |
-| Playwright E2E | 97 UI flows over mocks   | `npm run e2e`                  | CI required  |
-| npm audit      | Dependency advisories    | `node scripts/check-audit.mjs` | CI only      |
-| knip           | Unused code detection    | `npm run knip`                 | No           |
-| jscpd          | Duplicate code detection | `npm run jscpd`                | No           |
+| Tool           | Purpose                        | Command                        | In check:all |
+| -------------- | ------------------------------ | ------------------------------ | ------------ |
+| TypeScript     | Type checking                  | `npm run typecheck`            | Yes          |
+| ESLint         | Syntax, style, TS rules        | `npm run lint`                 | Yes          |
+| cspell         | Spell checking                 | `npm run cspell:check`         | Yes          |
+| Prettier       | Code formatting                | `npm run format:check`         | Yes          |
+| ast-grep       | Architecture patterns          | `npm run ast:lint`             | Yes          |
+| i18n check     | Extract drift + key sync       | `npm run i18n:check`           | Yes          |
+| React Compiler | Automatic memoization          | Build-time                     | Yes          |
+| cargo fmt      | Rust formatting                | `npm run rust:fmt:check`       | Yes          |
+| clippy         | Rust linting                   | `npm run rust:clippy`          | Yes          |
+| cargo-machete  | Rust unused deps               | `npm run rust:machete`         | Yes          |
+| Vitest         | Frontend tests                 | `npm run test:run`             | Yes          |
+| cargo test     | Rust tests                     | `npm run rust:test`            | Yes          |
+| gate self-test | Custom guards' own tests       | `npm run test:scripts`         | Yes          |
+| rule contracts | Each ast-grep rule still fires | `npm run test:scripts`         | Yes          |
+| bundle budget  | Artifact size + maps           | `npm run bundle:check`         | Yes          |
+| startup budget | Production bundle timing       | `npm run e2e:startup`          | CI required  |
+| Playwright E2E | 97 UI flows over mocks         | `npm run e2e`                  | CI required  |
+| npm audit      | Dependency advisories          | `node scripts/check-audit.mjs` | CI only      |
+| knip           | Unused code detection          | `npm run knip`                 | No           |
+| jscpd          | Duplicate code detection       | `npm run jscpd`                | No           |
 
 CI additionally runs [actionlint](https://github.com/rhysd/actionlint) on all
 GitHub Actions workflows and [gitleaks](https://github.com/gitleaks/gitleaks)
@@ -96,6 +98,19 @@ npm run ast:fix     # Auto-fix where possible
 - No store subscriptions in `lib/`
 
 Custom ast-grep rules are authored as YAML files in `.ast-grep/rules/`; refer to the AST-grep documentation for the rule syntax.
+
+**A green scan is not proof the rules still work.** `ast-grep scan` reporting zero
+findings looks identical to a rule that stopped matching: a CLI upgrade, an edited
+pattern, or a `files:` glob that no longer covers the directory it guards. The
+contract suite in `scripts/lib/ast-grep-contracts.mjs` pins one violating and one
+compliant snippet per rule and runs the real binary over both, asserting each rule
+fires exactly once on the violating tree and never on the compliant one. A rule
+added without a contract fails `npm run test:scripts`, which is what stops the
+suite from quietly shrinking. Each pair declares the dimension it differs in —
+`path` for scope rules such as `hooks-in-hooks-dir`, whose whole subject is the
+directory, and `code` for syntax rules such as `no-store-subscription-in-lib`.
+Fixtures are generated into `node_modules/.cache` and deleted afterwards, so a
+deliberate anti-pattern never exists in the working tree.
 
 ### React Compiler
 
@@ -257,6 +272,13 @@ nothing about native windows, tray icons, global shortcuts, NSPanel levels or th
 installer. Those rest on the 423 Rust tests plus the compile check in
 `Build (<platform>)`, which now also asserts a release binary came out and
 records its size in the job summary.
+
+The production bundle does get one timing gate: `npm run e2e:startup` serves
+`dist/` through `vite preview` and asserts a first-contentful-paint and a React
+mount budget (`e2e/startup-budget.spec.ts`). Timing the dev server instead would
+have measured Vite's on-demand transforms rather than what users install. It still
+runs in Chromium with mocked IPC, so it says nothing about process spawn or the
+native webview.
 
 A real driver-driven smoke was considered and is not on the roadmap: `tauri-driver`
 supports Windows and Linux, and the upstream documentation states macOS has no

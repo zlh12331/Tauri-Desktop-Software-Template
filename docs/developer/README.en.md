@@ -15,6 +15,7 @@ established patterns and are intended for both human developers and AI coding ag
 | [Tauri Commands](./tauri-commands.en.md)         | Type-safe Rust-TypeScript bridge (tauri-specta)         |
 | [Internationalization](./i18n-patterns.en.md)    | Translation system, RTL support                         |
 | [Static Analysis](./static-analysis.en.md)       | ESLint, Prettier, ast-grep, knip, jscpd, React Compiler |
+| [Testing](./testing.en.md)                       | Test layers, coverage register, where each gate runs    |
 | [Releases](./releases.en.md)                     | Release process, signing, auto-updates                  |
 | [Trimming Guide](./trimming-guide.en.md)         | Removing shipped features to get a minimal app          |
 

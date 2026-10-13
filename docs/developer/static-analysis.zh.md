@@ -6,26 +6,28 @@
 
 ## 快速参考
 
-| 工具           | 用途                    | 命令                           | 在 check:all 中 |
-| -------------- | ----------------------- | ------------------------------ | --------------- |
-| TypeScript     | 类型检查                | `npm run typecheck`            | 是              |
-| ESLint         | 语法、风格、TS 规则     | `npm run lint`                 | 是              |
-| cspell         | 拼写检查                | `npm run cspell:check`         | 是              |
-| Prettier       | 代码格式化              | `npm run format:check`         | 是              |
-| ast-grep       | 架构模式                | `npm run ast:lint`             | 是              |
-| i18n check     | 提取漂移 + 键同步       | `npm run i18n:check`           | 是              |
-| React Compiler | 自动 memoization        | 构建时                         | 是              |
-| cargo fmt      | Rust 格式化             | `npm run rust:fmt:check`       | 是              |
-| clippy         | Rust lint               | `npm run rust:clippy`          | 是              |
-| cargo-machete  | Rust 未使用依赖         | `npm run rust:machete`         | 是              |
-| Vitest         | 前端测试                | `npm run test:run`             | 是              |
-| cargo test     | Rust 测试               | `npm run rust:test`            | 是              |
-| 门禁自测       | 自建守卫自身的测试      | `npm run test:scripts`         | 是              |
-| 包体积预算     | 产物体积与 source map   | `npm run bundle:check`         | 是              |
-| Playwright E2E | 97 条走 mock 的 UI 流程 | `npm run e2e`                  | CI 必需检查     |
-| npm audit      | 依赖漏洞                | `node scripts/check-audit.mjs` | 仅 CI           |
-| knip           | 未使用代码检测          | `npm run knip`                 | 否              |
-| jscpd          | 重复代码检测            | `npm run jscpd`                | 否              |
+| 工具           | 用途                       | 命令                           | 在 check:all 中 |
+| -------------- | -------------------------- | ------------------------------ | --------------- |
+| TypeScript     | 类型检查                   | `npm run typecheck`            | 是              |
+| ESLint         | 语法、风格、TS 规则        | `npm run lint`                 | 是              |
+| cspell         | 拼写检查                   | `npm run cspell:check`         | 是              |
+| Prettier       | 代码格式化                 | `npm run format:check`         | 是              |
+| ast-grep       | 架构模式                   | `npm run ast:lint`             | 是              |
+| i18n check     | 提取漂移 + 键同步          | `npm run i18n:check`           | 是              |
+| React Compiler | 自动 memoization           | 构建时                         | 是              |
+| cargo fmt      | Rust 格式化                | `npm run rust:fmt:check`       | 是              |
+| clippy         | Rust lint                  | `npm run rust:clippy`          | 是              |
+| cargo-machete  | Rust 未使用依赖            | `npm run rust:machete`         | 是              |
+| Vitest         | 前端测试                   | `npm run test:run`             | 是              |
+| cargo test     | Rust 测试                  | `npm run rust:test`            | 是              |
+| 门禁自测       | 自建守卫自身的测试         | `npm run test:scripts`         | 是              |
+| 规则契约       | 每条 ast-grep 规则仍咬得住 | `npm run test:scripts`         | 是              |
+| 包体积预算     | 产物体积与 source map      | `npm run bundle:check`         | 是              |
+| 启动预算       | 生产产物的时序             | `npm run e2e:startup`          | CI 必需检查     |
+| Playwright E2E | 97 条走 mock 的 UI 流程    | `npm run e2e`                  | CI 必需检查     |
+| npm audit      | 依赖漏洞                   | `node scripts/check-audit.mjs` | 仅 CI           |
+| knip           | 未使用代码检测             | `npm run knip`                 | 否              |
+| jscpd          | 重复代码检测               | `npm run jscpd`                | 否              |
 
 CI 额外运行 [actionlint](https://github.com/rhysd/actionlint) 检查所有 GitHub Actions workflow，以及 [gitleaks](https://github.com/gitleaks/gitleaks) 密钥扫描。
 
@@ -91,6 +93,16 @@ npm run ast:fix     # 尽可能自动修复
 - `lib/` 中禁止 store 订阅
 
 自定义 ast-grep 规则以 YAML 文件形式编写在 `.ast-grep/rules/` 中；规则语法请参考 AST-grep 官方文档。
+
+**扫描全绿并不证明规则还有效。** `ast-grep scan` 报 0 条命中，与一条已经不再匹配的
+规则看起来完全一样：CLI 升级、规则被改过、或者 `files:` 通配已经覆盖不到它本该管的
+目录。`scripts/lib/ast-grep-contracts.mjs` 为每条规则钉住一段必须命中的反例与一段
+必须不命中的正例，然后用真实二进制各扫一遍，断言反例树里每条规则恰好命中一次、正例
+树里一次都不命中。新增规则却不写契约会让 `npm run test:scripts` 直接失败——这就是
+防止这套契约悄悄缩水的那道闸。每对 fixture 要声明自己靠哪个维度区分：
+`hooks-in-hooks-dir` 这类"作用域规则"用 `path`（它管的就是目录，两段代码故意相同），
+`no-store-subscription-in-lib` 这类语法规则用 `code`。fixture 只在
+`node_modules/.cache` 下临时生成、跑完即删，所以故意写坏的反例永远不会进工作区。
 
 ### React Compiler
 
@@ -200,6 +212,11 @@ npm run e2e    # 单 worker，约 4.5 分钟，需要先 `npx playwright install
 "前端在 IPC 契约下的行为"，对原生窗口、托盘、全局快捷键、NSPanel 层级、安装包
 不做任何证明。那部分依赖 423 个 Rust 测试，加上 `Build (<平台>)` 里的编译检查——该作业现在
 还会断言确实产出了 release 二进制，并把体积记进 job summary。
+
+生产产物有一条时序门禁：`npm run e2e:startup` 用 `vite preview` 服务 `dist/`，断言
+首次内容绘制与 React 挂载的预算（`e2e/startup-budget.spec.ts`）。之所以不去量开发
+服务器，是因为那测到的是 Vite 的按需转译，而不是用户真正装到机器上的东西。它仍然跑在
+mock IPC 的 Chromium 里，所以对进程启动与原生 webview 不做任何证明。
 
 真壳驱动的冒烟测试考虑过，但不列入计划：`tauri-driver` 只支持 Windows 与 Linux，
 上游文档明确写着 macOS 没有可用的 WKWebView 驱动工具。一个无法覆盖本模板三个交付平台中
