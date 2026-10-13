@@ -3,6 +3,7 @@
 import fs from 'fs'
 import { spawnSync } from 'child_process'
 import readline from 'readline'
+import { releaseBranch } from './lib/release-flow.mjs'
 
 /**
  * Resolve the npm CLI entry point. When a script runs under `npm run`, npm
@@ -181,17 +182,33 @@ async function prepareRelease() {
     console.log('✅ Rust compilation check passed')
 
     console.log(`\n🎉 Successfully prepared release ${tagVersion}!`)
-    console.log('\n📋 Git commands to execute:')
-    console.log(`   git add .`)
-    console.log(`   git commit -m "chore: release ${tagVersion}"`)
-    console.log(`   git tag ${tagVersion}`)
-    console.log(`   git push origin main --tags`)
 
-    console.log('\n🚀 After pushing:')
-    console.log('   • GitHub Actions will automatically build the release')
-    console.log('   • A draft release will be created on GitHub')
-    console.log("   • You'll need to manually publish the draft release")
-    console.log('   • Users will receive auto-update notifications')
+    // The bump no longer goes to `main` by hand. `main` is protected by a ruleset
+    // that requires a pull request plus status checks, so `git push origin main`
+    // is refused — and a refusal that lands *after* `git tag` leaves a tag naming
+    // a commit `main` never had. That is precisely how v0.1.2 got stranded in this
+    // repository. The release is therefore split: commit on `release/vX`, open the
+    // pull request, and tag the merge afterwards with `npm run release:tag`.
+    const baseBranch =
+      exec(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], { silent: true })
+        .trim()
+        .replace(/^HEAD$/, 'main') || 'main'
+    const branch = releaseBranch(tagVersion)
+
+    console.log('\n📋 Git commands to execute:')
+    console.log(`   git checkout -b ${branch}`)
+    console.log('   git add .')
+    console.log(`   git commit -m "chore: release ${tagVersion}"`)
+    console.log(`   git push -u origin ${branch}`)
+    console.log(
+      `   gh pr create --base ${baseBranch} --head ${branch} --title "chore: release ${tagVersion}"`
+    )
+
+    console.log('\n🚀 After the pull request merges:')
+    console.log(`   npm run release:tag -- ${tagVersion}`)
+    console.log('   • the tag push is what triggers the release build')
+    console.log('   • a draft release is created, and you publish it by hand')
+    console.log('   • users then receive auto-update notifications')
 
     // Interactive execution option (auto-proceed in --non-interactive mode)
     const answer = nonInteractive
@@ -203,26 +220,60 @@ async function prepareRelease() {
     if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
       console.log('\n⚡ Executing git commands...')
 
+      console.log(`🌿 Creating and switching to ${branch}...`)
+      exec(['git', 'checkout', '-b', branch])
+
       console.log('📝 Adding changes...')
       exec(['git', 'add', '.'])
 
       console.log('💾 Creating commit...')
       exec(['git', 'commit', '-m', `chore: release ${tagVersion}`])
 
-      console.log('🏷️  Creating tag...')
-      exec(['git', 'tag', tagVersion])
+      console.log('📤 Pushing the release branch...')
+      exec(['git', 'push', '-u', 'origin', branch])
 
-      console.log('📤 Pushing to remote...')
-      exec(['git', 'push', 'origin', 'main', '--tags'])
-
-      console.log(`\n🎊 Release ${tagVersion} has been published!`)
-      // Point at the current repository through gh, so the hint stays correct
-      // after a fork renames itself.
-      console.log('📱 Check GitHub Actions: gh run list')
-      console.log(`📦 Draft release: gh release view ${tagVersion} --web`)
-      console.log(
-        '\n⚠️  Remember: You need to manually publish the draft release on GitHub!'
+      // The pull request is opened through gh when it is available; without it the
+      // branch is still pushed, so the fallback is a URL rather than a dead end.
+      const prBody = [
+        `Release ${tagVersion}.`,
+        '',
+        'Bumps `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` and',
+        '`src-tauri/tauri.conf.json` together with the generated CHANGELOG.',
+        '',
+        `Once merged, run \`npm run release:tag -- ${tagVersion}\` to tag the merge`,
+        'and start the release build.',
+      ].join('\n')
+      const pr = spawnSync(
+        'gh',
+        [
+          'pr',
+          'create',
+          '--base',
+          baseBranch,
+          '--head',
+          branch,
+          '--title',
+          `chore: release ${tagVersion}`,
+          '--body',
+          prBody,
+        ],
+        { encoding: 'utf8' }
       )
+      if (pr.status === 0) {
+        console.log(`🔗 Pull request opened: ${pr.stdout?.trim()}`)
+      } else {
+        console.warn(
+          `⚠️  Could not open the pull request automatically (${pr.stderr?.trim() || 'gh unavailable'}).`
+        )
+        console.warn(
+          `   Open it by hand: ${baseBranch} ← ${branch}, title "chore: release ${tagVersion}"`
+        )
+      }
+
+      console.log(
+        `\n🎊 Release ${tagVersion} is on ${branch}, waiting for merge.`
+      )
+      console.log(`   After it merges: npm run release:tag -- ${tagVersion}`)
     } else {
       console.log('\n📝 Git commands saved for manual execution.')
       console.log("   Run them when you're ready to release.")

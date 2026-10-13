@@ -69,6 +69,7 @@
     "fix:all": "npm run lint:fix && npm run format && npm run rust:fmt && npm run rust:clippy:fix",
     "build:analyze": "vite-bundle-visualizer --output-format html --output-file bundle-analysis.html",
     "release:prepare": "node scripts/prepare-release.js",
+    "release:tag": "node scripts/tag-release.js",
     "task:complete": "node scripts/complete-task.js",
     "task:rename-done": "node scripts/complete-task.js --rename-existing",
     "knip": "knip --include files,dependencies,unlisted,binaries,unresolved",
