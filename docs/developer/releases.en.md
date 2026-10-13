@@ -105,25 +105,36 @@ new version section for each `v*` tag.
 
 `release:prepare` regenerates `CHANGELOG.md` as part of the bump, so the changelog
 reaches GitHub in the same commit and the same pull request as the version
-numbers:
+numbers. It names the tag the release is about to create (`git-cliff --tag
+v1.0.0`), so the top section reads `## [1.0.0]` instead of `## [Unreleased]`.
+That matters twice over: the Release workflow regenerates the changelog from the
+real tag and refuses to start the platform builds when the committed text differs
+by exactly that heading, and the release notes extract the `## [<version>]`
+section — with `[Unreleased]` there is nothing to extract.
 
 ```bash
 npm run release:prepare -- v1.0.0
 ```
 
-To proofread the wording first, run `npm run changelog` on its own and amend the
-release commit on the `release/v1.0.0` branch. A changelog-only commit does not
-belong on `main` directly — the branch protection refuses it, and the refusal
-lands after the tag has already been created locally.
+To proofread the wording first, generate it the same way and amend the release
+commit on the `release/v1.0.0` branch:
+
+```bash
+npm run changelog -- --tag v1.0.0
+```
+
+A changelog-only commit does not belong on `main` directly — the branch protection
+refuses it, and the refusal lands after the tag has already been created locally.
 
 ### Manual Method
 
 The scripts' two steps, done by hand:
 
 ```bash
-# 1. bump all four version fields, refresh the changelog, verify, open the PR
+# 1. bump all four version fields, refresh the changelog for that tag, verify, open the PR
 npm run version:check
 npm run check:all
+npm run changelog -- --tag v1.0.0
 git checkout -b release/v1.0.0
 git add .
 git commit -m "chore: release v1.0.0"
