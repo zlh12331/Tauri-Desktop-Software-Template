@@ -6,23 +6,26 @@
 
 ## 快速参考
 
-| 工具           | 用途                | 命令                           | 在 check:all 中 |
-| -------------- | ------------------- | ------------------------------ | --------------- |
-| TypeScript     | 类型检查            | `npm run typecheck`            | 是              |
-| ESLint         | 语法、风格、TS 规则 | `npm run lint`                 | 是              |
-| cspell         | 拼写检查            | `npm run cspell:check`         | 是              |
-| Prettier       | 代码格式化          | `npm run format:check`         | 是              |
-| ast-grep       | 架构模式            | `npm run ast:lint`             | 是              |
-| i18n check     | 提取漂移 + 键同步   | `npm run i18n:check`           | 是              |
-| React Compiler | 自动 memoization    | 构建时                         | 是              |
-| cargo fmt      | Rust 格式化         | `npm run rust:fmt:check`       | 是              |
-| clippy         | Rust lint           | `npm run rust:clippy`          | 是              |
-| cargo-machete  | Rust 未使用依赖     | `npm run rust:machete`         | 是              |
-| Vitest         | 前端测试            | `npm run test:run`             | 是              |
-| cargo test     | Rust 测试           | `npm run rust:test`            | 是              |
-| npm audit      | 依赖漏洞            | `node scripts/check-audit.mjs` | 仅 CI           |
-| knip           | 未使用代码检测      | `npm run knip`                 | 否              |
-| jscpd          | 重复代码检测        | `npm run jscpd`                | 否              |
+| 工具           | 用途                    | 命令                           | 在 check:all 中 |
+| -------------- | ----------------------- | ------------------------------ | --------------- |
+| TypeScript     | 类型检查                | `npm run typecheck`            | 是              |
+| ESLint         | 语法、风格、TS 规则     | `npm run lint`                 | 是              |
+| cspell         | 拼写检查                | `npm run cspell:check`         | 是              |
+| Prettier       | 代码格式化              | `npm run format:check`         | 是              |
+| ast-grep       | 架构模式                | `npm run ast:lint`             | 是              |
+| i18n check     | 提取漂移 + 键同步       | `npm run i18n:check`           | 是              |
+| React Compiler | 自动 memoization        | 构建时                         | 是              |
+| cargo fmt      | Rust 格式化             | `npm run rust:fmt:check`       | 是              |
+| clippy         | Rust lint               | `npm run rust:clippy`          | 是              |
+| cargo-machete  | Rust 未使用依赖         | `npm run rust:machete`         | 是              |
+| Vitest         | 前端测试                | `npm run test:run`             | 是              |
+| cargo test     | Rust 测试               | `npm run rust:test`            | 是              |
+| 门禁自测       | 自建守卫自身的测试      | `npm run test:scripts`         | 是              |
+| 包体积预算     | 产物体积与 source map   | `npm run bundle:check`         | 是              |
+| Playwright E2E | 97 条走 mock 的 UI 流程 | `npm run e2e`                  | CI 必需检查     |
+| npm audit      | 依赖漏洞                | `node scripts/check-audit.mjs` | 仅 CI           |
+| knip           | 未使用代码检测          | `npm run knip`                 | 否              |
+| jscpd          | 重复代码检测            | `npm run jscpd`                | 否              |
 
 CI 额外运行 [actionlint](https://github.com/rhysd/actionlint) 检查所有 GitHub Actions workflow，以及 [gitleaks](https://github.com/gitleaks/gitleaks) 密钥扫描。
 
@@ -101,6 +104,31 @@ npm run ast:fix     # 尽可能自动修复
 
 **注意**：`getState()` 模式仍然关键 - 它避免的是 store 订阅，而非 memoization。参见 [state-management.zh.md](./state-management.zh.md)。
 
+### 包体积预算
+
+```bash
+npm run build         # 产出 dist/ —— 检查读取它，自身不构建
+npm run bundle:check
+```
+
+`scripts/check-bundle.mjs` 给应用交付的体积设上限，口径是 `dist/assets` 的 gzip。五条预算都在 `scripts/lib/bundle-metrics.mjs`，各自紧挨着推导它的基线值：
+
+| 预算               | 度量对象                                                 |
+| ------------------ | -------------------------------------------------------- |
+| `jsGzip`           | 主窗口要解析的全部 JS 字节                               |
+| `cssGzip`          | Tailwind 产物加组件 CSS                                  |
+| `largestChunkGzip` | 最大的单个 chunk，让新增的重依赖无法藏在一行 lockfile 里 |
+| `quickPaneJsGzip`  | 常驻隐藏窗口——从不使用它的用户也在为它付费               |
+| `distGzipTotal`    | Tauri 嵌入二进制的全部 Web 资源                          |
+
+这个门禁有三处是刻意设计的：
+
+- **空 `dist` 不可能通过。** `measure([])` 对每条预算都是 0，所以 `isDistPopulated()` 单独检查，且 `dist/assets` 不存在时 CLI 直接拒绝运行。把"什么都没测到"读成"什么都没超标"，和覆盖率报表里没有任何语句是同一种失效形状。
+- **React Compiler 用产物验证，而不是用配置验证。** `@rolldown/plugin-babel` 无论插件能否解析都会接受该 preset——构建成功，然后悄悄不再 memoize。编译器会产出 `Symbol.for('react.memo_cache_sentinel')`，而 `Symbol.for` 字符串能活过压缩，所以门禁直接在构建产物里数它。命中数为 0 判失败；远低于基线则告警。
+- **`dist/` 里出现 source map 判失败。** `frontendDist` 下的每个文件都被嵌进可执行文件，所以一张残留的 `.map` 会发给每一个用户。`vite.config.ts` 只在同一次构建能把手图交给 Sentry 时才生成，这个检查就是确认该性质仍然成立。
+
+预算只能向上调整，且必须在改动里说明理由——每个数字上方的基线注释就是评审面。`vite.config.ts` 里的 `build.chunkSizeWarningLimit: 600` 是 Vite 的告警阈值，不是预算：它是为了适配当时已存在的组件而被抬高的，而"把上限调到刚好放过现状"不构成约束。
+
 ### Rust 工具
 
 ```bash
@@ -138,6 +166,45 @@ node scripts/check-audit.mjs --registry=https://registry.npmjs.org
 ```
 
 这个脚本取代裸的 `npm audit --audit-level=high`。部分公告还没有修复版本，而 npm 会把依赖它的每个包都标成同等严重，于是一个无法修补的传递依赖会让整条链变红。脚本 `IGNORED` 数组里列出的公告被豁免，但严重度是按剩余成因重新计算的，所以一条豁免只能隐藏它点名的那条公告。这遵循与 `src-tauri/deny.toml` 中豁免相同的约定：写明理由、给出复查时间，上游一出修复就删掉。
+
+### 门禁脚本自测
+
+```bash
+npm run test:scripts    # node --test scripts/
+```
+
+`scripts/` 下每个自建守卫都在决定一件没有人会再看一眼的事：哪些漏洞被豁免、覆盖率是否下滑、两份翻译目录是否还对齐。比较逻辑写坏的守卫不会报错——它会永远报成功，而这和"正常工作"看起来一模一样。
+
+这不是假设。`check-audit.mjs` 的早期版本把每个包的严重级别与 `RANK['none']` 比较，而 `none` 没有等级，于是比较对象是 `undefined`，每个 `severity > worst` 判定都为 false。对任何输入它都退出 0，包括确实存在 high 级漏洞的依赖树。发现它的唯一办法是把反向用例写下来：清空豁免表后跑一次，断言它此时必须点出包名。
+
+因此判定逻辑放在 `scripts/lib/*.mjs` 里，是纯函数；`scripts/lib/*.test.mjs` 用 Node 内置测试运行器覆盖它们——不需要访问 registry，也不需要先跑覆盖率。`check-coverage.mjs` 携带的是同一类问题的反向守卫：`pct()` 对空分母返回 100，所以 CLI 只要发现某个维度的总数为 0 就直接失败，而不是把"什么都没测到"读成"全覆盖"。
+
+新增守卫时，请在同一次改动里补上它的反向测试。不会失败的测试不是门禁。
+
+### Playwright E2E——是必需检查，但不进 `check:all`（刻意为之）
+
+```bash
+npm run e2e    # 单 worker，约 4.5 分钟，需要先 `npx playwright install chromium`
+```
+
+`E2E Tests` 是本分支的必需状态检查之一，所以无论你的 pre-push 钩子有没有跑它，一条坏掉的 UI 流程都会挡住合并。把它放进 `check:all`，换来的是更早的反馈，代价是每次推送多约 4.5 分钟，外加每个新 clone 都必须装好 Playwright 浏览器——而一个"第一次 `git push` 因为机器没有 Chromium 而失败"的模板，第一小时体验是坏的。发版前、或改动用户流程后，手动跑一次即可。
+
+一处不显然的设置：`playwright.config.ts` 里的 `workers: 1`，本地也一样。在 Windows 开发机上实测：按 Playwright 默认的并行度（逻辑核心数的一半），97 条里有 2 条卡在 10 秒 `expect` 超时——因为这些首次页面加载全部打到同一个 Vite 开发服务器上，而它是按需编译模块图的；这两条单独整文件跑时都能过。CI 本来就用单 worker，所以这一改是让本地与 CI 判定同一件事，而不是各说各话。
+
+但它**没有**让这套用例变确定，而如实记录比圆场的故事重要：`advanced-pane.spec.ts:184`（"API config form submit with valid data shows success toast"）在单 worker 下独立重跑 3 次红了 1 次，一次完整单 worker 全量跑里也红了 1 次。它的失败形态是：用例第一次 `fill` 之前就已经有一次指向根 URL 的导航在飞，所以那次重载不是提交表单造成的——react-hook-form 的 `handleSubmit` 确实会 `preventDefault`，偏好设置组件树里也只有唯一一个 `<form>`。它在 CI 里能变绿，只是因为 `retries: 2` 把它吸收了。真要处理这条，起点应该是"谁触发了导航"，而不是提交处理器。
+
+### E2E 这套体系覆盖不到的东西
+
+这 97 条 Playwright 用例跑在 Vite 开发服务器上，IPC 层是 mock 的
+（`e2e/mocks/tauri-mock.ts`，由 `addInitScript` 注入），从不启动 Rust 进程。因此它们验证的是
+"前端在 IPC 契约下的行为"，对原生窗口、托盘、全局快捷键、NSPanel 层级、安装包
+不做任何证明。那部分依赖 423 个 Rust 测试，加上 `Build (<平台>)` 里的编译检查——该作业现在
+还会断言确实产出了 release 二进制，并把体积记进 job summary。
+
+真壳驱动的冒烟测试考虑过，但不列入计划：`tauri-driver` 只支持 Windows 与 Linux，
+上游文档明确写着 macOS 没有可用的 WKWebView 驱动工具。一个无法覆盖本模板三个交付平台中
+之一的"桌面冒烟"，其声称的覆盖面本身就是虚构的。所以诚实的做法是留下那条二进制断言，
+并在这个位置把缺口写清楚，而不是拿它遮掩过去。
 
 ## CI 集成
 

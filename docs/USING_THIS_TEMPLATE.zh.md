@@ -43,7 +43,17 @@ npm run tauri:dev
 | `src-tauri/Cargo.toml`             | `package.name`、`package.description`、`package.authors`                                            |
 | `.github/workflows/release-v2.yml` | 产品名在文件中字面出现三处（产物前缀、`finalize` 参数、Release 标题）                               |
 | `SECURITY.md`（仓库根目录）        | 私有安全公告链接，其中写死了当前的 owner/repo                                                       |
+| `.github/CODEOWNERS`               | 每条规则的 owner 账号——见下文                                                                       |
+| 远端的分支保护                     | 必需检查必须与 `.github/workflows/ci.yml` 里的 job 名逐字一致                                       |
 | `AGENTS.md` / `README.md`          | 应用名称与描述文案                                                                                  |
+
+### 两处"错了也不报错"的设置
+
+`.github/CODEOWNERS` 与远端的 ruleset 是这份清单里唯一两个出错时不产生任何错误的条目。
+
+**CODEOWNERS** 发货时指向 `@zlh12331`，即上游维护者。在 fork 里这意味着每个 PR 都会去请一个不是你仓库协作者的人评审。GitHub 不会警告你：无法解析的 owner 就是永不被请求，于是这个文件看起来配好了，实际什么都不约束。更早的版本发货的是占位符 `@your-org/maintainers`，以同样安静的方式失效。把账号换成你自己的，或者在没有第二评审人时直接删掉这个文件。
+
+**分支保护** 在相反方向上是同一种形状。`protect-main` 规则集按字面 job 名列出必需检查（`Code Quality`、`E2E Tests`、`Workflow Lint (actionlint)`，以及构建矩阵那几项）。只改了 `ci.yml` 里的 job 名或删了 job 而不同步改云端，那条检查就永不 report——这不会让 PR 变红，而是让它永远 pending、没有任何可读的信号。所以任何对 `ci.yml` 中 `name:` 的改动，都必须在同一次操作里配套修改云端。
 
 ### 没有占位符字符串——先读这一段
 
@@ -165,6 +175,9 @@ npm run tauri -- signer generate -w ~/.tauri/myapp.key
 
 1. **试用应用**：`npm run tauri:dev`
 2. **探索功能**：打开命令面板（Cmd+K），查看偏好设置（Cmd+,）
-3. **阅读文档**：从 [docs/developer/architecture-guide.zh.md](developer/architecture-guide.zh.md) 开始
-4. **设置发布**：如使用 CI/CD，请按照上述 GitHub Releases 部分操作
-5. **删除此文件**：当您熟悉后，删除 `docs/USING_THIS_TEMPLATE.zh.md`
+3. **裁剪成你自己的应用**：[docs/developer/trimming-guide.zh.md](developer/trimming-guide.zh.md)
+   按功能逐条列出必须一并移除的文件、命令、capability 条目、偏好字段与文案命名空间。
+   模板发货的是一个能用的产品，这一份就是从中脱身的路径。
+4. **阅读文档**：从 [docs/developer/architecture-guide.zh.md](developer/architecture-guide.zh.md) 开始
+5. **设置发布**：如使用 CI/CD，请按照上述 GitHub Releases 部分操作
+6. **删除此文件**：当您熟悉后，删除 `docs/USING_THIS_TEMPLATE.zh.md`

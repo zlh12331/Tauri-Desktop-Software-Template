@@ -53,27 +53,39 @@ npm run tauri -- signer generate -w ~/.tauri/myapp.key
 
 ## 发布流程
 
-### 简单方法
+### 发布是两条命令，不是一条
 
 ```bash
-npm run release:prepare v1.0.0
+npm run release:prepare -- v1.0.0     # 改版本号，开出发版 PR
+# …评审并合并那个 PR…
+npm run release:tag -- v1.0.0         # 给合并点打 tag；这才启动构建
 ```
 
-这将：
+`release:prepare` 会：
 
 1. 检查 git 状态是否干净
-2. 运行所有质量检查（`npm run check:all`）
-3. 更新 `package.json`、`Cargo.toml`、`tauri.conf.json` 中的版本
-4. 询问你是否要提交并推送
+2. 跑版本预检（`check-version.mjs --pre-release`）：目标版本不得已作为 tag 存在，
+   且必须高于所有已发布版本
+3. 运行所有质量检查（`npm run check:all`）
+4. 更新四处版本字段并重新生成 `CHANGELOG.md`
+5. 在 `release/v1.0.0` 上提交、推送，并用 `gh` 开出发版 PR
 
-然后 GitHub Actions 将：
+随后 `release:tag` 从已合并的 `origin/main` 读取版本号，除非四处都与请求的版本一致
+且该 tag 尚不存在，否则拒绝执行；通过后才创建并推送 tag。触发构建的是这次 tag 推送：
 
 1. 为所有平台构建应用
 2. 创建草稿发布
 3. 生成 `latest.json` 用于自动更新
 4. 上传所有安装程序和签名
 
-最后，在 GitHub 上手动发布草稿发布。
+最后，在 GitHub 上手动发布该草稿。
+
+之所以拆开：`main` 被规则集保护，要求 PR 与状态检查，所以旧的那条命令最后一步
+`git push origin main --tags` 会被拒绝——而如果拒绝发生在 `git tag` 之后，tag 就指向了
+一个 `main` 从未收到过的提交。`v0.1.2` 就是这样凭空消失的：版本号已经发出去了，但
+从未打上 tag，于是更新器的 `/releases/latest/download/latest.json` 仍返回 `v0.1.1`，
+`0.1.1` 的用户永远不知道该更新。改成"给合并点打 tag"后这种状态不可能出现：tag 只能
+指向 `main`。
 
 ### CHANGELOG 生成
 
@@ -85,26 +97,41 @@ npm run changelog
 
 配置在项目根目录的 `cliff.toml` 中。changelog 按类型（功能、Bug 修复、文档等）分组提交，并为每个 `v*` 标签生成新的版本部分。
 
-准备发布时：
+`release:prepare` 会在改版本号的同一步里重新生成 `CHANGELOG.md`，所以变更日志与版本号
+落在同一个提交、同一个 PR 里：
 
 ```bash
-npm run release:prepare v1.0.0
-npm run changelog          # 更新 CHANGELOG.md
-git add CHANGELOG.md
-git commit -m "docs: update CHANGELOG for v1.0.0"
-git push origin main --tags
+npm run release:prepare -- v1.0.0
 ```
+
+想先校一遍措辞，就单独跑 `npm run changelog`，然后在 `release/v1.0.0` 分支上 amend 那个
+发版提交。只改变更日志的提交不要直接推 `main`——分支保护会拒绝，而且拒绝发生时 tag 往往
+已经在本地建好了。
 
 ### 手动方法
 
+把脚本的两步手工做一遍：
+
 ```bash
-# 更新 package.json、Cargo.toml、tauri.conf.json 中的版本
+# 1. 改齐四处版本、刷新变更日志、验证、开 PR
+npm run version:check
 npm run check:all
+git checkout -b release/v1.0.0
 git add .
 git commit -m "chore: release v1.0.0"
-git tag v1.0.0
-git push origin main --tags
+git push -u origin release/v1.0.0
+gh pr create --base main --head release/v1.0.0 --title "chore: release v1.0.0"
+
+# 2. 该 PR 合并之后：给合并点打 tag，构建由此启动
+git fetch origin main
+node scripts/check-version.mjs --pre-release v1.0.0
+git tag -a v1.0.0 origin/main -m "Release v1.0.0"
+git push origin v1.0.0
 ```
+
+这里刻意不提供"把版本提交直接推上 `main`"的手动写法。规则集会拒绝它，而让发版搁浅的
+正是那一步组合：`git tag` 本地成功、推送被拒，接下来要么留下一个悬空 tag，要么把它推成
+一个指向 `main` 从未有过的提交。
 
 ## 版本策略
 
@@ -114,11 +141,36 @@ git push origin main --tags
 - **次版本**（x.1.x）：新功能，向后兼容
 - **修订版本**（x.x.1）：Bug 修复
 
-三个文件的版本必须匹配：
+### 版本写在四个地方
+
+发布版本会被写进四个文件，`scripts/prepare-release.js` 用正则替换完成写入：
 
 - `package.json` → `"version": "1.0.0"`
-- `src-tauri/Cargo.toml` → `version = "1.0.0"`
+- `src-tauri/Cargo.toml` → `[package]` 内的 `version = "1.0.0"`
+- `src-tauri/Cargo.lock` → lockfile 里属于本 crate 的那条 `[[package]]` 记录
 - `src-tauri/tauri.conf.json` → `"version": "1.0.0"`
+
+lockfile 那条是最容易被漏的一处——也正因为它，旧文档写的是"三个文件"。改一半会让
+交付出去的包出现应用清单、安装器元数据与更新元数据三者不一致，而这种不一致是在用户
+机器上以"这个应用更新不了"的形式浮现的。`npm run version:check` 断言四处一致，它既进
+`check:all`，也是 CI 的一个步骤。
+
+```bash
+npm run version:check                                 # 只查一致性——CI 门禁用的就是这个
+node scripts/check-version.mjs --pre-release v0.2.0   # 切版本之前跑
+```
+
+预检模式回答的是另一个问题，这也是它必须把版本号作为参数传入的原因：准备发版的当下，
+磁盘上的文件仍是*上一个*版本，读文件等于检查错了对象。它会向 origin 索取 tag 列表（本地
+clone 若从未 fetch 过 tag，否则会报"还没有任何发布"并放行一个重复版本），并拒绝两种情况：
+
+- 该版本已作为 tag 存在——更新器解析的是
+  `/releases/latest/download/latest.json`，它跟随最新的 tag，所以两个都叫 `v0.1.2`
+  的发布不可能同时可达；
+- 该版本不高于已发布的最大 tag，那等于发一个没人能收到的版本。
+
+`prepare-release.js` 会先跑这道预检再跑 `check:all`，于是一个错误的版本号在一秒内就失败，
+而不是等完整套件跑完。
 
 ## 自动更新系统
 

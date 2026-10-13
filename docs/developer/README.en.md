@@ -16,6 +16,7 @@ established patterns and are intended for both human developers and AI coding ag
 | [Internationalization](./i18n-patterns.en.md)    | Translation system, RTL support                         |
 | [Static Analysis](./static-analysis.en.md)       | ESLint, Prettier, ast-grep, knip, jscpd, React Compiler |
 | [Releases](./releases.en.md)                     | Release process, signing, auto-updates                  |
+| [Trimming Guide](./trimming-guide.en.md)         | Removing shipped features to get a minimal app          |
 
 ---
 

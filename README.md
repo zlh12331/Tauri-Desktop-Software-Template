@@ -27,7 +27,7 @@ Most Tauri starters hand you a "hello world" and leave the hard parts to you. Th
 - **Dual-layer crash reporting** — a Rust panic hook captures crashes to disk (surviving even OOM), a Sentry consent gate respects user privacy, and sensitive data is redacted before anything leaves the device.
 - **NSPanel floating window** — a native macOS `NSPanel` integration for a Spotlight-style quick pane that floats across all Spaces, with a graceful `always_on_top` fallback on Windows and Linux.
 - **Enforced architecture** — ast-grep rules block anti-patterns at CI time: no React hooks in `lib/`, no store subscriptions in pure logic, no Zustand destructuring.
-- **1,536 tests** — 1022 frontend + 417 Rust + 97 E2E, including WCAG 2.1 AA accessibility audits. Every command is tested at three layers: pure function, mocked runtime, and full integration.
+- **1,542 tests** — 1022 frontend + 423 Rust + 97 E2E, including WCAG 2.1 AA accessibility audits. Every command is tested at three layers: pure function, mocked runtime, and full integration.
 
 ## Quick Start
 
@@ -107,7 +107,7 @@ Platform detection is cached at module level (`usePlatform()`). Per-platform Tau
 | State    | Zustand v5 (4 stores), TanStack Query v5              |
 | Backend  | Tauri v2, Rust (edition 2024, MSRV 1.93)              |
 | IPC      | tauri-specta =2.0.0-rc.25, specta-typescript =0.0.12  |
-| Testing  | Vitest 4, Testing Library, Playwright, axe-core       |
+| Testing  | Vitest 5, Testing Library, Playwright, axe-core       |
 | Quality  | ESLint, Prettier, ast-grep, knip, jscpd, cargo-deny   |
 
 ## Project Structure
@@ -190,7 +190,7 @@ Three AST rules are enforced in CI:
 | `npm run check:all`       | Run all 15+ quality gates                 |
 | `npm run fix:all`         | Auto-fix all fixable issues               |
 | `npm run test:run`        | Run Vitest unit tests (1022 tests)        |
-| `npm run rust:test`       | Run Rust tests (417 tests)                |
+| `npm run rust:test`       | Run Rust tests (423 tests)                |
 | `npm run e2e`             | Run Playwright E2E tests (97 scenarios)   |
 | `npm run rust:bindings`   | Regenerate tauri-specta TypeScript types  |
 | `npm run release:prepare` | Prepare a release (version bump + checks) |
@@ -207,28 +207,28 @@ See [docs/developer/tauri-commands.en.md](docs/developer/tauri-commands.en.md) f
 
 ## Tauri Plugins (20 Pre-configured)
 
-| Plugin            | Purpose                             |
-| ----------------- | ----------------------------------- |
-| single-instance   | Prevent multiple app instances      |
-| window-state      | Remember window position/size       |
-| positioner        | Tray-relative window positioning    |
-| autostart         | Launch on system startup            |
-| deep-link         | Custom URL scheme (`tauri-app://`)  |
-| updater           | In-app auto-updates with signatures |
-| global-shortcut   | System-wide keyboard shortcuts      |
-| fs                | File system access                  |
-| persisted-scope   | Persist FS scope across sessions    |
-| dialog            | Native open/save dialogs            |
-| store             | Key-value persistence (atomic)      |
-| opener            | Open URLs/files with default app    |
-| clipboard-manager | Clipboard access                    |
-| notification      | System notifications                |
-| process           | Process control                     |
-| os                | OS information                      |
-| http              | HTTP client (bypass CORS)           |
-| shell             | Subprocess / system open            |
-| log               | Platform-specific logging targets   |
-| tauri-nspanel     | macOS floating panel (NSPanel)      |
+| Plugin            | Purpose                                                                 |
+| ----------------- | ----------------------------------------------------------------------- |
+| single-instance   | Prevent multiple app instances                                          |
+| window-state      | Remember window position/size                                           |
+| positioner        | Tray-relative window positioning                                        |
+| autostart         | Launch on system startup                                                |
+| deep-link         | Custom URL scheme (`tauri-app://`)                                      |
+| updater           | In-app auto-updates with signatures                                     |
+| global-shortcut   | System-wide keyboard shortcuts                                          |
+| fs                | File system access                                                      |
+| persisted-scope   | Persist FS scope across sessions                                        |
+| dialog            | Native open/save dialogs                                                |
+| store             | Key-value persistence (atomic)                                          |
+| opener            | Open URLs/files with default app                                        |
+| clipboard-manager | Clipboard access                                                        |
+| notification      | System notifications                                                    |
+| process           | Process control                                                         |
+| os                | OS information                                                          |
+| http              | HTTP client (bypass CORS) — wired, **no permission granted by default** |
+| shell             | Subprocess / system open                                                |
+| log               | Platform-specific logging targets                                       |
+| tauri-nspanel     | macOS floating panel (NSPanel)                                          |
 
 ## Documentation
 

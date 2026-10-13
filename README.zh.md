@@ -27,7 +27,7 @@
 - **双层崩溃报告** — Rust panic 钩子将崩溃写入磁盘（即使在 OOM 下也能存活），Sentry 同意门控尊重用户隐私，敏感数据在上传前脱敏。
 - **NSPanel 浮动窗口** — 原生 macOS `NSPanel` 集成，实现类 Spotlight 的快捷面板，可跨所有 Space 浮动；Windows/Linux 优雅降级为 `always_on_top`。
 - **架构强制执行** — ast-grep 规则在 CI 阶段拦截反模式：`lib/` 中禁止 Hook、纯逻辑中禁止 Store 订阅、禁止 Zustand 解构。
-- **1,536 个测试** — 1022 前端 + 417 Rust + 97 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
+- **1,542 个测试** — 1022 前端 + 423 Rust + 97 E2E，含 WCAG 2.1 AA 无障碍审计。每个命令都有三层测试：纯函数、Mock 运行时、集成测试。
 
 ## 快速开始
 
@@ -107,7 +107,7 @@ npm run tauri:dev
 | 状态管理 | Zustand v5（4 个 Store）, TanStack Query v5          |
 | 后端     | Tauri v2, Rust（edition 2024, MSRV 1.93）            |
 | IPC      | tauri-specta =2.0.0-rc.25, specta-typescript =0.0.12 |
-| 测试     | Vitest 4, Testing Library, Playwright, axe-core      |
+| 测试     | Vitest 5, Testing Library, Playwright, axe-core      |
 | 质量工具 | ESLint, Prettier, ast-grep, knip, jscpd, cargo-deny  |
 
 ## 项目结构
@@ -190,7 +190,7 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 | `npm run check:all`       | 运行全部 15+ 质量门禁                 |
 | `npm run fix:all`         | 自动修复所有可修复的问题              |
 | `npm run test:run`        | 运行 Vitest 单元测试（1022 个）       |
-| `npm run rust:test`       | 运行 Rust 测试（417 个）              |
+| `npm run rust:test`       | 运行 Rust 测试（423 个）              |
 | `npm run e2e`             | 运行 Playwright E2E 测试（97 个场景） |
 | `npm run rust:bindings`   | 重新生成 tauri-specta TypeScript 类型 |
 | `npm run release:prepare` | 准备发布（版本号更新 + 检查）         |
@@ -207,28 +207,28 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 
 ## Tauri 插件（20 个预配置）
 
-| 插件              | 用途                                |
-| ----------------- | ----------------------------------- |
-| single-instance   | 防止多实例运行                      |
-| window-state      | 记忆窗口位置/大小                   |
-| positioner        | 托盘相对定位                        |
-| autostart         | 开机自启                            |
-| deep-link         | 自定义 URL Scheme（`tauri-app://`） |
-| updater           | 应用内自动更新（含签名验证）        |
-| global-shortcut   | 全局快捷键                          |
-| fs                | 文件系统访问                        |
-| persisted-scope   | 持久化文件访问范围                  |
-| dialog            | 原生打开/保存对话框                 |
-| store             | 键值持久化（原子写入）              |
-| opener            | 用默认应用打开 URL/文件             |
-| clipboard-manager | 剪贴板读写                          |
-| notification      | 系统通知                            |
-| process           | 进程控制                            |
-| os                | 操作系统信息                        |
-| http              | HTTP 客户端（绕过 CORS）            |
-| shell             | 子进程 / 系统打开                   |
-| log               | 平台特定日志输出                    |
-| tauri-nspanel     | macOS 浮动面板（NSPanel）           |
+| 插件              | 用途                                                 |
+| ----------------- | ---------------------------------------------------- |
+| single-instance   | 防止多实例运行                                       |
+| window-state      | 记忆窗口位置/大小                                    |
+| positioner        | 托盘相对定位                                         |
+| autostart         | 开机自启                                             |
+| deep-link         | 自定义 URL Scheme（`tauri-app://`）                  |
+| updater           | 应用内自动更新（含签名验证）                         |
+| global-shortcut   | 全局快捷键                                           |
+| fs                | 文件系统访问                                         |
+| persisted-scope   | 持久化文件访问范围                                   |
+| dialog            | 原生打开/保存对话框                                  |
+| store             | 键值持久化（原子写入）                               |
+| opener            | 用默认应用打开 URL/文件                              |
+| clipboard-manager | 剪贴板读写                                           |
+| notification      | 系统通知                                             |
+| process           | 进程控制                                             |
+| os                | 操作系统信息                                         |
+| http              | HTTP 客户端（绕过 CORS）——已接线，**默认不授予权限** |
+| shell             | 子进程 / 系统打开                                    |
+| log               | 平台特定日志输出                                     |
+| tauri-nspanel     | macOS 浮动面板（NSPanel）                            |
 
 ## 文档
 

@@ -53,20 +53,26 @@ Add these secrets (Settings → Secrets and variables → Actions):
 
 ## Release Process
 
-### Simple Method
+### Release is two commands, not one
 
 ```bash
-npm run release:prepare v1.0.0
+npm run release:prepare -- v1.0.0     # bumps versions, opens the release PR
+# …review and merge that pull request…
+npm run release:tag -- v1.0.0         # tags the merge; this starts the build
 ```
 
-This will:
+`release:prepare` will:
 
 1. Check git status is clean
-2. Run all quality checks (`npm run check:all`)
-3. Update versions in `package.json`, `Cargo.toml`, `tauri.conf.json`
-4. Ask if you want to commit and push
+2. Run the version pre-flight (`check-version.mjs --pre-release`): the target
+   must not already exist as a tag and must be newer than every published one
+3. Run all quality checks (`npm run check:all`)
+4. Update the four version fields and regenerate `CHANGELOG.md`
+5. Commit on `release/v1.0.0`, push it, and open the pull request (via `gh`)
 
-Then GitHub Actions will:
+`release:tag` then reads the versions from the merged `origin/main`, refuses
+unless all four agree with the requested version and no such tag exists yet, and
+only then creates and pushes the tag. The tag push is what triggers the build:
 
 1. Build the app for all platforms
 2. Create a draft release
@@ -74,6 +80,15 @@ Then GitHub Actions will:
 4. Upload all installers and signatures
 
 Finally, manually publish the draft release on GitHub.
+
+Why it is split: `main` is protected by a ruleset that requires a pull request
+and status checks, so the old single command's final `git push origin main
+--tags` is refused — and when that refusal lands after `git tag`, the tag names a
+commit `main` never received. That is exactly how `v0.1.2` came to exist nowhere
+while `0.1.2` was released into the wild: untagged, so the updater's
+`/releases/latest/download/latest.json` still serves `v0.1.1` and `0.1.1` users
+were never told an update exists. Tagging the merge makes that state
+unreachable: a tag can only ever point at `main`.
 
 ### CHANGELOG Generation
 
@@ -88,26 +103,44 @@ Configuration is in `cliff.toml` at the project root. The changelog groups
 commits by type (Features, Bug Fixes, Documentation, etc.) and generates a
 new version section for each `v*` tag.
 
-When preparing a release:
+`release:prepare` regenerates `CHANGELOG.md` as part of the bump, so the changelog
+reaches GitHub in the same commit and the same pull request as the version
+numbers:
 
 ```bash
-npm run release:prepare v1.0.0
-npm run changelog          # Update CHANGELOG.md
-git add CHANGELOG.md
-git commit -m "docs: update CHANGELOG for v1.0.0"
-git push origin main --tags
+npm run release:prepare -- v1.0.0
 ```
+
+To proofread the wording first, run `npm run changelog` on its own and amend the
+release commit on the `release/v1.0.0` branch. A changelog-only commit does not
+belong on `main` directly — the branch protection refuses it, and the refusal
+lands after the tag has already been created locally.
 
 ### Manual Method
 
+The scripts' two steps, done by hand:
+
 ```bash
-# Update versions in package.json, Cargo.toml, tauri.conf.json
+# 1. bump all four version fields, refresh the changelog, verify, open the PR
+npm run version:check
 npm run check:all
+git checkout -b release/v1.0.0
 git add .
 git commit -m "chore: release v1.0.0"
-git tag v1.0.0
-git push origin main --tags
+git push -u origin release/v1.0.0
+gh pr create --base main --head release/v1.0.0 --title "chore: release v1.0.0"
+
+# 2. after that pull request merges: tag the merge, which starts the build
+git fetch origin main
+node scripts/check-version.mjs --pre-release v1.0.0
+git tag -a v1.0.0 origin/main -m "Release v1.0.0"
+git push origin v1.0.0
 ```
+
+There is deliberately no manual form that pushes a version bump straight to
+`main`. The ruleset refuses it, and the combination that gets a release stranded
+is exactly that: `git tag` succeeds locally, the push is refused, and the tag is
+then either left dangling or pushed to point at a commit `main` never had.
 
 ## Version Strategy
 
@@ -117,11 +150,42 @@ Semantic versioning (`v1.0.0`):
 - **Minor** (x.1.x): New features, backwards compatible
 - **Patch** (x.x.1): Bug fixes
 
-All three files must have matching versions:
+### Four places hold the version
+
+The release is written into four files, and `scripts/prepare-release.js` rewrites
+them with regex substitutions:
 
 - `package.json` → `"version": "1.0.0"`
-- `src-tauri/Cargo.toml` → `version = "1.0.0"`
+- `src-tauri/Cargo.toml` → `version = "1.0.0"` inside `[package]`
+- `src-tauri/Cargo.lock` → the lockfile's own `[[package]]` entry for this crate
 - `src-tauri/tauri.conf.json` → `"version": "1.0.0"`
+
+The lockfile entry is the one that is easy to miss: it is what makes the docs say
+"three". A half-applied bump ships a bundle whose app manifest, installer
+metadata and updater metadata disagree, and the disagreement surfaces on a user's
+machine as an app that cannot update. `npm run version:check` asserts all four
+agree; it runs in `check:all` and as a CI step.
+
+```bash
+npm run version:check                                 # parity only — the CI gate
+node scripts/check-version.mjs --pre-release v0.2.0   # before cutting a release
+```
+
+The pre-flight mode answers a different question, which is why it takes the
+version as an argument: at the moment a release is being prepared, the files on
+disk still carry the _previous_ version, so reading them would check the wrong
+thing. It asks origin for its tags (a local clone with no fetched tags would
+otherwise report "no releases yet" and wave a duplicate through) and rejects two
+cases:
+
+- the version already exists as a tag — the updater resolves
+  `/releases/latest/download/latest.json`, which follows the newest tag, so two
+  releases named `v0.1.2` cannot both be reachable;
+- the version is not newer than the highest published tag, which is a release
+  that reaches nobody.
+
+`prepare-release.js` runs this before `check:all`, so a bad version number fails
+in one second rather than after the full suite.
 
 ## Auto-Update System
 

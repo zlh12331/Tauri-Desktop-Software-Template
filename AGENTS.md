@@ -160,6 +160,8 @@ For complete patterns and detailed guidance, see `docs/developer/README.en.md`.
 Key documents:
 
 - `architecture-guide.en.md` - Mental models, security, anti-patterns
+- `trimming-guide.en.md` - Removing shipped features (quick pane, crash reporting, tray, updater) to reach a minimal app, with the per-feature file/command/capability/locale inventory
+- `docs/developer/README.en.md` - Full developer doc index
 - `state-management.en.md` - State onion, getState() pattern details
 - `tauri-commands.en.md` - Adding new Rust commands
 - `static-analysis.en.md` - All linting tools and quality gates

@@ -15,6 +15,7 @@
 | [国际化](./i18n-patterns.zh.md)        | 翻译系统、RTL 支持                                      |
 | [静态分析](./static-analysis.zh.md)    | ESLint、Prettier、ast-grep、knip、jscpd、React Compiler |
 | [发布](./releases.zh.md)               | 发布流程、签名、自动更新                                |
+| [裁剪指南](./trimming-guide.zh.md)     | 拆掉随包功能，得到一个最小应用                          |
 
 ---
 

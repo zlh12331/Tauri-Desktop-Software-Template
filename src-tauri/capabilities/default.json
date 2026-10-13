@@ -30,10 +30,6 @@
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
     "deep-link:default",
-    {
-      "identifier": "http:default",
-      "allow": [{ "url": "https://**" }, { "url": "http://**" }]
-    },
     "shell:allow-open",
     "store:default"
   ]

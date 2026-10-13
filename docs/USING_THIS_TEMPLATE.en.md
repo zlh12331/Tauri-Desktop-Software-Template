@@ -43,7 +43,30 @@ npm run tauri:dev
 | `src-tauri/Cargo.toml`             | `package.name`, `package.description`, `package.authors`                                                       |
 | `.github/workflows/release-v2.yml` | the product name is written literally three times (asset prefix, `finalize` argument, release title)           |
 | `SECURITY.md` (repo root)          | private-advisory URL, which embeds the current owner/repo                                                      |
+| `.github/CODEOWNERS`               | the owner handle on every rule — see below                                                                     |
+| the remote's branch protection     | required status checks must match the job names in `.github/workflows/ci.yml`                                  |
 | `AGENTS.md` / `README.md`          | app name and description text                                                                                  |
+
+### Two settings that fail by staying silent
+
+`.github/CODEOWNERS` and the ruleset on the remote are the two entries here that
+produce no error when they are wrong.
+
+**CODEOWNERS** ships pointing at `@zlh12331`, the upstream maintainer. In a fork
+that means every pull request asks somebody who is not a collaborator on your
+repository for review. GitHub does not warn you: an owner that cannot be
+resolved is simply never requested, so the file looks configured and enforces
+nothing. An earlier revision shipped the placeholder `@your-org/maintainers`,
+which fails the same silent way. Replace the handle with your own, or delete the
+file if you have no second reviewer.
+
+**Branch protection** has the same shape in the other direction. The `protect-main`
+ruleset lists required checks by their literal job names (`Code Quality`,
+`E2E Tests`, `Workflow Lint (actionlint)`, and the build matrix entries). Rename
+or delete a job in `ci.yml` without updating the ruleset and that check never
+reports — which does not turn the pull request red, it leaves it pending forever
+with nothing to read. Any change to a job's `name:` in `ci.yml` needs a matching
+change on the remote in the same sitting.
 
 ### There are no placeholder strings — read this first
 
@@ -167,6 +190,10 @@ See [docs/developer/releases.en.md](developer/releases.en.md) for the full relea
 
 1. **Try the app**: `npm run tauri:dev`
 2. **Explore features**: Open command palette (Cmd+K), check preferences (Cmd+,)
-3. **Read the docs**: Start with [docs/developer/architecture-guide.en.md](developer/architecture-guide.en.md)
-4. **Set up releases**: Follow the GitHub Releases section above if using CI/CD
-5. **Delete this file**: Once you're comfortable, remove `docs/USING_THIS_TEMPLATE.en.md`
+3. **Cut it down to your app**: [docs/developer/trimming-guide.en.md](developer/trimming-guide.en.md)
+   lists, per feature, every file, command, capability entry, preference field and
+   locale namespace that has to go with it. The template ships a working product;
+   this is the way out of it.
+4. **Read the docs**: Start with [docs/developer/architecture-guide.en.md](developer/architecture-guide.en.md)
+5. **Set up releases**: Follow the GitHub Releases section above if using CI/CD
+6. **Delete this file**: Once you're comfortable, remove `docs/USING_THIS_TEMPLATE.en.md`

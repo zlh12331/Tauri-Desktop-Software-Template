@@ -10,6 +10,21 @@ on:
         required: true
         type: string
 
+# Two runs of the same tag must not overlap. `finalize` deletes and recreates a
+# draft release, and it does so with `gh release delete ... || true`, so a
+# superseded run that finishes late can pull the draft out from under the current
+# one. Keyed on github.ref, which is the tag ref for a tag push, so distinct
+# versions still build in parallel. Never cancel mid-release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least privilege as the default. Jobs that need to write say so themselves
+# (`bump-version`, `publish-tauri`, `finalize` each carry `contents: write`);
+# `quality` only reads, builds and compares CHANGELOG text, so it inherits read.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -17,16 +32,21 @@ env:
   RUST_TOOLCHAIN: '1.98.1'
 
 jobs:
-  # Manual dispatch only: bump the version in package.json / Cargo.toml /
-  # tauri.conf.json, update CHANGELOG, commit and tag. Tag push then triggers
-  # the normal build path below (push: tags v*) — this job exists so a human
-  # can do the whole release from the Actions UI without touching a terminal.
+  # Manual dispatch only: bump the four version fields, update CHANGELOG, push
+  # `release/vX` and open a pull request. It does not tag — `main` is protected,
+  # and the tag belongs to the merge. Once the pull request is merged, run
+  # `npm run release:tag -- vX`, and that tag push starts the build path below.
   bump-version:
     name: Bump version
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: write
+      # The release step opens a pull request with gh instead of pushing to the
+      # protected `main`; without this the API call is refused and the job dies
+      # after it has already committed.
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,16 +71,33 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # prepare-release.js --non-interactive: runs check:all, bumps
-      # package.json/Cargo.toml/tauri.conf.json, runs changelog, and executes
-      # git add/commit/tag/push itself. The tag push triggers the normal
-      # release build path below (push: tags v*).
-      - name: Prepare release (bump versions, changelog, commit, tag)
-        run: node scripts/prepare-release.js ${{ inputs.version }} --non-interactive
+      # prepare-release.js --non-interactive now runs check:all, bumps the four
+      # version files, regenerates the changelog, and pushes `release/vX` and
+      # opens a pull request. It no longer tags: `npm run release:tag -- vX` tags
+      # the merge once that pull request lands, because `main` is protected and a
+      # refused push that happens after `git tag` leaves a tag naming a commit
+      # that never reached `main`.
+      #
+      # Two reasons this is `npm run`, not `node scripts/prepare-release.js`:
+      # the script resolves npm through the npm_execpath variable, which exists
+      # only inside an npm run context — so the previous form threw before
+      # reaching check:all — and the version arrives via env, since interpolating
+      # `${{ inputs.version }}` straight into a run: block is a documented
+      # script-injection surface.
+      - name: Prepare release (bump versions, changelog, open the release PR)
+        env:
+          VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release:prepare -- "$VERSION" --non-interactive
 
   quality:
     name: Code Quality
-    runs-on: ubuntu-22.04
+    # ubuntu-24.04, unlike the Linux entry of the bundle matrix below: that one
+    # stays on 22.04 for the older glibc and webkit2gtk the AppImage needs, while
+    # this job only installs, tests and regenerates CHANGELOG text. It blocks the
+    # release, so the cap sits above a full `check:all` plus cargo coverage.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       # Full history is required: `npm run changelog` runs git-cliff, which
       # groups commits by tag. A shallow checkout (fetch-depth: 1) hides all
@@ -164,6 +201,10 @@ jobs:
   publish-tauri:
     name: Build & rename (${{ matrix.os }})
     needs: quality
+    # A full signed bundle per platform, from a cold Rust cache on the first
+    # release after a dependency bump. Generous on purpose: a release that dies
+    # at a timeout loses its tag slot and has to be re-run end to end.
+    timeout-minutes: 90
     permissions:
       contents: write
     strategy:
@@ -297,6 +338,7 @@ jobs:
     name: Finalize release
     needs: publish-tauri
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:

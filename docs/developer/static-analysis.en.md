@@ -20,6 +20,9 @@ All static analysis tools configured in this app and how to use them.
 | cargo-machete  | Rust unused deps         | `npm run rust:machete`         | Yes          |
 | Vitest         | Frontend tests           | `npm run test:run`             | Yes          |
 | cargo test     | Rust tests               | `npm run rust:test`            | Yes          |
+| gate self-test | Custom guards' own tests | `npm run test:scripts`         | Yes          |
+| bundle budget  | Artifact size + maps     | `npm run bundle:check`         | Yes          |
+| Playwright E2E | 97 UI flows over mocks   | `npm run e2e`                  | CI required  |
 | npm audit      | Dependency advisories    | `node scripts/check-audit.mjs` | CI only      |
 | knip           | Unused code detection    | `npm run knip`                 | No           |
 | jscpd          | Duplicate code detection | `npm run jscpd`                | No           |
@@ -106,6 +109,47 @@ The compiler analyzes code and adds memoization where beneficial.
 
 **Note:** The `getState()` pattern is still critical - it avoids store subscriptions, not memoization. See [state-management.en.md](./state-management.en.md).
 
+### Bundle budget
+
+```bash
+npm run build         # produces dist/ — the check reads it, it does not build
+npm run bundle:check
+```
+
+`scripts/check-bundle.mjs` puts a ceiling on what the app ships, measured as gzip
+of `dist/assets`. Five budgets, all in `scripts/lib/bundle-metrics.mjs` beside the
+baseline each was derived from:
+
+| Budget             | Measures                                                                    |
+| ------------------ | --------------------------------------------------------------------------- |
+| `jsGzip`           | every JS byte the main window parses                                        |
+| `cssGzip`          | Tailwind output plus component CSS                                          |
+| `largestChunkGzip` | the single biggest chunk, so a new heavy dependency cannot hide in one line |
+| `quickPaneJsGzip`  | the resident hidden window, paid for by users who never open it             |
+| `distGzipTotal`    | what Tauri embeds into the binary                                           |
+
+Three properties of this gate are deliberate:
+
+- **An empty `dist` cannot pass.** `measure([])` returns 0 against every ceiling,
+  so `isDistPopulated()` is checked separately and the CLI refuses to run at all
+  when `dist/assets` is absent. Reading "nothing measured" as "nothing exceeded"
+  is the same failure shape as a coverage report with no statements.
+- **React Compiler is verified by its output, not its config.** `@rolldown/plugin-babel`
+  accepts the compiler preset even when the plugin cannot be resolved; the build
+  succeeds and silently stops memoizing. The compiler emits
+  `Symbol.for('react.memo_cache_sentinel')`, which survives minification, so the
+  gate counts it in the built JS. Zero hits fails the build; a count far below the
+  baseline warns.
+- **A source map in `dist/` fails the build.** Everything under `frontendDist` is
+  embedded into the executable, so a surviving `.map` ships to every user.
+  `vite.config.ts` only emits maps when the same build can hand them to Sentry,
+  and this check is what confirms that held.
+
+Budgets move only upward in a change that says why; the baseline comment above each
+number is the review surface. `build.chunkSizeWarningLimit: 600` in `vite.config.ts`
+is a Vite warning threshold, not a budget — it was raised to fit components that
+already existed, and raising a ceiling to match current output is not enforcement.
+
 ### Rust Tooling
 
 ```bash
@@ -143,6 +187,83 @@ node scripts/check-audit.mjs --registry=https://registry.npmjs.org
 ```
 
 This script replaces a bare `npm audit --audit-level=high`. Some advisories have no patched release yet, and npm marks every package that depends on one as equally vulnerable, so a single unpatched transitive package would redden its whole chain. Advisories listed in the script's `IGNORED` array are waived, but severity is recomputed from the causes that remain, so an exemption can only ever hide the advisory it names. It follows the same contract as the exemptions in `src-tauri/deny.toml`: a written reason, a review date, and removal as soon as upstream ships a fix.
+
+### Gate script self-tests
+
+```bash
+npm run test:scripts    # node --test scripts/
+```
+
+Every custom guard in `scripts/` decides something a human no longer looks at:
+which advisories are exempted, whether coverage dropped, whether the two
+translation catalogs still match. A guard whose comparison is broken does not
+report an error — it reports success, forever, which is indistinguishable from a
+guard that is working.
+
+This is not hypothetical. An early version of `check-audit.mjs` compared each
+package's severity against `RANK['none']`, and `none` had no rank, so the
+comparison was `undefined` and every `severity > worst` test evaluated false.
+The gate exited 0 for any input, including a tree with a real high-severity
+advisory. It was caught only by writing down the negative case: run the gate with
+the exemption list emptied and assert that it now names the packages.
+
+So the decision logic lives in `scripts/lib/*.mjs` as pure functions, and
+`scripts/lib/*.test.mjs` covers them with the Node built-in test runner — no
+registry round trip, no coverage run required. `check-coverage.mjs` carries the
+same class of guard in the other direction: `pct()` returns 100 for an empty
+denominator, so the CLI refuses any metric whose total is zero rather than
+reading "nothing measured" as "fully covered".
+
+When you add a guard, add its negative test in the same change. A test that
+cannot fail is not a gate.
+
+### Playwright E2E — a required check, deliberately not in `check:all`
+
+```bash
+npm run e2e    # single worker, ~4.5 minutes, needs `npx playwright install chromium`
+```
+
+`E2E Tests` is one of the branch's required status checks, so a broken UI flow
+blocks the merge whether or not your pre-push hook ran it. Putting it in
+`check:all` would buy earlier feedback at the cost of ~4.5 minutes per push plus
+a Playwright browser on every fresh clone — and a template whose first
+`git push` fails because the machine has no Chromium is a template with a bad
+first hour. Run it by hand before a release or after touching a user flow.
+
+One non-obvious setting: `workers: 1` in `playwright.config.ts`, for local runs
+too. Measured on a Windows development machine, Playwright's default
+parallelism (half the logical cores) failed 2 of 97 tests at the 10-second
+`expect` timeout, because all those first page loads hit one cold Vite dev
+server that compiles its module graph on demand; the same two cases pass when
+their file runs alone. CI already used one worker, so this makes local and CI
+agree instead of letting each have its own meaning.
+
+It does **not** make the suite deterministic, and the honest record matters more
+than the tidy story: `advanced-pane.spec.ts:184` ("API config form submit with
+valid data shows success toast") failed once in three isolated single-worker
+runs and once in a full single-worker run. Its failure is a navigation to the
+root URL already in flight before the test's first `fill`, so the reload is not
+caused by the form — react-hook-form's `handleSubmit` does call `preventDefault`,
+and there is exactly one `<form>` in the preferences tree. The case is green in
+CI only because `retries: 2` absorbs it. If that test ever needs real attention,
+start from what navigates, not from the submit handler.
+
+### What the E2E suite does not cover
+
+The 97 Playwright cases run against the Vite dev server with a mocked IPC layer
+(`e2e/mocks/tauri-mock.ts`, injected by `addInitScript`). They never start the
+Rust process. So they verify frontend behavior under the IPC contract and prove
+nothing about native windows, tray icons, global shortcuts, NSPanel levels or the
+installer. Those rest on the 423 Rust tests plus the compile check in
+`Build (<platform>)`, which now also asserts a release binary came out and
+records its size in the job summary.
+
+A real driver-driven smoke was considered and is not on the roadmap: `tauri-driver`
+supports Windows and Linux, and the upstream documentation states macOS has no
+WKWebView driver tool available. A "desktop smoke" that cannot run on one of the
+three platforms this template ships for would be a gate whose stated coverage is
+a fiction — so the honest control is the binary assertion, and the gap is named
+here rather than hidden.
 
 ## CI Integration
 
