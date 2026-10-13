@@ -28,6 +28,7 @@
     "vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts",
+    "playwright.startup.config.ts",
     "i18next.config.ts",
     "eslint.config.js",
     "prettier.config.js",

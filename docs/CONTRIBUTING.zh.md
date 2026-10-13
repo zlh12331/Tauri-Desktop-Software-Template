@@ -68,7 +68,7 @@ npm run check:all
 - `npm run test:run` —— Vitest 单元测试（1022 个测试）
 - `npm run rust:test` —— Rust `cargo test`（423 个测试）
 
-Playwright E2E（97 个场景）**不在** `check:all` 里，CI 有独立作业执行；本地用
+Playwright E2E（98 个场景）**不在** `check:all` 里，CI 有独立作业执行；本地用
 `npm run e2e`。
 
 附加工具（手动运行）：

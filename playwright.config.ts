@@ -8,6 +8,11 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './e2e',
+  // The startup-budget spec belongs to `playwright.startup.config.ts`, which
+  // serves the production bundle on another port. Left in this suite it would run
+  // against the dev server and fail with a connection error, since nothing is
+  // listening on the preview port.
+  testIgnore: /startup-budget\.spec\.ts/,
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 2 : 0,
