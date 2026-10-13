@@ -42,7 +42,7 @@
     "test:ui": "node scripts/run-vitest.mjs --ui",
     "test:coverage": "node scripts/run-vitest.mjs run --coverage",
     "test:coverage:check": "node scripts/check-coverage.mjs",
-    "test:scripts": "node --test scripts/",
+    "test:scripts": "node scripts/run-gate-tests.mjs",
     "bundle:check": "node scripts/check-bundle.mjs",
     "version:check": "node scripts/check-version.mjs",
     "readme:check": "node scripts/check-readme.mjs --frontend 1022 --rust 423 --e2e 97",
