@@ -3,7 +3,11 @@
 import fs from 'fs'
 import { spawnSync } from 'child_process'
 import readline from 'readline'
-import { bumpLockfileVersions, releaseBranch } from './lib/release-flow.mjs'
+import {
+  bumpLockfileVersions,
+  changelogArgs,
+  releaseBranch,
+} from './lib/release-flow.mjs'
 
 /**
  * Resolve the npm CLI entry point. When a script runs under `npm run`, npm
@@ -158,11 +162,26 @@ async function prepareRelease() {
     fs.writeFileSync('package-lock.json', lock.text)
     console.log(`   ${lock.updated.join(', ')} → ${cleanVersion}`)
 
-    // Generate CHANGELOG for this release (git-cliff, based on commits since
-    // the previous tag). Committed together with the version bump below.
+    // Generate CHANGELOG for this release (git-cliff, commits since the previous
+    // tag) under the tag this release is about to create — see changelogArgs.
+    // Committed together with the version bump below.
     console.log('\n📝 Generating CHANGELOG...')
-    exec(npmArgs(['run', 'changelog']), { silent: true })
-    console.log('✅ CHANGELOG updated')
+    exec(npmArgs(changelogArgs(tagVersion)), { silent: true })
+    console.log(`✅ CHANGELOG updated for ${tagVersion}`)
+
+    // Check the heading, not just the exit code. The release workflow regenerates
+    // this file from the tag and refuses to build the bundles when the text
+    // differs, so a section still labelled [Unreleased] costs three platform
+    // builds of waiting before anything says so.
+    if (
+      !fs.readFileSync('CHANGELOG.md', 'utf8').includes(`## [${cleanVersion}]`)
+    ) {
+      throw new Error(
+        `CHANGELOG.md has no "## [${cleanVersion}]" section after generation. ` +
+          'The release notes extract that heading, and the tag-time changelog ' +
+          'check compares against it.'
+      )
+    }
 
     // Verify configurations
     console.log('\n🔍 Verifying configurations...')

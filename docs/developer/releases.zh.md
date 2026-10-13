@@ -98,24 +98,35 @@ npm run changelog
 配置在项目根目录的 `cliff.toml` 中。changelog 按类型（功能、Bug 修复、文档等）分组提交，并为每个 `v*` 标签生成新的版本部分。
 
 `release:prepare` 会在改版本号的同一步里重新生成 `CHANGELOG.md`，所以变更日志与版本号
-落在同一个提交、同一个 PR 里：
+落在同一个提交、同一个 PR 里。生成时它显式报出即将创建的那个 tag（`git-cliff --tag
+v1.0.0`），顶部小节因此写的是 `## [1.0.0]` 而不是 `## [Unreleased]`。两处都依赖这一
+点：Release 工作流会在 tag 上重新生成一遍变更日志并比对文本，只差那一个标题时三平台
+构建根本不启动；发布说明要抽取 `## [<version>]` 这一节，留着 `[Unreleased]` 就什么都
+抽不到。
 
 ```bash
 npm run release:prepare -- v1.0.0
 ```
 
-想先校一遍措辞，就单独跑 `npm run changelog`，然后在 `release/v1.0.0` 分支上 amend 那个
-发版提交。只改变更日志的提交不要直接推 `main`——分支保护会拒绝，而且拒绝发生时 tag 往往
-已经在本地建好了。
+想先校一遍措辞，就用同样的方式生成，然后在 `release/v1.0.0` 分支上 amend 那个发版
+提交：
+
+```bash
+npm run changelog -- --tag v1.0.0
+```
+
+只改变更日志的提交不要直接推 `main`——分支保护会拒绝，而且拒绝发生时 tag 往往已经在
+本地建好了。
 
 ### 手动方法
 
 把脚本的两步手工做一遍：
 
 ```bash
-# 1. 改齐四处版本、刷新变更日志、验证、开 PR
+# 1. 改齐四处版本、按目标 tag 生成变更日志、验证、开 PR
 npm run version:check
 npm run check:all
+npm run changelog -- --tag v1.0.0
 git checkout -b release/v1.0.0
 git add .
 git commit -m "chore: release v1.0.0"

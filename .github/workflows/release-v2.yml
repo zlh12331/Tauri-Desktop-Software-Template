@@ -30,6 +30,10 @@ env:
   RUST_BACKTRACE: 1
   # Keep in sync with the channel in rust-toolchain.toml (and with ci.yml).
   RUST_TOOLCHAIN: '1.98.1'
+  # One pin for both jobs that touch git-cliff. `quality` byte-compares the
+  # CHANGELOG that `bump-version` commits, so two different versions of the
+  # generator would fail the release for a reason no one can see in the diff.
+  GIT_CLIFF_VERSION: '2.14.1'
 
 jobs:
   # Manual dispatch only: bump the four version fields, update CHANGELOG, push
@@ -70,6 +74,19 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      # `npm run release:prepare` regenerates CHANGELOG.md through the git-cliff
+      # binary, which is not preinstalled on runners. Without this the dispatch
+      # path bumps the versions, then dies at the changelog step with the branch
+      # already committed locally — a failure that looks like a script bug.
+      - name: Install git-cliff (pinned)
+        run: |
+          set -euo pipefail
+          curl -fsSLo /tmp/git-cliff.tar.gz \
+            "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          tar -xzf /tmp/git-cliff.tar.gz -C /tmp
+          cp "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" /usr/local/bin/git-cliff
+          git-cliff --version
 
       # prepare-release.js --non-interactive now runs check:all, bumps the four
       # version files, regenerates the changelog, and pushes `release/vX` and
@@ -159,16 +176,16 @@ jobs:
         run: npm run test:coverage
 
       # `npm run changelog` invokes the `git-cliff` binary, which is not
-      # preinstalled on runners. Pin a fixed version (must match what the
-      # maintainer used when generating the committed CHANGELOG.md, otherwise
-      # the `git diff --exit-code` guard below fails on output drift).
+      # preinstalled on runners. The version comes from the workflow-level
+      # GIT_CLIFF_VERSION so this job and `bump-version` cannot drift apart.
       - name: Install git-cliff (pinned)
         run: |
           set -euo pipefail
           curl -fsSLo /tmp/git-cliff.tar.gz \
-            "https://github.com/orhun/git-cliff/releases/download/v2.14.1/git-cliff-2.14.1-x86_64-unknown-linux-gnu.tar.gz"
+            "https://github.com/orhun/git-cliff/releases/download/v${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
           tar -xzf /tmp/git-cliff.tar.gz -C /tmp
-          cp /tmp/git-cliff-2.14.1/git-cliff /usr/local/bin/git-cliff
+          cp "/tmp/git-cliff-${GIT_CLIFF_VERSION}/git-cliff" /usr/local/bin/git-cliff
+          git-cliff --version
 
       - name: CHANGELOG up to date (git-cliff)
         run: |
