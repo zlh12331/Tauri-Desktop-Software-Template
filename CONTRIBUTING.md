@@ -122,7 +122,7 @@ chore(deps): upgrade tauri to 2.11.5
 | ----------------------------- | ------------------------- |
 | `cargo fmt --check`           | Rust formatting check     |
 | `cargo clippy -- -D warnings` | Rust linting (0 warnings) |
-| `cargo test`                  | Rust tests (417 tests)    |
+| `cargo test`                  | Rust tests (423 tests)    |
 
 ### All-in-one
 

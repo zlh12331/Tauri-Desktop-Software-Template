@@ -55,13 +55,13 @@ node scripts/check-bundle.mjs    # 按你的应用重设体积预算
 | 功能 | Rust | 前端 | 其他触点 |
 | - - - | - - - | - - - | - - - |
 | 快速面板 | `commands/quick_pane.rs`（545 行，5 条命令） | `quick-pane.html`、`src/quick-pane-main.tsx`、`src/quick-pane.css`、`components/quick-pane/` | `capabilities/quick-pane.json`、`vite.config.ts:73-78` 第二入口、`hooks/useMainWindowEventListeners.ts`、`preferences/panes/GeneralPane.tsx:36-73`、`locales` 的 `quickPane.*`、`e2e/quick-pane-event.spec.ts`、`types.rs:11` 默认快捷键、`lib.rs` 的 window-state denylist |
-| 崩溃上报 + Sentry | `commands/crash_report.rs`（1,152 行，3 条命令）、`lib.rs:227` 的 panic hook、`utils/redact.rs` | `components/crash-report/`、`hooks/use-crash-reporting.ts`、`store/crash-report-store.ts`、`lib/sentry.ts`、`lib/redact.ts`、`main.tsx:13` 与 `quick-pane-main.tsx:11` 的 `initSentry()`、`App.tsx:79` 调用与 `App.tsx:21` 调试面板、`MainWindow.tsx:15,142` | `preferences/panes/AdvancedPane.tsx` 同意开关、`locales` 的 `crashReport.*`、`e2e/crash-report*.spec.ts`、`src-tauri/tests/crash_report_integration.rs`、npm 与 cargo 两侧 Sentry 依赖 |
-| 托盘 | `commands/tray.rs`（377 行，2 条命令）、`lib.rs:284` 的 `init_tray` | 无 | `lib.rs` 里"关窗即隐藏"的 `CloseRequested` 处理、`locales` 的 `menu.*`、`src-tauri/tests/tray_integration.rs` |
+| 崩溃上报 + Sentry | `commands/crash_report.rs`（1,152 行，3 条命令）、`lib.rs` setup 里的 `setup_panic_hook` 调用——**不含** `utils/redact.rs`，它同时被日志格式化使用 | `components/crash-report/`、`hooks/use-crash-reporting.ts`、`store/crash-report-store.ts`、`lib/sentry.ts`、`lib/redact.ts`、`main.tsx:13` 与 `quick-pane-main.tsx:11` 的 `initSentry()`、`App.tsx:79` 调用与 `App.tsx:21` 调试面板、`MainWindow.tsx:15,142` | `preferences/panes/AdvancedPane.tsx` 同意开关、`locales` 的 `crashReport.*`、`e2e/crash-report*.spec.ts`、`src-tauri/tests/crash_report_integration.rs`、npm 与 cargo 两侧 Sentry 依赖 |
+| 托盘 | `commands/tray.rs`（377 行，2 条命令）、`lib.rs` setup 里的 `init_tray` 调用 | 无 | `lib.rs` 里"关窗即隐藏"的 `CloseRequested` 处理、`locales` 的 `menu.*`、`src-tauri/tests/tray_integration.rs` |
 | 恢复文件 | `commands/recovery.rs`（962 行，3 条命令） | `lib/recovery.ts`，被 `components/ErrorBoundary.tsx` 调用 | `locales` 的 `errorBoundary.*`、`types.rs` 的 `RecoveryError` |
 | 自动更新 | `lib.rs` 的插件注册、`desktop.json` capability | `lib/updater.ts`、`hooks/use-auto-updater.ts`、`App.tsx:80`、`lib/menu.ts:169`、`lib/commands/app-commands.ts` | `tauri.conf.json` 的 `plugins.updater` 与 `bundle.createUpdaterArtifacts`、`.github/workflows/release-v2.yml`、`docs/developer/releases.*.md` |
 | 深链 | `lib.rs` 的插件与 `:297-316` 的 `register_all` | `hooks/use-deep-link.ts`、`App.tsx:78` | `tauri.conf.json` 的 `plugins.deep-link`、`lib/commands/*` 的路由目标 |
 | 通知 | `commands/notifications.rs`（1 条命令） | `lib/notifications.ts`、`lib/commands/notification-commands.ts` | 部分 `locales` 的 `toast.*` |
-| HTTP 客户端 | `lib.rs:157` 的插件注册 | 无——`src/` 里没有任何 `fetch()` | 已从 `capabilities/default.json` 撤权，详见[架构指南](./architecture-guide.zh.md) |
+| HTTP 客户端 | `lib.rs` 里的 `tauri_plugin_http::init()` 调用 | 无——`src/` 里没有任何 `fetch()` | 已从 `capabilities/default.json` 撤权，详见[架构指南](./architecture-guide.zh.md) |
 
 **骨架不要拆。** `lib/bindings.ts`、`lib/tauri-bindings.ts`、
 `lib/commands/registry.ts`、与 Rust `error.rs` 镜像的类型、`lib/logger.ts`、
@@ -112,6 +112,10 @@ node scripts/check-bundle.mjs    # 按你的应用重设体积预算
 - **依赖**：`@sentry/*` npm 包与 cargo 侧对应依赖，以及 `vite.config.ts:43-63` 的
   `sentryVitePlugin` 块。注意该块同时负责上传后删除 source map——若你用别的方式保证
   手图不进产物，请把 `check-bundle.mjs` 的 map 残留检查留下。
+- **`utils/redact.rs` 留下。** 它现在有第二个调用方：`lib.rs` 里的日志格式化器会通过
+  `render_log_line()` 在写往任何目标（stdout、`LogDir`、Console.app）之前脱敏每一行。
+  把它当作本配方的附属品删掉是编译错误，不是清理——一个曾经看着像崩溃上报死代码的
+  模块，如今承着 Rust 侧的隐私责任。
 - **`ErrorBoundary.tsx` 留下。** 它是 React 错误边界，不是崩溃上报器：它捕获渲染失败，
   调用 `logger` 与 `saveCrashState()`。如果你连恢复文件一起拆，它需要一个降级形态
   （只保留重载按钮）。

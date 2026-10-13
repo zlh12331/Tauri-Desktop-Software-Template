@@ -260,6 +260,24 @@ pub fn sanitize_filename(filename: &str) -> String {
 }
 ```
 
+### Log Redaction
+
+`utils/redact::render_log_line()` is installed as `tauri-plugin-log`'s formatter,
+so every log line is scrubbed of `api_key=`, `token:`, `Authorization: Bearer …`,
+`password`, `secret`, `cookie` values before any target receives it — stdout, the
+log directory, and Console.app alike.
+
+Two things worth knowing about how it is wired:
+
+- The plugin has no post-processing hook, so adding redaction required replacing
+  its formatter, and the replacement restates the default desktop layout
+  (`[2026-10-13][05:18:16][target][LEVEL] message`) rather than inventing one.
+  `OffsetDateTime`'s `Display` prints `2026-10-13 5:18:16.014407 +00:00`, which
+  would have silently changed the shape of every log file; a test pins the
+  bracketed, zero-padded form.
+- Redaction covers the **message**, not the target or level. That is deliberate:
+  the fields the logging framework supplies are not user data.
+
 ### Atomic File Operations
 
 All disk writes use atomic operations to prevent corruption:

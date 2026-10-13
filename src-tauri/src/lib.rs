@@ -187,6 +187,12 @@ pub fn run() {
             targets.push(tauri_plugin_log::Target::new(
                 tauri_plugin_log::TargetKind::Webview,
             ));
+            // Matches the plugin's own default. The formatter below replaces the
+            // default layout, so the clock and its description have to be restated.
+            let timezone_strategy = tauri_plugin_log::TimezoneStrategy::UseUtc;
+            let log_timestamp_format = time::macros::format_description!(
+                "[[[year]-[month]-[day]][[[hour]:[minute]:[second]]"
+            );
             tauri_plugin_log::Builder::new()
                 // Use Debug level in development, Info in production
                 .level(if cfg!(debug_assertions) {
@@ -195,6 +201,29 @@ pub fn run() {
                     log::LevelFilter::Info
                 })
                 .targets(targets)
+                // Redact credentials from the message before any target receives it.
+                // `utils::redact` had no caller until here, which meant the Rust side
+                // wrote `api_key=…` straight to Console.app and the log directory
+                // while only the frontend's Sentry events were scrubbed. The plugin
+                // exposes no post-processing hook, so installing redaction means
+                // replacing its formatter — and a replaced formatter must reproduce
+                // the default desktop layout or every log file changes shape without
+                // anyone asking it to.
+                .format(move |out, message, record| {
+                    let now = timezone_strategy.get_now();
+                    let timestamp = now
+                        .format(&log_timestamp_format)
+                        .unwrap_or_else(|_| now.to_string());
+                    out.finish(format_args!(
+                        "{}",
+                        crate::utils::redact::render_log_line(
+                            &timestamp,
+                            record.target(),
+                            &record.level().to_string(),
+                            &message.to_string(),
+                        )
+                    ))
+                })
                 .build()
         });
 

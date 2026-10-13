@@ -247,6 +247,21 @@ pub fn sanitize_filename(filename: &str) -> String {
 }
 ```
 
+### 日志脱敏
+
+`utils/redact::render_log_line()` 被安装为 `tauri-plugin-log` 的格式化器，因此每条日志
+在送达任何目标之前都会被清洗掉 `api_key=`、`token:`、`Authorization: Bearer …`、
+`password`、`secret`、`cookie` 的值——stdout、日志目录与 Console.app 一视同仁。
+
+关于它的接线方式，有两点值得知道：
+
+- 该插件没有后置处理钩子，所以要加脱敏就必须替换它的格式化器；而替换件复刻的是
+  桌面端默认布局（`[2026-10-13][05:18:16][target][LEVEL] message`），不是另造一套。
+  `OffsetDateTime` 的 `Display` 输出的是 `2026-10-13 5:18:16.014407 +00:00`，直接用会让
+  每个日志文件的形状悄悄改变，因此有一个测试把"带方括号、时分秒补零"这个形状钉住。
+- 脱敏覆盖的是**消息正文**，不含 target 与 level。这是刻意的：日志框架自供的那两个字段
+  不是用户数据。
+
 ### 原子文件操作
 
 所有磁盘写入都使用原子操作以防止数据损坏：

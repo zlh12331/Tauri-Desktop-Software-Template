@@ -62,9 +62,88 @@ pub fn is_sensitive_key(key: &str) -> bool {
     SENSITIVE_KEY_NAMES.is_match(key)
 }
 
+/// Renders one line in the layout `tauri-plugin-log` uses by default on desktop:
+/// `<timestamp>[<target>][<level>] <message>`, with the message redacted.
+///
+/// The plugin offers no hook that post-processes the default layout, so redacting
+/// log output means replacing its formatter — and a replaced formatter must
+/// reproduce the layout or every log file silently changes shape. Kept as a pure
+/// function so the two halves (layout fidelity and redaction) can be tested
+/// without a running app.
+pub fn render_log_line(timestamp: &str, target: &str, level: &str, message: &str) -> String {
+    format!(
+        "{timestamp}[{target}][{level}] {}",
+        redact_sensitive(message)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // =========================================================================
+    // render_log_line — layout fidelity + redaction in one line
+    // =========================================================================
+
+    #[test]
+    fn renders_the_plugin_default_layout() {
+        assert_eq!(
+            render_log_line("2026-10-13T10:00:00Z", "tauri-app", "INFO", "started"),
+            "2026-10-13T10:00:00Z[tauri-app][INFO] started"
+        );
+    }
+
+    #[test]
+    fn redacts_the_message_inside_the_line() {
+        let line = render_log_line("TS", "tauri-app", "WARN", "login failed api_key=abc123");
+        assert_eq!(line, "TS[tauri-app][WARN] login failed api_key=***");
+        assert!(!line.contains("abc123"));
+    }
+
+    #[test]
+    fn redacts_every_occurrence_in_one_line() {
+        let line = render_log_line("TS", "http", "ERROR", "token=AAA and secret=BBB sent");
+        assert_eq!(line, "TS[http][ERROR] token=*** and secret=*** sent");
+    }
+
+    #[test]
+    fn leaves_a_clean_message_untouched() {
+        assert_eq!(
+            render_log_line("TS", "tauri-app", "DEBUG", "window focused"),
+            "TS[tauri-app][DEBUG] window focused"
+        );
+    }
+
+    #[test]
+    fn only_the_message_is_redacted_not_the_metadata() {
+        // Documents the scope: a key-looking target or level is not rewritten,
+        // so a target named `token` survives. Redaction guards what callers log,
+        // not what the logging framework labels.
+        let line = render_log_line("TS", "token", "INFO", "hello");
+        assert_eq!(line, "TS[token][INFO] hello");
+    }
+
+    #[test]
+    fn timestamp_keeps_the_plugin_default_shape() {
+        // The formatter in `lib.rs` restates tauri-plugin-log's own desktop
+        // timestamp description instead of trusting `OffsetDateTime`'s Display.
+        // This is the test that says why: Display yields
+        // "2026-10-13 5:18:16.014407 +00:00" — spaces, no brackets, no zero
+        // padding — which would have changed the shape of every log file.
+        let format =
+            time::macros::format_description!("[[[year]-[month]-[day]][[[hour]:[minute]:[second]]");
+        let rendered = tauri_plugin_log::TimezoneStrategy::UseUtc
+            .get_now()
+            .format(&format)
+            .expect("static format description must apply");
+        assert_eq!(rendered.len(), 22, "unexpected timestamp: {rendered}");
+        assert!(
+            rendered.starts_with('['),
+            "unexpected timestamp: {rendered}"
+        );
+        assert_eq!(rendered.matches(']').count(), 2, "{rendered}");
+        assert!(!rendered.contains(' '), "{rendered}");
+    }
 
     // =========================================================================
     // redact_sensitive — 正向用例

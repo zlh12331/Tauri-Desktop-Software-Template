@@ -42,6 +42,18 @@ tauri-plugin-os = "2"
 tauri-plugin-global-shortcut = "2"
 log = "0.4"
 regex = "1"
+# Declared because the log formatter in lib.rs uses it. tauri-plugin-log exposes
+# no post-processing hook, so redacting log output means replacing its formatter,
+# and a replaced formatter must emit the same `[2026-10-13][05:18:16]` timestamp
+# the default one did — `OffsetDateTime`'s Display gives neither the brackets nor
+# the zero padding, so that changes the shape of every existing log file.
+# Both features are load-bearing for our own code: `macros` for
+# `time::macros::format_description!` (the macro lives under `macros`, not at the
+# crate root) and `formatting` for `OffsetDateTime::format`. The build happens to
+# pass with only `macros` because tauri-plugin-log already enables `formatting`;
+# relying on that would break the moment it stops. Same version is already in the
+# graph via tauri-plugin-log, so this adds no new crate to the tree.
+time = { version = "0.3", features = ["formatting", "macros"] }
 
 # Sentry SDK for Rust — captures panics and sends them to the self-hosted
 # Sentry instance. The `panic` feature (enabled by default) installs a panic
