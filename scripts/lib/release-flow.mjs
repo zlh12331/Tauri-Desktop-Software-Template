@@ -56,6 +56,29 @@ export function decideTag({ target, manifests, tags }) {
   return { ok: true, reason: `v${target} is on main and not yet released` }
 }
 
+/**
+ * Arguments for regenerating CHANGELOG.md as if `tagVersion` were already the
+ * newest tag.
+ *
+ * git-cliff labels the top section from the tags it can see, so a release
+ * prepared before tagging carries `## [Unreleased]`. The release workflow then
+ * regenerates the file from the tag and compares the two
+ * (`git diff --exit-code -- CHANGELOG.md`), which differ by exactly that heading
+ * — and `publish-tauri` needs that job, so the release builds never start.
+ * Naming the tag at generation time makes the two runs byte-identical, and it is
+ * what puts a `## [<version>]` section in the file for the release body to
+ * extract; without it the published notes carry no changelog text at all.
+ */
+export function changelogArgs(tagVersion) {
+  if (!/^v\d+\.\d+\.\d+$/.test(tagVersion ?? '')) {
+    throw new Error(
+      `the changelog needs the v-prefixed release version, got '${tagVersion}'`
+    )
+  }
+
+  return ['run', 'changelog', '--', '--tag', tagVersion]
+}
+
 /** Branch name for the release pull request, e.g. `release/v0.2.0`. */
 export function releaseBranch(version) {
   const tag = version.startsWith('v') ? version : `v${version}`

@@ -10,11 +10,16 @@
  * to be refreshed by a nested `npm install`, which aborts on a maintainer's
  * unrelated npm config, and because a silent rewrite would hide a lock that
  * already drifted.
+ *
+ * `changelogArgs` is covered because generating the changelog without the target
+ * tag costs the release twice: the tag-time comparison fails so the bundles never
+ * build, and the release notes have no section to extract.
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   bumpLockfileVersions,
+  changelogArgs,
   decideTag,
   releaseBranch,
 } from './release-flow.mjs'
@@ -136,4 +141,24 @@ test('an unreadable or unrecognised lockfile is a refusal, not a default', () =>
   const noVersion = bump(JSON.stringify({ name: 'app', lockfileVersion: 3 }))
   assert.equal(noVersion.ok, false)
   assert.match(noVersion.reason, /no version field/)
+})
+
+test('the changelog is generated against the tag the release will create', () => {
+  assert.deepEqual(changelogArgs('v0.2.0'), [
+    'run',
+    'changelog',
+    '--',
+    '--tag',
+    'v0.2.0',
+  ])
+})
+
+test('a changelog tag missing the v prefix or a full version is refused', () => {
+  for (const bad of ['0.2.0', 'v0.2', 'v0.2.0-beta', 'main', undefined]) {
+    assert.throws(
+      () => changelogArgs(bad),
+      /v-prefixed release version/,
+      `${bad} should not name a release tag`
+    )
+  }
 })
