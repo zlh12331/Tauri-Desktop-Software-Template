@@ -415,6 +415,39 @@ jobs:
       - name: Build Tauri app (compile check)
         run: npx tauri build --no-bundle
 
+      - name: Verify the native binary was produced
+        # The suite says nothing about the shell. 97 Playwright cases run against
+        # the frontend dev server with a mocked IPC layer, and the Rust tests never
+        # open a window, so before this step nothing in CI proved that a native
+        # executable came out of the build at all.
+        #
+        # A driver-driven smoke was considered and rejected: `tauri-driver` drives
+        # Windows and Linux only — the upstream docs state macOS has no WKWebView
+        # driver tool — so it could never cover the three platforms this template
+        # builds for, and a "desktop smoke" that silently omits macOS is the kind
+        # of gate whose coverage is a fiction. This assertion is the part that can
+        # be true everywhere: the binary exists, and its size is recorded per
+        # platform so a jump becomes visible in the job summary.
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary=$(find src-tauri/target/release -maxdepth 1 -type f \
+            \( -name 'tauri-desktop-software-template' -o -name 'tauri-desktop-software-template.exe' \) \
+            -print -quit)
+          if [ -z "${binary}" ]; then
+            echo "::error::tauri build --no-bundle produced no release binary"
+            exit 1
+          fi
+          size=$(wc -c < "${binary}" | tr -d ' ')
+          echo "release binary: ${binary} (${size} bytes)"
+          {
+            echo "### Binary size — ${matrix_platform}"
+            echo ""
+            echo "\`${binary}\`: ${size} bytes"
+          } >> "${GITHUB_STEP_SUMMARY}"
+        env:
+          matrix_platform: ${{ matrix.platform }}
+
   # One stable name for the whole platform matrix.
   #
   # The `protect-main` configuration on the remote currently requires three

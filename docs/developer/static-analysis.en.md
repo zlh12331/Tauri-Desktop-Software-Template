@@ -22,6 +22,7 @@ All static analysis tools configured in this app and how to use them.
 | cargo test     | Rust tests               | `npm run rust:test`            | Yes          |
 | gate self-test | Custom guards' own tests | `npm run test:scripts`         | Yes          |
 | bundle budget  | Artifact size + maps     | `npm run bundle:check`         | Yes          |
+| Playwright E2E | 97 UI flows over mocks   | `npm run e2e`                  | CI required  |
 | npm audit      | Dependency advisories    | `node scripts/check-audit.mjs` | CI only      |
 | knip           | Unused code detection    | `npm run knip`                 | No           |
 | jscpd          | Duplicate code detection | `npm run jscpd`                | No           |
@@ -215,6 +216,54 @@ reading "nothing measured" as "fully covered".
 
 When you add a guard, add its negative test in the same change. A test that
 cannot fail is not a gate.
+
+### Playwright E2E — a required check, deliberately not in `check:all`
+
+```bash
+npm run e2e    # single worker, ~4.5 minutes, needs `npx playwright install chromium`
+```
+
+`E2E Tests` is one of the branch's required status checks, so a broken UI flow
+blocks the merge whether or not your pre-push hook ran it. Putting it in
+`check:all` would buy earlier feedback at the cost of ~4.5 minutes per push plus
+a Playwright browser on every fresh clone — and a template whose first
+`git push` fails because the machine has no Chromium is a template with a bad
+first hour. Run it by hand before a release or after touching a user flow.
+
+One non-obvious setting: `workers: 1` in `playwright.config.ts`, for local runs
+too. Measured on a Windows development machine, Playwright's default
+parallelism (half the logical cores) failed 2 of 97 tests at the 10-second
+`expect` timeout, because all those first page loads hit one cold Vite dev
+server that compiles its module graph on demand; the same two cases pass when
+their file runs alone. CI already used one worker, so this makes local and CI
+agree instead of letting each have its own meaning.
+
+It does **not** make the suite deterministic, and the honest record matters more
+than the tidy story: `advanced-pane.spec.ts:184` ("API config form submit with
+valid data shows success toast") failed once in three isolated single-worker
+runs and once in a full single-worker run. Its failure is a navigation to the
+root URL already in flight before the test's first `fill`, so the reload is not
+caused by the form — react-hook-form's `handleSubmit` does call `preventDefault`,
+and there is exactly one `<form>` in the preferences tree. The case is green in
+CI only because `retries: 2` absorbs it. If that test ever needs real attention,
+start from what navigates, not from the submit handler.
+
+### What the E2E suite does not cover
+
+The 97 Playwright cases run against the Vite dev server with a mocked IPC layer
+(`e2e/mocks/tauri-mock.ts`, injected by `addInitScript`). They never start the
+Rust process. So they verify frontend behavior under the IPC contract and prove
+nothing about native windows, tray icons, global shortcuts, NSPanel levels or the
+installer. Those rest on the 423 Rust tests plus the compile check in
+`Build (<platform>)`, which now also asserts a release binary came out and
+records its size in the job summary.
+
+A real driver-driven smoke was considered and is not on the roadmap: `tauri-driver`
+supports Windows and Linux, and the upstream documentation states macOS has no
+WKWebView driver tool available. A "desktop smoke" that cannot run on one of the
+three platforms this template ships for would be a gate whose stated coverage is
+a fiction — so the honest control is the binary assertion, and the gap is named
+here rather than hidden.
 
 ## CI Integration
 
