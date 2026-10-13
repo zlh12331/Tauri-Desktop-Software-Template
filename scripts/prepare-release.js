@@ -3,7 +3,7 @@
 import fs from 'fs'
 import { spawnSync } from 'child_process'
 import readline from 'readline'
-import { releaseBranch } from './lib/release-flow.mjs'
+import { bumpLockfileVersions, releaseBranch } from './lib/release-flow.mjs'
 
 /**
  * Resolve the npm CLI entry point. When a script runs under `npm run`, npm
@@ -147,10 +147,16 @@ async function prepareRelease() {
     )
     console.log(`   ${oldTauriVersion} → ${cleanVersion}`)
 
-    // Run npm install to update lock files
-    console.log('\n📦 Updating lock files...')
-    exec(npmArgs(['install']), { silent: true })
-    console.log('✅ Lock files updated')
+    // package-lock.json keeps its own copy of the version. It is rewritten here
+    // instead of by a nested `npm install` — see bumpLockfileVersions.
+    console.log('\n📦 Updating package-lock.json...')
+    const lock = bumpLockfileVersions(
+      fs.readFileSync('package-lock.json', 'utf8'),
+      { currentVersion: oldPkgVersion, nextVersion: cleanVersion }
+    )
+    if (!lock.ok) throw new Error(lock.reason)
+    fs.writeFileSync('package-lock.json', lock.text)
+    console.log(`   ${lock.updated.join(', ')} → ${cleanVersion}`)
 
     // Generate CHANGELOG for this release (git-cliff, based on commits since
     // the previous tag). Committed together with the version bump below.

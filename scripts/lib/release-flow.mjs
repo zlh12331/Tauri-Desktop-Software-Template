@@ -61,3 +61,66 @@ export function releaseBranch(version) {
   const tag = version.startsWith('v') ? version : `v${version}`
   return `release/${tag}`
 }
+
+/**
+ * Rewrite the copy of the app version that `package-lock.json` keeps, and return
+ * the new file text.
+ *
+ * This is not `npm install`: npm exports the ambient config as `npm_config_*`
+ * environment variables, so a user-level `allow-scripts=…` reaches the nested npm
+ * as if it were a command-line flag, and npm 12 refuses a command-line
+ * `--allow-scripts` for a project-scoped install (EALLOWSCRIPTS). A release step
+ * that dies on the maintainer's unrelated npm config is not a release step.
+ *
+ * A lock that does not already hold `currentVersion` is a refusal rather than a
+ * rewrite: silently setting the new version would hide the drift that means
+ * someone edited a manifest by hand, and the next `npm install` would undo it.
+ */
+export function bumpLockfileVersions(
+  lockText,
+  { currentVersion, nextVersion }
+) {
+  let lock
+  try {
+    lock = JSON.parse(lockText)
+  } catch (error) {
+    return {
+      ok: false,
+      reason: `package-lock.json is not valid JSON: ${error.message}`,
+    }
+  }
+
+  const fields = []
+  if ('version' in lock) fields.push(['top-level "version"', lock.version])
+  const root = lock.packages?.['']
+  if (root && 'version' in root) {
+    fields.push(['packages[""].version', root.version])
+  }
+
+  if (fields.length === 0) {
+    return {
+      ok: false,
+      reason:
+        'package-lock.json holds no version field at all — this is not a lockfile this script knows how to update',
+    }
+  }
+
+  const drifted = fields.filter(([, value]) => value !== currentVersion)
+  if (drifted.length > 0) {
+    return {
+      ok: false,
+      reason: `package-lock.json does not hold ${currentVersion}: ${drifted
+        .map(([label, value]) => `${label}=${value ?? 'missing'}`)
+        .join(', ')}. Run \`npm install\` to resync it before releasing.`,
+    }
+  }
+
+  if ('version' in lock) lock.version = nextVersion
+  if (root && 'version' in root) root.version = nextVersion
+
+  return {
+    ok: true,
+    text: JSON.stringify(lock, null, 2) + '\n',
+    updated: fields.map(([label]) => label),
+  }
+}
