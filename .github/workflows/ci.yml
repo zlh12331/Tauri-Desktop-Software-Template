@@ -203,6 +203,17 @@ jobs:
         # the ones worth failing on first.
         run: npm run test:scripts
 
+      - name: Production build
+        run: npm run build
+
+      - name: Bundle size and artifact budget
+        # Nothing else in this pipeline measures what a user downloads. A
+        # dependency bump that adds 90 kB of gzip is one lockfile line in review,
+        # and a small artifact is the reason to pick Tauri at all. The step also
+        # proves React Compiler ran: the babel preset accepts its option whether
+        # or not the plugin resolves, so a silent no-op builds green.
+        run: npm run bundle:check
+
       - name: Frontend unit tests with coverage
         run: npm run test:coverage
 

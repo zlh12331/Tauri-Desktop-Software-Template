@@ -21,6 +21,7 @@ All static analysis tools configured in this app and how to use them.
 | Vitest         | Frontend tests           | `npm run test:run`             | Yes          |
 | cargo test     | Rust tests               | `npm run rust:test`            | Yes          |
 | gate self-test | Custom guards' own tests | `npm run test:scripts`         | Yes          |
+| bundle budget  | Artifact size + maps     | `npm run bundle:check`         | Yes          |
 | npm audit      | Dependency advisories    | `node scripts/check-audit.mjs` | CI only      |
 | knip           | Unused code detection    | `npm run knip`                 | No           |
 | jscpd          | Duplicate code detection | `npm run jscpd`                | No           |
@@ -106,6 +107,47 @@ Handles memoization automatically at build time. You do **not** need to manually
 The compiler analyzes code and adds memoization where beneficial.
 
 **Note:** The `getState()` pattern is still critical - it avoids store subscriptions, not memoization. See [state-management.en.md](./state-management.en.md).
+
+### Bundle budget
+
+```bash
+npm run build         # produces dist/ — the check reads it, it does not build
+npm run bundle:check
+```
+
+`scripts/check-bundle.mjs` puts a ceiling on what the app ships, measured as gzip
+of `dist/assets`. Five budgets, all in `scripts/lib/bundle-metrics.mjs` beside the
+baseline each was derived from:
+
+| Budget             | Measures                                                                    |
+| ------------------ | --------------------------------------------------------------------------- |
+| `jsGzip`           | every JS byte the main window parses                                        |
+| `cssGzip`          | Tailwind output plus component CSS                                          |
+| `largestChunkGzip` | the single biggest chunk, so a new heavy dependency cannot hide in one line |
+| `quickPaneJsGzip`  | the resident hidden window, paid for by users who never open it             |
+| `distGzipTotal`    | what Tauri embeds into the binary                                           |
+
+Three properties of this gate are deliberate:
+
+- **An empty `dist` cannot pass.** `measure([])` returns 0 against every ceiling,
+  so `isDistPopulated()` is checked separately and the CLI refuses to run at all
+  when `dist/assets` is absent. Reading "nothing measured" as "nothing exceeded"
+  is the same failure shape as a coverage report with no statements.
+- **React Compiler is verified by its output, not its config.** `@rolldown/plugin-babel`
+  accepts the compiler preset even when the plugin cannot be resolved; the build
+  succeeds and silently stops memoizing. The compiler emits
+  `Symbol.for('react.memo_cache_sentinel')`, which survives minification, so the
+  gate counts it in the built JS. Zero hits fails the build; a count far below the
+  baseline warns.
+- **A source map in `dist/` fails the build.** Everything under `frontendDist` is
+  embedded into the executable, so a surviving `.map` ships to every user.
+  `vite.config.ts` only emits maps when the same build can hand them to Sentry,
+  and this check is what confirms that held.
+
+Budgets move only upward in a change that says why; the baseline comment above each
+number is the review surface. `build.chunkSizeWarningLimit: 600` in `vite.config.ts`
+is a Vite warning threshold, not a budget — it was raised to fit components that
+already existed, and raising a ceiling to match current output is not enforcement.
 
 ### Rust Tooling
 

@@ -6,24 +6,25 @@
 
 ## 快速参考
 
-| 工具           | 用途                | 命令                           | 在 check:all 中 |
-| -------------- | ------------------- | ------------------------------ | --------------- |
-| TypeScript     | 类型检查            | `npm run typecheck`            | 是              |
-| ESLint         | 语法、风格、TS 规则 | `npm run lint`                 | 是              |
-| cspell         | 拼写检查            | `npm run cspell:check`         | 是              |
-| Prettier       | 代码格式化          | `npm run format:check`         | 是              |
-| ast-grep       | 架构模式            | `npm run ast:lint`             | 是              |
-| i18n check     | 提取漂移 + 键同步   | `npm run i18n:check`           | 是              |
-| React Compiler | 自动 memoization    | 构建时                         | 是              |
-| cargo fmt      | Rust 格式化         | `npm run rust:fmt:check`       | 是              |
-| clippy         | Rust lint           | `npm run rust:clippy`          | 是              |
-| cargo-machete  | Rust 未使用依赖     | `npm run rust:machete`         | 是              |
-| Vitest         | 前端测试            | `npm run test:run`             | 是              |
-| cargo test     | Rust 测试           | `npm run rust:test`            | 是              |
-| 门禁自测       | 自建守卫自身的测试  | `npm run test:scripts`         | 是              |
-| npm audit      | 依赖漏洞            | `node scripts/check-audit.mjs` | 仅 CI           |
-| knip           | 未使用代码检测      | `npm run knip`                 | 否              |
-| jscpd          | 重复代码检测        | `npm run jscpd`                | 否              |
+| 工具           | 用途                  | 命令                           | 在 check:all 中 |
+| -------------- | --------------------- | ------------------------------ | --------------- |
+| TypeScript     | 类型检查              | `npm run typecheck`            | 是              |
+| ESLint         | 语法、风格、TS 规则   | `npm run lint`                 | 是              |
+| cspell         | 拼写检查              | `npm run cspell:check`         | 是              |
+| Prettier       | 代码格式化            | `npm run format:check`         | 是              |
+| ast-grep       | 架构模式              | `npm run ast:lint`             | 是              |
+| i18n check     | 提取漂移 + 键同步     | `npm run i18n:check`           | 是              |
+| React Compiler | 自动 memoization      | 构建时                         | 是              |
+| cargo fmt      | Rust 格式化           | `npm run rust:fmt:check`       | 是              |
+| clippy         | Rust lint             | `npm run rust:clippy`          | 是              |
+| cargo-machete  | Rust 未使用依赖       | `npm run rust:machete`         | 是              |
+| Vitest         | 前端测试              | `npm run test:run`             | 是              |
+| cargo test     | Rust 测试             | `npm run rust:test`            | 是              |
+| 门禁自测       | 自建守卫自身的测试    | `npm run test:scripts`         | 是              |
+| 包体积预算     | 产物体积与 source map | `npm run bundle:check`         | 是              |
+| npm audit      | 依赖漏洞              | `node scripts/check-audit.mjs` | 仅 CI           |
+| knip           | 未使用代码检测        | `npm run knip`                 | 否              |
+| jscpd          | 重复代码检测          | `npm run jscpd`                | 否              |
 
 CI 额外运行 [actionlint](https://github.com/rhysd/actionlint) 检查所有 GitHub Actions workflow，以及 [gitleaks](https://github.com/gitleaks/gitleaks) 密钥扫描。
 
@@ -101,6 +102,31 @@ npm run ast:fix     # 尽可能自动修复
 编译器分析代码并在有益的地方添加 memoization。
 
 **注意**：`getState()` 模式仍然关键 - 它避免的是 store 订阅，而非 memoization。参见 [state-management.zh.md](./state-management.zh.md)。
+
+### 包体积预算
+
+```bash
+npm run build         # 产出 dist/ —— 检查读取它，自身不构建
+npm run bundle:check
+```
+
+`scripts/check-bundle.mjs` 给应用交付的体积设上限，口径是 `dist/assets` 的 gzip。五条预算都在 `scripts/lib/bundle-metrics.mjs`，各自紧挨着推导它的基线值：
+
+| 预算               | 度量对象                                                 |
+| ------------------ | -------------------------------------------------------- |
+| `jsGzip`           | 主窗口要解析的全部 JS 字节                               |
+| `cssGzip`          | Tailwind 产物加组件 CSS                                  |
+| `largestChunkGzip` | 最大的单个 chunk，让新增的重依赖无法藏在一行 lockfile 里 |
+| `quickPaneJsGzip`  | 常驻隐藏窗口——从不使用它的用户也在为它付费               |
+| `distGzipTotal`    | Tauri 嵌入二进制的全部 Web 资源                          |
+
+这个门禁有三处是刻意设计的：
+
+- **空 `dist` 不可能通过。** `measure([])` 对每条预算都是 0，所以 `isDistPopulated()` 单独检查，且 `dist/assets` 不存在时 CLI 直接拒绝运行。把"什么都没测到"读成"什么都没超标"，和覆盖率报表里没有任何语句是同一种失效形状。
+- **React Compiler 用产物验证，而不是用配置验证。** `@rolldown/plugin-babel` 无论插件能否解析都会接受该 preset——构建成功，然后悄悄不再 memoize。编译器会产出 `Symbol.for('react.memo_cache_sentinel')`，而 `Symbol.for` 字符串能活过压缩，所以门禁直接在构建产物里数它。命中数为 0 判失败；远低于基线则告警。
+- **`dist/` 里出现 source map 判失败。** `frontendDist` 下的每个文件都被嵌进可执行文件，所以一张残留的 `.map` 会发给每一个用户。`vite.config.ts` 只在同一次构建能把手图交给 Sentry 时才生成，这个检查就是确认该性质仍然成立。
+
+预算只能向上调整，且必须在改动里说明理由——每个数字上方的基线注释就是评审面。`vite.config.ts` 里的 `build.chunkSizeWarningLimit: 600` 是 Vite 的告警阈值，不是预算：它是为了适配当时已存在的组件而被抬高的，而"把上限调到刚好放过现状"不构成约束。
 
 ### Rust 工具
 
