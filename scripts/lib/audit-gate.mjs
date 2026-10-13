@@ -120,13 +120,21 @@ export function validatePassthrough(extra) {
  * an argument to be re-interpreted by cmd.exe. Only when that variable is absent
  * does the gate fall back to the `npm` shim, which on Windows needs a shell
  * because modern Node refuses to spawn `.cmd`/`.bat` directly.
+ *
+ * The environment is taken as one object rather than per-key with a default
+ * value: `npmExecPath = process.env.npm_execpath` re-reads the real environment
+ * whenever a caller passes `undefined` on purpose, so a test that means "no
+ * npm_execpath" would silently get whatever the surrounding `npm run` exported.
+ * That is exactly how the fallback case passed under `node --test` and failed in
+ * pre-push.
  */
 export function buildAuditCommand({
   extra = [],
-  npmExecPath = process.env.npm_execpath,
+  env = process.env,
   execPath = process.execPath,
   platform = process.platform,
 } = {}) {
+  const npmExecPath = env['npm_execpath']
   const args = ['audit', '--json', ...extra]
   if (npmExecPath && /\.[cm]?js$/i.test(npmExecPath)) {
     return { command: execPath, args: [npmExecPath, ...args], shell: false }

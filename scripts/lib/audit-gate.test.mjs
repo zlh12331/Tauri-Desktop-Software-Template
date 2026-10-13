@@ -180,7 +180,9 @@ test('passthrough args are limited to a boring key=value charset', () => {
 test('npm_execpath is preferred so no shell is needed', () => {
   const cmd = buildAuditCommand({
     extra: ['--registry=https://registry.npmjs.org'],
-    npmExecPath: 'C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js',
+    env: {
+      npm_execpath: 'C:/Program Files/nodejs/node_modules/npm/bin/npm-cli.js',
+    },
     execPath: 'C:/Program Files/nodejs/node.exe',
     platform: 'win32',
   })
@@ -195,13 +197,17 @@ test('npm_execpath is preferred so no shell is needed', () => {
 })
 
 test('without npm_execpath the npm shim falls back per platform', () => {
+  // env must be an explicitly empty object. Passing `npm_execpath: undefined`
+  // used to re-read the real environment through the default parameter, so this
+  // case passed under `node --test` and failed inside `npm run`, where
+  // npm_execpath is always set.
   assert.deepEqual(
-    buildAuditCommand({ npmExecPath: undefined, platform: 'win32' }),
+    buildAuditCommand({ env: {}, platform: 'win32' }),
     { command: 'npm', args: ['audit', '--json'], shell: true },
     'npm is a .cmd shim on Windows and Node refuses to spawn one without a shell'
   )
   assert.equal(
-    buildAuditCommand({ npmExecPath: undefined, platform: 'linux' }).shell,
+    buildAuditCommand({ env: {}, platform: 'linux' }).shell,
     false,
     'posix needs no shell'
   )
@@ -209,7 +215,7 @@ test('without npm_execpath the npm shim falls back per platform', () => {
 
 test('a non-JS npm_execpath is not treated as an entry point', () => {
   const cmd = buildAuditCommand({
-    npmExecPath: '/usr/local/bin/npm',
+    env: { npm_execpath: '/usr/local/bin/npm' },
     platform: 'linux',
   })
   assert.equal(cmd.command, 'npm')
