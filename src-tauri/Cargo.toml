@@ -81,6 +81,17 @@ tauri-plugin-window-state = "2"
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", rev = "a3122e894383aa068ec5365a42994e3ac94ba1b6" }
 
+# Dependencies carry full debuginfo by default, which every dev build pays in
+# compile time and disk for code nobody steps through: this crate's own debuginfo
+# is what matters, and workspace members keep it (the override below only matches
+# non-workspace packages). Line tables stay on for dependencies so a panic
+# captured in dev still reports file and line inside crate code.
+# Re-enable one crate while debugging inside it:
+#   [profile.dev.package.tauri]
+#   debug = true
+[profile.dev.package."*"]
+debug = "line-tables-only"
+
 # Optimize for smaller binary size in release builds
 [profile.release]
 codegen-units = 1        # Better LLVM optimization (slower build, smaller binary)
