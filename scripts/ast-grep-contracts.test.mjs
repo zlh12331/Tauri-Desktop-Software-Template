@@ -126,17 +126,29 @@ test('every architecture rule on disk has a contract, and no contract is stale',
   )
 })
 
-test('the scanner itself is alive before any of its verdicts are trusted', () => {
+test('the scanner is alive, and is the version the lockfile pins', () => {
   const probe = spawnSync(astGrep(), ['--version'], { encoding: 'utf8' })
   assert.equal(
     probe.status,
     0,
     `ast-grep --version exited ${probe.status}: ${(probe.stderr || '').slice(0, 300)}`
   )
-  assert.match(
-    probe.stdout,
-    /ast-grep \d+\.\d+\.\d+/,
-    `unexpected version line: ${probe.stdout.slice(0, 200)}`
+  const found = /ast-grep (\d+\.\d+\.\d+)/.exec(probe.stdout)
+  assert.ok(found, `unexpected version line: ${probe.stdout.slice(0, 200)}`)
+  // Contracts describe one CLI version; judging them with another proves nothing
+  // about what CI runs. An install can lag the lockfile for weeks — with npm 12
+  // blocking postinstall nothing ever forces the package's binary into place, so
+  // the staleness is invisible until a verdict diverges between machines.
+  const running = found[1]
+  const lock = JSON.parse(
+    fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8')
+  )
+  const pinned = lock.packages?.['node_modules/@ast-grep/cli']?.version
+  assert.ok(pinned, 'package-lock.json carries no @ast-grep/cli entry')
+  assert.equal(
+    running,
+    pinned,
+    `ast-grep installed reports ${running} but the lockfile pins ${pinned} — run npm install before trusting this suite`
   )
 })
 
