@@ -192,6 +192,17 @@ jobs:
       - name: i18n catalog consistency
         run: npm run i18n:check
 
+      - name: Gate scripts self-test
+        # The custom guards in scripts/ are the ones that decide whether an
+        # advisory is exempted and whether coverage moved. A guard with a broken
+        # comparison passes forever and looks exactly like a guard that is
+        # working, so they need tests of their own — one of them shipped with a
+        # severity comparison against an undefined rank, which made it accept
+        # every input including a genuinely vulnerable tree.
+        # Runs before the suites it watches: if a gate is inert, its verdicts are
+        # the ones worth failing on first.
+        run: npm run test:scripts
+
       - name: Frontend unit tests with coverage
         run: npm run test:coverage
 

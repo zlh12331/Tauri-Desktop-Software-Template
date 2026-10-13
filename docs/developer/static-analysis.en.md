@@ -20,6 +20,7 @@ All static analysis tools configured in this app and how to use them.
 | cargo-machete  | Rust unused deps         | `npm run rust:machete`         | Yes          |
 | Vitest         | Frontend tests           | `npm run test:run`             | Yes          |
 | cargo test     | Rust tests               | `npm run rust:test`            | Yes          |
+| gate self-test | Custom guards' own tests | `npm run test:scripts`         | Yes          |
 | npm audit      | Dependency advisories    | `node scripts/check-audit.mjs` | CI only      |
 | knip           | Unused code detection    | `npm run knip`                 | No           |
 | jscpd          | Duplicate code detection | `npm run jscpd`                | No           |
@@ -143,6 +144,35 @@ node scripts/check-audit.mjs --registry=https://registry.npmjs.org
 ```
 
 This script replaces a bare `npm audit --audit-level=high`. Some advisories have no patched release yet, and npm marks every package that depends on one as equally vulnerable, so a single unpatched transitive package would redden its whole chain. Advisories listed in the script's `IGNORED` array are waived, but severity is recomputed from the causes that remain, so an exemption can only ever hide the advisory it names. It follows the same contract as the exemptions in `src-tauri/deny.toml`: a written reason, a review date, and removal as soon as upstream ships a fix.
+
+### Gate script self-tests
+
+```bash
+npm run test:scripts    # node --test scripts/
+```
+
+Every custom guard in `scripts/` decides something a human no longer looks at:
+which advisories are exempted, whether coverage dropped, whether the two
+translation catalogs still match. A guard whose comparison is broken does not
+report an error — it reports success, forever, which is indistinguishable from a
+guard that is working.
+
+This is not hypothetical. An early version of `check-audit.mjs` compared each
+package's severity against `RANK['none']`, and `none` had no rank, so the
+comparison was `undefined` and every `severity > worst` test evaluated false.
+The gate exited 0 for any input, including a tree with a real high-severity
+advisory. It was caught only by writing down the negative case: run the gate with
+the exemption list emptied and assert that it now names the packages.
+
+So the decision logic lives in `scripts/lib/*.mjs` as pure functions, and
+`scripts/lib/*.test.mjs` covers them with the Node built-in test runner — no
+registry round trip, no coverage run required. `check-coverage.mjs` carries the
+same class of guard in the other direction: `pct()` returns 100 for an empty
+denominator, so the CLI refuses any metric whose total is zero rather than
+reading "nothing measured" as "fully covered".
+
+When you add a guard, add its negative test in the same change. A test that
+cannot fail is not a gate.
 
 ## CI Integration
 

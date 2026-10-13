@@ -24,6 +24,7 @@
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { findFloorBreaches, summarize } from './lib/coverage-summary.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
@@ -40,57 +41,22 @@ if (!existsSync(coverageFile)) {
 }
 const coverage = JSON.parse(readFileSync(coverageFile, 'utf8'))
 
-let stmtHit = 0
-let stmtTotal = 0
-let branchHit = 0
-let branchTotal = 0
-let fnHit = 0
-let fnTotal = 0
-let lineHit = 0
-let lineTotal = 0
+const { actual, totals } = summarize(coverage)
 
-for (const file of Object.values(coverage)) {
-  // statements
-  for (const [id, hits] of Object.entries(file.s)) {
-    if (file.statementMap[id]) stmtTotal++
-    if (hits > 0) stmtHit++
-  }
-  // functions
-  for (const [id, hits] of Object.entries(file.f)) {
-    if (file.fnMap[id]) fnTotal++
-    if (hits > 0) fnHit++
-  }
-  // lines — v8 line coverage is derivable from statementMap's loc ranges
-  const lineMap = new Map()
-  for (const loc of Object.values(file.statementMap)) {
-    for (let l = loc.start.line; l <= loc.end.line; l++) lineMap.set(l, false)
-  }
-  for (const [id, hits] of Object.entries(file.s)) {
-    const loc = file.statementMap[id]
-    if (!loc) continue
-    if (hits > 0)
-      for (let l = loc.start.line; l <= loc.end.line; l++) lineMap.set(l, true)
-  }
-  lineTotal += lineMap.size
-  lineHit += [...lineMap.values()].filter(v => v).length
-  // branches
-  for (const [id, counts] of Object.entries(file.b)) {
-    if (!file.branchMap[id]) continue
-    for (const count of counts) {
-      branchTotal++
-      if (count > 0) branchHit++
-    }
+// An empty denominator is not full coverage. pct() returns 100 when a total is
+// zero, so a renamed field in v8's output would make every metric read 100% and
+// the floor check below would pass having measured nothing. Refuse that reading.
+for (const metric of ['statements', 'branches', 'functions', 'lines']) {
+  if (totals[metric].total === 0) {
+    console.error(
+      `✖ coverage-final.json contains no '${metric}' entries — ` +
+        `an empty denominator is not 100%. Check that the coverage provider ` +
+        `output format is what this script expects.`
+    )
+    process.exit(1)
   }
 }
 
-const pct = (hit, total) =>
-  total === 0 ? 100 : Number(((hit / total) * 100).toFixed(2))
-const actual = {
-  statements: pct(stmtHit, stmtTotal),
-  branches: pct(branchHit, branchTotal),
-  functions: pct(fnHit, fnTotal),
-  lines: pct(lineHit, lineTotal),
-}
 console.log(
   `Coverage: statements ${actual.statements}% / branches ${actual.branches}% / functions ${actual.functions}% / lines ${actual.lines}%`
 )
@@ -104,14 +70,12 @@ const commitments = {
 }
 
 let errors = 0
-for (const [metric, floor] of Object.entries(commitments)) {
-  if (actual[metric] < floor) {
-    console.error(
-      `✖ Coverage ${metric} dropped below the documented register floor: ` +
-        `${actual[metric]}% < ${floor}%. Update the register with evidence if intentional.`
-    )
-    errors++
-  }
+for (const breach of findFloorBreaches(actual, commitments)) {
+  console.error(
+    `✖ Coverage ${breach.metric} dropped below the documented register floor: ` +
+      `${breach.actual}% < ${breach.floor}%. Update the register with evidence if intentional.`
+  )
+  errors++
 }
 
 // ---------------------------------------------------------------------------

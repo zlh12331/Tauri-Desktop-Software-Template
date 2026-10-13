@@ -20,6 +20,7 @@
 | cargo-machete  | Rust 未使用依赖     | `npm run rust:machete`         | 是              |
 | Vitest         | 前端测试            | `npm run test:run`             | 是              |
 | cargo test     | Rust 测试           | `npm run rust:test`            | 是              |
+| 门禁自测       | 自建守卫自身的测试  | `npm run test:scripts`         | 是              |
 | npm audit      | 依赖漏洞            | `node scripts/check-audit.mjs` | 仅 CI           |
 | knip           | 未使用代码检测      | `npm run knip`                 | 否              |
 | jscpd          | 重复代码检测        | `npm run jscpd`                | 否              |
@@ -138,6 +139,20 @@ node scripts/check-audit.mjs --registry=https://registry.npmjs.org
 ```
 
 这个脚本取代裸的 `npm audit --audit-level=high`。部分公告还没有修复版本，而 npm 会把依赖它的每个包都标成同等严重，于是一个无法修补的传递依赖会让整条链变红。脚本 `IGNORED` 数组里列出的公告被豁免，但严重度是按剩余成因重新计算的，所以一条豁免只能隐藏它点名的那条公告。这遵循与 `src-tauri/deny.toml` 中豁免相同的约定：写明理由、给出复查时间，上游一出修复就删掉。
+
+### 门禁脚本自测
+
+```bash
+npm run test:scripts    # node --test scripts/
+```
+
+`scripts/` 下每个自建守卫都在决定一件没有人会再看一眼的事：哪些漏洞被豁免、覆盖率是否下滑、两份翻译目录是否还对齐。比较逻辑写坏的守卫不会报错——它会永远报成功，而这和"正常工作"看起来一模一样。
+
+这不是假设。`check-audit.mjs` 的早期版本把每个包的严重级别与 `RANK['none']` 比较，而 `none` 没有等级，于是比较对象是 `undefined`，每个 `severity > worst` 判定都为 false。对任何输入它都退出 0，包括确实存在 high 级漏洞的依赖树。发现它的唯一办法是把反向用例写下来：清空豁免表后跑一次，断言它此时必须点出包名。
+
+因此判定逻辑放在 `scripts/lib/*.mjs` 里，是纯函数；`scripts/lib/*.test.mjs` 用 Node 内置测试运行器覆盖它们——不需要访问 registry，也不需要先跑覆盖率。`check-coverage.mjs` 携带的是同一类问题的反向守卫：`pct()` 对空分母返回 100，所以 CLI 只要发现某个维度的总数为 0 就直接失败，而不是把"什么都没测到"读成"全覆盖"。
+
+新增守卫时，请在同一次改动里补上它的反向测试。不会失败的测试不是门禁。
 
 ## CI 集成
 
