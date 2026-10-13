@@ -207,28 +207,28 @@ See [docs/developer/tauri-commands.en.md](docs/developer/tauri-commands.en.md) f
 
 ## Tauri Plugins (20 Pre-configured)
 
-| Plugin            | Purpose                             |
-| ----------------- | ----------------------------------- |
-| single-instance   | Prevent multiple app instances      |
-| window-state      | Remember window position/size       |
-| positioner        | Tray-relative window positioning    |
-| autostart         | Launch on system startup            |
-| deep-link         | Custom URL scheme (`tauri-app://`)  |
-| updater           | In-app auto-updates with signatures |
-| global-shortcut   | System-wide keyboard shortcuts      |
-| fs                | File system access                  |
-| persisted-scope   | Persist FS scope across sessions    |
-| dialog            | Native open/save dialogs            |
-| store             | Key-value persistence (atomic)      |
-| opener            | Open URLs/files with default app    |
-| clipboard-manager | Clipboard access                    |
-| notification      | System notifications                |
-| process           | Process control                     |
-| os                | OS information                      |
-| http              | HTTP client (bypass CORS)           |
-| shell             | Subprocess / system open            |
-| log               | Platform-specific logging targets   |
-| tauri-nspanel     | macOS floating panel (NSPanel)      |
+| Plugin            | Purpose                                                                 |
+| ----------------- | ----------------------------------------------------------------------- |
+| single-instance   | Prevent multiple app instances                                          |
+| window-state      | Remember window position/size                                           |
+| positioner        | Tray-relative window positioning                                        |
+| autostart         | Launch on system startup                                                |
+| deep-link         | Custom URL scheme (`tauri-app://`)                                      |
+| updater           | In-app auto-updates with signatures                                     |
+| global-shortcut   | System-wide keyboard shortcuts                                          |
+| fs                | File system access                                                      |
+| persisted-scope   | Persist FS scope across sessions                                        |
+| dialog            | Native open/save dialogs                                                |
+| store             | Key-value persistence (atomic)                                          |
+| opener            | Open URLs/files with default app                                        |
+| clipboard-manager | Clipboard access                                                        |
+| notification      | System notifications                                                    |
+| process           | Process control                                                         |
+| os                | OS information                                                          |
+| http              | HTTP client (bypass CORS) — wired, **no permission granted by default** |
+| shell             | Subprocess / system open                                                |
+| log               | Platform-specific logging targets                                       |
+| tauri-nspanel     | macOS floating panel (NSPanel)                                          |
 
 ## Documentation
 

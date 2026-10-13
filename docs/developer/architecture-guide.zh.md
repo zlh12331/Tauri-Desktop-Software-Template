@@ -191,6 +191,21 @@ Tauri v2 使用基于权限的 capabilities 系统。每个窗口只获得其所
 - 仅添加实际需要的权限
 - 远程内容（如果有）应具有最小权限
 
+### 已接线但未授权的插件
+
+`tauri_plugin_http::init()` 仍在启动时执行（`src-tauri/src/lib.rs`），插件是存在的，但 `default.json` 没有给它任何授权。早先的版本授予 `http:default` 并配 `allow: [{url: "https://**"}, {url: "http://**"}]`——那等于对全网开放绕过 CORS 的请求，还额外允许明文 HTTP；而持有它的 webview 同时拥有 `fs:default` 与 `shell:allow-open`。应用里根本没有代码调用它：`src/` 中没有任何 `fetch()`，前端与 E2E mock 里也没有一处 import `@tauri-apps/plugin-http`。
+
+这才是模板该交付给 fork 的起点形状：**权限是一项策略决定，未被使用的权限只是攻击面，不是能力。** 要用 HTTP 客户端请自行添加授权，并收窄到你真正要访问的来源：
+
+```json
+{
+  "identifier": "http:default",
+  "allow": [{ "url": "https://api.example.com/**" }]
+}
+```
+
+优先用"主机 + 路径前缀"而不是裸的 `https://**`；把 `http://**` 当作缺陷，除非你有写下来的理由（本地开发服务器该放进仅 dev 的 capability，而不是随包发布的那份）。对多数应用而言，更省的做法是把插件整个摘掉——crate、`init()` 调用与 npm 包——因为已交付的 UI 对它没有任何依赖。
+
 ### 内容安全策略
 
 CSP 可防止 XSS 攻击。配置位于 `src-tauri/tauri.conf.json`。

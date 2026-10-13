@@ -191,6 +191,34 @@ Tauri v2 uses a permission-based capabilities system. Each window only gets the 
 - Only add permissions actually needed
 - Remote content (if any) should have minimal permissions
 
+### Plugins that are wired but not granted
+
+`tauri_plugin_http::init()` runs at startup (`src-tauri/src/lib.rs`), so the
+plugin is present, but `default.json` grants it nothing. An earlier revision
+granted `http:default` with `allow: [{url: "https://**"}, {url: "http://**"}]`,
+which is a CORS bypass for every host on the internet plus cleartext HTTP — on a
+webview that also holds `fs:default` and `shell:allow-open`. Nothing in the app
+ever called it: there is no `fetch()` in `src/`, and no import of
+`@tauri-apps/plugin-http` anywhere in the frontend or the E2E mocks.
+
+That is the shape this template wants a fork to start from: **a permission is a
+policy decision, and an unexercised one is surface, not capability.** To use the
+HTTP client, add the grant yourself and scope it to the origins you actually
+talk to:
+
+```json
+{
+  "identifier": "http:default",
+  "allow": [{ "url": "https://api.example.com/**" }]
+}
+```
+
+Prefer a host-and-path prefix over a bare `https://**`, and treat `http://**` as
+a bug unless you have a documented reason (a local development server belongs in
+a `dev`-only capability rather than in the shipped one). Removing the plugin
+entirely — crate, `init()` call, and npm package — is the cheaper answer for most
+apps, since nothing in the shipped UI depends on it.
+
 ### Content Security Policy
 
 CSP prevents XSS attacks. Configuration is in `src-tauri/tauri.conf.json`.

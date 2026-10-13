@@ -207,28 +207,28 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 
 ## Tauri 插件（20 个预配置）
 
-| 插件              | 用途                                |
-| ----------------- | ----------------------------------- |
-| single-instance   | 防止多实例运行                      |
-| window-state      | 记忆窗口位置/大小                   |
-| positioner        | 托盘相对定位                        |
-| autostart         | 开机自启                            |
-| deep-link         | 自定义 URL Scheme（`tauri-app://`） |
-| updater           | 应用内自动更新（含签名验证）        |
-| global-shortcut   | 全局快捷键                          |
-| fs                | 文件系统访问                        |
-| persisted-scope   | 持久化文件访问范围                  |
-| dialog            | 原生打开/保存对话框                 |
-| store             | 键值持久化（原子写入）              |
-| opener            | 用默认应用打开 URL/文件             |
-| clipboard-manager | 剪贴板读写                          |
-| notification      | 系统通知                            |
-| process           | 进程控制                            |
-| os                | 操作系统信息                        |
-| http              | HTTP 客户端（绕过 CORS）            |
-| shell             | 子进程 / 系统打开                   |
-| log               | 平台特定日志输出                    |
-| tauri-nspanel     | macOS 浮动面板（NSPanel）           |
+| 插件              | 用途                                                 |
+| ----------------- | ---------------------------------------------------- |
+| single-instance   | 防止多实例运行                                       |
+| window-state      | 记忆窗口位置/大小                                    |
+| positioner        | 托盘相对定位                                         |
+| autostart         | 开机自启                                             |
+| deep-link         | 自定义 URL Scheme（`tauri-app://`）                  |
+| updater           | 应用内自动更新（含签名验证）                         |
+| global-shortcut   | 全局快捷键                                           |
+| fs                | 文件系统访问                                         |
+| persisted-scope   | 持久化文件访问范围                                   |
+| dialog            | 原生打开/保存对话框                                  |
+| store             | 键值持久化（原子写入）                               |
+| opener            | 用默认应用打开 URL/文件                              |
+| clipboard-manager | 剪贴板读写                                           |
+| notification      | 系统通知                                             |
+| process           | 进程控制                                             |
+| os                | 操作系统信息                                         |
+| http              | HTTP 客户端（绕过 CORS）——已接线，**默认不授予权限** |
+| shell             | 子进程 / 系统打开                                    |
+| log               | 平台特定日志输出                                     |
+| tauri-nspanel     | macOS 浮动面板（NSPanel）                            |
 
 ## 文档
 
