@@ -68,7 +68,7 @@ All PRs must pass `npm run check:all`, which chains:
 - `npm run test:run` — Vitest unit tests (1022 tests)
 - `npm run rust:test` — Rust `cargo test` (423 tests)
 
-Playwright E2E (97 scenarios) is **not** in `check:all`; CI runs it as its own job.
+Playwright E2E (98 scenarios) is **not** in `check:all`; CI runs it as its own job.
 Locally use `npm run e2e`.
 
 Additional tools (run manually):

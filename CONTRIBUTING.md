@@ -112,7 +112,7 @@ chore(deps): upgrade tauri to 2.11.5
 | `npm run ast:lint`     | ast-grep architecture rules         |
 | `npm run format:check` | Prettier format check               |
 | `npm run test:run`     | Vitest unit tests (1022 tests)      |
-| `npm run e2e`          | Playwright E2E tests (97 scenarios) |
+| `npm run e2e`          | Playwright E2E tests (98 scenarios) |
 | `npm run knip`         | Dead code detection                 |
 | `npm run jscpd`        | Code duplication detection          |
 
@@ -147,7 +147,7 @@ This project uses a three-layer testing strategy:
 
 ### E2E Tests (Playwright)
 
-- 16 test files covering all major features
+- 17 test files covering all major features
 - Runs against Vite dev server with mocked Tauri APIs
 - Complete Tauri runtime mock in `e2e/mocks/tauri-mock.ts`
 - Includes WCAG 2.1 AA accessibility audits via `@axe-core/playwright`

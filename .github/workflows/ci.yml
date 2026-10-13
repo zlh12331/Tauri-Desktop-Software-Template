@@ -358,6 +358,15 @@ jobs:
       - name: Run E2E tests
         run: npm run e2e
 
+      # Startup budget against the production bundle. Deliberately a second config:
+      # the suite above runs against the dev server, so its timings describe
+      # on-demand transforms, not the artifact users install. The spec prints the
+      # measured numbers — use a CI run's output to tighten the ratchet, not local
+      # ones. Native process start and the webview are out of scope here:
+      # tauri-driver has no macOS build, so that leg cannot be gated on all three.
+      - name: Startup budget (production bundle)
+        run: npm run e2e:startup
+
       - name: Upload test report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7

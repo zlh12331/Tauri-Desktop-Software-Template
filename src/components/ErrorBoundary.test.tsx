@@ -28,6 +28,14 @@ vi.mock('@/lib/logger', () => ({
   },
 }))
 
+// Mock the navigation leaf. `window.location` is an unforgeable global, so a
+// reload cannot be observed by replacing it in any test pool; the call is
+// intercepted as a module call, like recovery/sentry/logger above.
+const mockReloadApplication = vi.fn()
+vi.mock('@/lib/app-reload', () => ({
+  reloadApplication: () => mockReloadApplication(),
+}))
+
 // Component that throws on render
 function ThrowOnRender({ message }: { message: string }): React.ReactElement {
   throw new Error(message)
@@ -160,12 +168,10 @@ describe('ErrorBoundary', () => {
       expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
     })
 
-    it('点击 "Reload Application" 调用 window.location.reload', () => {
-      const reloadSpy = vi.fn()
-      Object.defineProperty(window, 'location', {
-        value: { reload: reloadSpy },
-        writable: true,
-      })
+    it('点击 "Reload Application" 请求一次应用重载', () => {
+      // Mocks are never auto-reset in this suite, so clear the counter to keep
+      // "exactly once" about this click rather than this file's history.
+      mockReloadApplication.mockClear()
 
       render(
         <ErrorBoundary>
@@ -173,7 +179,8 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>
       )
       screen.getByText('Reload Application').click()
-      expect(reloadSpy).toHaveBeenCalledTimes(1)
+
+      expect(mockReloadApplication).toHaveBeenCalledTimes(1)
     })
   })
 

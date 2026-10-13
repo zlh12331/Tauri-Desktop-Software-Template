@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { saveCrashState } from '@/lib/recovery'
+import { reloadApplication } from '@/lib/app-reload'
 import { captureException } from '@/lib/sentry'
 import { logger } from '@/lib/logger'
 import i18n from '@/i18n/config'
@@ -74,7 +75,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleReload = () => {
-    window.location.reload()
+    reloadApplication()
   }
 
   private handleReset = () => {
