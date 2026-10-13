@@ -107,7 +107,7 @@ Platform detection is cached at module level (`usePlatform()`). Per-platform Tau
 | State    | Zustand v5 (4 stores), TanStack Query v5              |
 | Backend  | Tauri v2, Rust (edition 2024, MSRV 1.93)              |
 | IPC      | tauri-specta =2.0.0-rc.25, specta-typescript =0.0.12  |
-| Testing  | Vitest 4, Testing Library, Playwright, axe-core       |
+| Testing  | Vitest 5, Testing Library, Playwright, axe-core       |
 | Quality  | ESLint, Prettier, ast-grep, knip, jscpd, cargo-deny   |
 
 ## Project Structure

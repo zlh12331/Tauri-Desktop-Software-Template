@@ -12,9 +12,20 @@ files:
   - 'src/lib/**/*.ts'
   - 'src/lib/**/*.tsx'
 rule:
-  pattern: useUIStore($$$SELECTOR)
+  # Matched by shape rather than by name. An earlier revision hardcoded
+  # `useUIStore($$$SELECTOR)`, which left the other three stores unprotected:
+  # a subscription to useDialogStore could have been committed with the docs
+  # promising that the rule forbids it, and every store added later would have
+  # inherited the same silent hole. The regex covers all four today and any
+  # future `use<Name>Store` hook without anyone remembering to update this file.
+  pattern: $STORE($$$SELECTOR)
+constraints:
+  STORE:
+    regex: '^use[A-Za-z0-9_]*Store$'
 note: |
   lib/ can import stores ONLY for getState() - one-way data access
-  without React coupling.
+  without React coupling. A call on a member expression
+  (`useUIStore.getState()`) has a member expression as its callee, so the
+  pattern above does not match it and the allowed form stays allowed.
 
   See: docs/developer/architecture-guide.en.md

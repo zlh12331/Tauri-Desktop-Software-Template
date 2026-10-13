@@ -43,7 +43,30 @@ npm run tauri:dev
 | `src-tauri/Cargo.toml`             | `package.name`, `package.description`, `package.authors`                                                       |
 | `.github/workflows/release-v2.yml` | the product name is written literally three times (asset prefix, `finalize` argument, release title)           |
 | `SECURITY.md` (repo root)          | private-advisory URL, which embeds the current owner/repo                                                      |
+| `.github/CODEOWNERS`               | the owner handle on every rule — see below                                                                     |
+| the remote's branch protection     | required status checks must match the job names in `.github/workflows/ci.yml`                                  |
 | `AGENTS.md` / `README.md`          | app name and description text                                                                                  |
+
+### Two settings that fail by staying silent
+
+`.github/CODEOWNERS` and the ruleset on the remote are the two entries here that
+produce no error when they are wrong.
+
+**CODEOWNERS** ships pointing at `@zlh12331`, the upstream maintainer. In a fork
+that means every pull request asks somebody who is not a collaborator on your
+repository for review. GitHub does not warn you: an owner that cannot be
+resolved is simply never requested, so the file looks configured and enforces
+nothing. An earlier revision shipped the placeholder `@your-org/maintainers`,
+which fails the same silent way. Replace the handle with your own, or delete the
+file if you have no second reviewer.
+
+**Branch protection** has the same shape in the other direction. The `protect-main`
+ruleset lists required checks by their literal job names (`Code Quality`,
+`E2E Tests`, `Workflow Lint (actionlint)`, and the build matrix entries). Rename
+or delete a job in `ci.yml` without updating the ruleset and that check never
+reports — which does not turn the pull request red, it leaves it pending forever
+with nothing to read. Any change to a job's `name:` in `ci.yml` needs a matching
+change on the remote in the same sitting.
 
 ### There are no placeholder strings — read this first
 

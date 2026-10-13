@@ -107,7 +107,7 @@ npm run tauri:dev
 | 状态管理 | Zustand v5（4 个 Store）, TanStack Query v5          |
 | 后端     | Tauri v2, Rust（edition 2024, MSRV 1.93）            |
 | IPC      | tauri-specta =2.0.0-rc.25, specta-typescript =0.0.12 |
-| 测试     | Vitest 4, Testing Library, Playwright, axe-core      |
+| 测试     | Vitest 5, Testing Library, Playwright, axe-core      |
 | 质量工具 | ESLint, Prettier, ast-grep, knip, jscpd, cargo-deny  |
 
 ## 项目结构
