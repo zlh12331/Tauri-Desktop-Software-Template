@@ -86,7 +86,7 @@ npm run tauri:dev
 
 ### 开发体验
 
-- **命令面板** — `Cmd+K` 可搜索启动器，由统一命令注册表驱动（14 个命令，覆盖导航、窗口、通知、应用 4 个分组）
+- **命令面板** — `Cmd+K` 可搜索启动器，由统一命令注册表驱动（15 个命令，覆盖导航、窗口、通知、应用 4 个分组）
 - **偏好设置系统** — 3 个面板（通用、外观、高级），通过 temp-file + rename 实现原子写入
 - **主题系统** — 亮色/暗色/跟随系统，首次绘制前应用（内联 FOUC 防闪脚本），通过 Tauri 事件跨窗口同步
 - **国际化** — 懒加载语言包（en、zh），RTL 支持，自动检测操作系统 locale
@@ -95,7 +95,7 @@ npm run tauri:dev
 
 - **15+ 质量门禁** 集成在 `npm run check:all` 中：TypeScript 严格模式（`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`），ESLint（零警告），ast-grep 规则，React Compiler，Prettier，Rust fmt/clippy，Vitest，cargo test
 - **三层 Rust 测试** — 纯函数（`*_from_path`/`*_to_path`）用 `TempDir` 隔离，`MockRuntime` 模拟 `AppHandle`，集成测试覆盖端到端流程
-- **E2E 含无障碍审计** — 16 个 Playwright 场景，包含 `@axe-core/playwright` WCAG 2.1 AA 审计
+- **E2E 含无障碍审计** — 98 个 Playwright 场景、17 个测试文件，包含 `@axe-core/playwright` WCAG 2.1 AA 审计
 - **cargo-deny** — 许可证白名单（14 种允许，拒绝 GPL/AGPL），漏洞扫描，git 依赖强制 pin revision
 
 ## 技术栈
@@ -125,7 +125,7 @@ my-app/
     - ui/                    shadcn/ui 组件库
   - hooks/                   10 个自定义 React Hook
   - lib/                     纯逻辑（无 React 耦合）
-    - commands/              命令注册表系统（14 个命令）
+    - commands/              命令注册表系统（15 个命令）
     - schemas/               Zod 验证 schema
     - sentry.ts              Sentry SDK 初始化 + 同意门控
     - redact.ts              敏感数据脱敏
@@ -140,9 +140,9 @@ my-app/
   - src/types.rs             共享类型与校验
   - src/bindings.rs          tauri-specta TypeScript 绑定生成
   - capabilities/            3 个能力配置文件（default, desktop, quick-pane）
-  - tests/                   3 个集成测试文件
-- e2e/                       16 个 Playwright E2E 测试文件
-- docs/                      双语文档（en + zh，64 个文件）
+  - tests/                   6 个集成测试文件
+- e2e/                       17 个 Playwright E2E 测试文件
+- docs/                      双语文档（en + zh，32 个文件）
 - locales/                   i18n 翻译文件（en, zh）
 ```
 
@@ -171,11 +171,14 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 
 ### 架构强制执行（ast-grep）
 
-三条 AST 规则在 CI 中强制执行：
+6 条 AST 规则在 CI 中强制执行：
 
 - `hooks-in-hooks-dir.yml` — `lib/` 中禁止定义 React Hook（目录边界）
 - `no-store-in-lib.yml` — `lib/` 中禁止 Store 订阅（只能用 `getState()` 保持纯逻辑）
 - `no-destructure.yml` — 禁止 Zustand 解构（防止渲染级联）
+- `no-console.yml` — `src/` 中禁止 `console.*`（改用 `@/lib/logger`）
+- `no-ts-ignore.yml` — 用 `@ts-expect-error`（未使用时会报错），不要用 `@ts-ignore`
+- `no-direct-invoke.yml` — 生成的 `bindings.ts` 之外禁止裸用 `invoke()`
 
 ## 开发
 
