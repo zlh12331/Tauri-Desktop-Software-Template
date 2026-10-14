@@ -855,9 +855,9 @@ mod tests {
     // apply_patches_to_path — 字段级合并，写者不互覆
     // =========================================================================
 
-    #[test]
-    fn patch_touches_only_the_named_field() {
-        let dir = TempDir::new().unwrap();
+    /// A document with every field deliberately populated, so "the fields I did not
+    /// mention survive" is a claim about values that could actually be lost.
+    fn save_populated(dir: &TempDir) -> PathBuf {
         let path = dir.path().join("preferences.json");
         save_preferences_to_path(
             &path,
@@ -869,6 +869,13 @@ mod tests {
             },
         )
         .unwrap();
+        path
+    }
+
+    #[test]
+    fn patch_touches_only_the_named_field() {
+        let dir = TempDir::new().unwrap();
+        let path = save_populated(&dir);
 
         let merged = apply_patches_to_path(
             &path,
@@ -887,17 +894,7 @@ mod tests {
     #[test]
     fn absent_field_and_explicit_null_are_different_instructions() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("preferences.json");
-        save_preferences_to_path(
-            &path,
-            &AppPreferences {
-                theme: "dark".to_string(),
-                quick_pane_shortcut: Some("Cmd+K".to_string()),
-                language: Some("zh".to_string()),
-                crash_reporting_consent: Some(true),
-            },
-        )
-        .unwrap();
+        let path = save_populated(&dir);
 
         // "Follow the system locale" is a choice the user makes, so it has to be
         // expressible; the shortcut the user set must survive being unmentioned.
