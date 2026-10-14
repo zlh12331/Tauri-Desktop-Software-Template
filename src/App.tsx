@@ -83,13 +83,34 @@ function App() {
   // a duplicate IPC call for language initialization.
   const { data: preferences } = usePreferences()
 
-  // Initialize command system, language, menu, and recovery cleanup on startup
+  // One-shot startup: the command bus, recovery-file cleanup, and the environment
+  // log. These used to live in the effect below, whose dependency is the saved
+  // language — so every language switch re-registered the command handlers and
+  // re-ran the cleanup, while the menu listener from the previous run stayed
+  // attached (it returned an unlisten that nobody kept).
   useEffect(() => {
     logger.info('Frontend application starting up')
     initializeCommandSystem()
     logger.debug('Command system initialized')
 
-    // Initialize language based on saved preference or system locale
+    logger.info('App environment', {
+      isDev: import.meta.env.DEV,
+      mode: import.meta.env.MODE,
+    })
+
+    cleanupOldFiles().catch(error => {
+      logger.warn('Failed to cleanup old recovery files', { error })
+    })
+  }, [])
+
+  // Owned by the saved language: initialize i18n for that preference, build the
+  // menu once the language is known, and keep the menu in sync until the
+  // preference changes again — at which point this effect's cleanup removes the
+  // listener the previous run registered.
+  useEffect(() => {
+    let disposed = false
+    let unlistenMenuLanguage: (() => void) | undefined
+
     const initLanguageAndMenu = async () => {
       try {
         const savedLanguage = preferences?.language ?? null
@@ -97,10 +118,16 @@ function App() {
         // Initialize language (will use system locale if no preference)
         await initializeLanguage(savedLanguage)
 
+        if (disposed) return
+
         // Build the application menu with the initialized language
         await buildAppMenu()
         logger.debug('Application menu built')
-        setupMenuLanguageListener()
+
+        unlistenMenuLanguage = setupMenuLanguageListener()
+        // The cleanup may have run while this was awaiting; close the listener
+        // immediately rather than leaving it attached for the whole session.
+        if (disposed) unlistenMenuLanguage()
       } catch (error) {
         logger.warn('Failed to initialize language or menu', { error })
       }
@@ -108,16 +135,10 @@ function App() {
 
     void initLanguageAndMenu()
 
-    // Clean up old recovery files on startup
-    cleanupOldFiles().catch(error => {
-      logger.warn('Failed to cleanup old recovery files', { error })
-    })
-
-    // Example of logging with context
-    logger.info('App environment', {
-      isDev: import.meta.env.DEV,
-      mode: import.meta.env.MODE,
-    })
+    return () => {
+      disposed = true
+      unlistenMenuLanguage?.()
+    }
   }, [preferences?.language])
 
   return (

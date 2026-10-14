@@ -57,9 +57,31 @@ vi.mock('@sentry/react', () => ({
 
 vi.mock('@/lib/logger', () => ({ logger: mocks.logger }))
 
+// Preferences come from a holder the tests can change, because the behaviour under
+// test is what App does when the *saved language* changes. Only `usePreferences`
+// is consumed inside this tree (App and ThemeProvider).
+const prefs = vi.hoisted(() => ({
+  current: {
+    theme: 'system',
+    quick_pane_shortcut: null,
+    language: null as string | null,
+    crash_reporting_consent: null,
+  },
+}))
+vi.mock('@/queries/preferences', () => ({
+  usePreferences: () => ({ data: prefs.current }),
+}))
+
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    prefs.current = {
+      theme: 'system',
+      quick_pane_shortcut: null,
+      language: null,
+      crash_reporting_consent: null,
+    }
+    mocks.setupMenuLanguageListener.mockReturnValue(undefined)
     mocks.buildAppMenu.mockResolvedValue(undefined)
     mocks.initializeLanguage.mockResolvedValue(undefined)
     mocks.cleanupOldFiles.mockResolvedValue(undefined)
@@ -99,7 +121,6 @@ describe('App', () => {
       })
       expect(screen.getByText('Sentry E2E Debug')).toBeInTheDocument()
     })
-
     it('初始化语言、菜单与恢复文件清理', async () => {
       await act(async () => {
         render(<App />)
@@ -114,6 +135,65 @@ describe('App', () => {
       await waitFor(() => {
         expect(mocks.cleanupOldFiles).toHaveBeenCalled()
       })
+    })
+  })
+
+  describe('正向用例 — 语言偏好变化与监听器回收', () => {
+    // The startup effect used to depend on the saved language, so switching
+    // language re-ran the one-shot steps and attached a second `languageChanged`
+    // handler while the first stayed registered — the Nth switch rebuilt the menu
+    // N times. These tests drive that path through the preference, not through a
+    // remount, because a remount would hide the leak.
+    function captureCleanups() {
+      const cleanups: ReturnType<typeof vi.fn>[] = []
+      mocks.setupMenuLanguageListener.mockImplementation(() => {
+        const off = vi.fn()
+        cleanups.push(off)
+        return off
+      })
+      return cleanups
+    }
+
+    it('语言变化不会重复执行一次性启动步骤', async () => {
+      const { rerender } = await act(async () => render(<App />))
+      await waitFor(() =>
+        expect(mocks.cleanupOldFiles).toHaveBeenCalledTimes(1)
+      )
+
+      await act(async () => {
+        prefs.current = { ...prefs.current, language: 'zh' }
+        rerender(<App />)
+      })
+
+      await waitFor(() => {
+        expect(mocks.initializeLanguage).toHaveBeenCalledWith('zh')
+      })
+      expect(mocks.cleanupOldFiles).toHaveBeenCalledTimes(1)
+    })
+
+    it('语言变化时上一个菜单监听器被移除', async () => {
+      const cleanups = captureCleanups()
+      const { rerender } = await act(async () => render(<App />))
+      await waitFor(() => expect(cleanups).toHaveLength(1))
+
+      await act(async () => {
+        prefs.current = { ...prefs.current, language: 'zh' }
+        rerender(<App />)
+      })
+
+      await waitFor(() => expect(cleanups).toHaveLength(2))
+      expect(cleanups[0]).toHaveBeenCalledTimes(1)
+      expect(cleanups[1]).not.toHaveBeenCalled()
+    })
+
+    it('卸载时移除当前的菜单监听器', async () => {
+      const cleanups = captureCleanups()
+      const { unmount } = await act(async () => render(<App />))
+      await waitFor(() => expect(cleanups).toHaveLength(1))
+
+      act(() => unmount())
+
+      expect(cleanups[0]).toHaveBeenCalledTimes(1)
     })
   })
 
