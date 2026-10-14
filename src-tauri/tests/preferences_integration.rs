@@ -15,10 +15,10 @@
 //!    to the shared Roaming root.
 
 use tauri_app_lib::commands::preferences::{
-    greet, load_preferences_from_path, load_preferences_impl, load_quick_pane_shortcut_from_path,
-    save_preferences_to_path,
+    apply_patches_to_path, greet, load_preferences_from_path, load_preferences_impl,
+    load_quick_pane_shortcut_from_path, save_preferences_to_path,
 };
-use tauri_app_lib::types::AppPreferences;
+use tauri_app_lib::types::{AppPreferences, PreferencePatch};
 use tempfile::TempDir;
 
 // ============================================================================
@@ -414,4 +414,74 @@ fn full_roundtrip_preserves_all_fields() {
         loaded.crash_reporting_consent,
         original.crash_reporting_consent
     );
+}
+
+// ============================================================================
+// Whole-document write vs field patch — why the panes must patch
+// ============================================================================
+
+/// Characterises the failure the patch API exists to remove: a writer that holds an
+/// old snapshot and saves the *whole document* silently reverts whatever another
+/// writer changed in between. This test asserts the loss happens, so the day someone
+/// makes `save_preferences_to_path` merge-by-magic the test fails and the change gets
+/// looked at — and so nobody has to rediscover why the panes send patches.
+#[test]
+fn a_stale_whole_document_write_reverts_an_intervening_change() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("preferences.json");
+    save_preferences_to_path(&path, &AppPreferences::default()).unwrap();
+
+    // The appearance pane reads the document…
+    let stale = load_preferences_from_path(&path).unwrap();
+    // …then the Rust consent writer persists a change…
+    apply_patches_to_path(
+        &path,
+        &[PreferencePatch::CrashReportingConsent { value: Some(true) }],
+    )
+    .unwrap();
+    // …then the pane saves the whole document it read earlier.
+    save_preferences_to_path(
+        &path,
+        &AppPreferences {
+            theme: "dark".to_string(),
+            ..stale
+        },
+    )
+    .unwrap();
+
+    let after = load_preferences_from_path(&path).unwrap();
+    assert_eq!(after.theme, "dark");
+    assert_eq!(
+        after.crash_reporting_consent, None,
+        "a whole-document write from a stale snapshot must still be lossy, or this test is lying"
+    );
+}
+
+/// The same interleaving through the patch API: each writer names only its own
+/// field, so both survive regardless of who read when.
+#[test]
+fn two_field_writes_both_survive_the_same_interleaving() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("preferences.json");
+    save_preferences_to_path(&path, &AppPreferences::default()).unwrap();
+
+    apply_patches_to_path(
+        &path,
+        &[PreferencePatch::CrashReportingConsent { value: Some(true) }],
+    )
+    .unwrap();
+    let merged = apply_patches_to_path(
+        &path,
+        &[PreferencePatch::Theme {
+            value: "dark".into(),
+        }],
+    )
+    .unwrap();
+
+    assert_eq!(merged.theme, "dark");
+    assert_eq!(merged.crash_reporting_consent, Some(true));
+
+    let after = load_preferences_from_path(&path).unwrap();
+    assert_eq!(after.theme, "dark");
+    assert_eq!(after.crash_reporting_consent, Some(true));
 }

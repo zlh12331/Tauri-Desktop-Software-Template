@@ -265,33 +265,37 @@ fn persist_consent_preserves_other_preferences_fields() {
 // =========================================================================
 
 #[test]
-fn persist_consent_handles_corrupted_existing_file() {
+fn persist_consent_refuses_to_overwrite_an_unreadable_file() {
     let _guard = CONSENT_MUTEX.blocking_lock();
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("preferences.json");
 
-    // Write corrupted JSON
     std::fs::write(&path, "not valid json").unwrap();
 
-    // Should not panic — falls back to defaults
-    persist_consent_to_path(&path, Some(true)).unwrap();
+    // Both test layers used to assert the opposite: that a corrupt file is replaced by
+    // a defaults-built document carrying only the new consent ("Other fields should be
+    // defaults (corrupted file was replaced)" was the comment here). That is settings
+    // loss dressed as availability, and it also deletes the only copy the user could
+    // repair. Saving one field no longer costs the rest.
+    persist_consent_to_path(&path, Some(true)).unwrap_err();
 
-    let contents = std::fs::read_to_string(&path).unwrap();
-    let prefs: AppPreferences = serde_json::from_str(&contents).unwrap();
-    assert_eq!(prefs.crash_reporting_consent, Some(true));
-    // Other fields should be defaults (corrupted file was replaced)
-    assert_eq!(prefs.theme, "system");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "not valid json");
 }
 
 #[test]
-fn persist_consent_fails_when_parent_dir_does_not_exist() {
+fn persist_consent_creates_a_missing_parent_directory() {
     let _guard = CONSENT_MUTEX.blocking_lock();
     let dir = TempDir::new().unwrap();
     let nested = dir.path().join("nested").join("subdir");
     let path = nested.join("preferences.json");
 
-    let result = persist_consent_to_path(&path, Some(true));
-    assert!(result.is_err());
+    // `save_preferences` and `load_preferences` create the app-data directory; the
+    // consent writer used to fail on it instead. One file, one policy now.
+    persist_consent_to_path(&path, Some(true)).unwrap();
+
+    let prefs: AppPreferences =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(prefs.crash_reporting_consent, Some(true));
 }
 
 // =========================================================================
