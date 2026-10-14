@@ -104,6 +104,16 @@ npm run ast:fix     # 尽可能自动修复
 `no-store-subscription-in-lib` 这类语法规则用 `code`。fixture 只在
 `node_modules/.cache` 下临时生成、跑完即删，所以故意写坏的反例永远不会进工作区。
 
+**契约证明的是"会咬"，覆盖面证明的才是"咬得住它宣称的全部"。**
+`scripts/ast-grep-store-coverage.test.mjs` 从 `src/store/` 发现每个 store，把同一种
+反例逐个植入，并直接读取规则自己声明的匹配器，而不是在测试里复制一份。它存在的理由
+是真实的：`no-destructure-zustand` 曾把 `useUIStore(...)` 写死，于是它的契约对一直全绿，
+而四个 store 里有三个无人守护，`AGENTS.md` 却无条件地承诺"禁止解构 Zustand"。以下三种
+情况都会让它变红：某条规则对某个 store 是哑的；某个 store hook 落在匹配器之外
+（`useSettings` 这种不带 `Store` 后缀的名字对两条规则都是隐形的）；以及规则被改宽到连合
+规写法也报——selector 调用与 `getState()` 的解构必须保持干净，否则"通过覆盖面测试"只是
+过度匹配的另一说法。
+
 ### React Compiler
 
 在构建时自动处理 memoization。你**不需要**手动添加：

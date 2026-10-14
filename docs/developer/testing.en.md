@@ -93,5 +93,8 @@ E2E runs with one worker. Playwright's default parallelism put 2 of 97 tests on 
   none are found, so a renamed file cannot quietly empty the suite.
 - Architecture rules are covered by the ast-grep contract suite
   (`scripts/lib/ast-grep-contracts.mjs`): adding a rule without a violating and a
-  compliant fixture fails `npm run test:scripts`. See
+  compliant fixture fails `npm run test:scripts`. The two store rules additionally
+  get a coverage sweep (`scripts/ast-grep-store-coverage.test.mjs`) that replants the
+  same violation once per store discovered from `src/store/` — a contract proves a
+  rule bites, coverage proves it bites everything it claims to guard. See
   [static analysis](static-analysis.en.md).
