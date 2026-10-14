@@ -98,7 +98,8 @@
     "vitest",
     "WCAG",
     "worktree",
-    "yourusername"
+    "yourusername",
+    "zustand"
   ],
   "flagWords": [],
   "ignorePaths": [
