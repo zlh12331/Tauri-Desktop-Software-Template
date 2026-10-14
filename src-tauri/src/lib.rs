@@ -81,6 +81,10 @@ pub fn run() {
                     None
                 }
             })
+            // Structured logs do not pass through `before_send`: the `log` bridge
+            // with the `logs` feature ships them on its own path, so they need a
+            // gate of their own or consent covers only half of what leaves.
+            .before_send_log(commands::crash_report::gate_and_redact_log)
             // Increase shutdown timeout to ensure events are flushed on exit
             .shutdown_timeout(std::time::Duration::from_secs(5)),
     );
