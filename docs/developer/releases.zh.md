@@ -51,6 +51,45 @@ npm run tauri -- signer generate -w ~/.tauri/myapp.key
 - 更新 `publisher`、`shortDescription`、`longDescription`
 - 更新 `productName` 和 `identifier`
 
+### 4. 操作系统代码签名：可选、故意缺省、但不许静默
+
+`release-v2.yml` 里还有一组 secret，本模板发布时并不带它们：
+
+| Secret 组合                            | 是什么                                        |
+| -------------------------------------- | --------------------------------------------- |
+| `APPLE_CERTIFICATE` + `..._PASSWORD`   | macOS 的 Developer ID 证书（base64 `.p12`）   |
+| `WINDOWS_CERTIFICATE` + `..._PASSWORD` | Windows 的 Authenticode 证书（base64 `.pfx`） |
+
+两者都要花模板无法预支的钱——一个 Apple 开发者账号、一张代码签名证书——所以两个
+"Import … certificate" 步骤由 `if: env.<SECRET> != ''` 控制
+（`release-v2.yml:279`、`release-v2.yml:296`），不加也能正常构建、发布并自动更新。
+缺省合理，就不许沉默：`finalize` 会把一节 **Code signing** 追加进草稿发布说明与作业
+摘要，写明每个包签没签。装包的人读到的那句话，和 fork 的人写下的必须是同一句。
+
+**导入了证书不等于用上了证书。** 决定签名的是 `src-tauri/tauri.conf.json`，而不是
+作业的环境变量：
+
+- `bundle.macOS.signingIdentity` 出厂是 `"-"`，即 ad-hoc 签名。要改成你自己的身份名
+  （`Developer ID Application: Example Ltd (ABCDE12345)`），否则导入的证书永远不会被用上。
+- `bundle.windows.certificateThumbprint` 出厂是 `null`。只有它填了指纹，`signtool`
+  才会执行。工作流把 `WINDOWS_CERTIFICATE_THUMBPRINT` 导出到环境里，而没有东西读它。
+
+于是"两个 secret 都加了、这两个字段忘了改"的 fork，产出依旧是一个 ad-hoc 的 macOS 包
+和一个未签名的 `.msi`，而所有检查全绿。这和 `.github/CODEOWNERS` 指向一个不是协作者的
+账号是同一种病：看起来配置好了，实际什么都不生效。要验就验产物，别验流水线：
+
+```bash
+codesign -dv --verbose=2 Tauri-Desktop-Software-Template.app 2>&1 | grep -i signature
+spctl -a -vv Tauri-Desktop-Software-Template.app   # ad-hoc 签名会被拒绝
+# Windows：右键 .msi → 属性 → 数字签名；没签过就没有这个页签。
+```
+
+Notarization（公证）是 Developer ID 签名之外的又一步，本工作流不做。缺它时，放在
+`~/Downloads` 里的 macOS 安装包仍需先清除隔离属性才打得开。
+
+**更新签名是另一套系统。** `latest.json` 与 `.sig` 由 `TAURI_PRIVATE_KEY` 生成，所以
+未签名的包照样能校验自动更新。上面两组证书都不影响它，加上它们也不等于轮换密钥。
+
 ## 发布流程
 
 ### 发布是两条命令，不是一条

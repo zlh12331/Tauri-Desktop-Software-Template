@@ -51,6 +51,56 @@ Add these secrets (Settings → Secrets and variables → Actions):
 - Update `publisher`, `shortDescription`, `longDescription`
 - Update `productName` and `identifier`
 
+### 4. OS code signing: optional, absent on purpose, and not silent
+
+Two more secrets appear in `release-v2.yml`, and this template ships without them:
+
+| Secret pair                            | What it is                                           |
+| -------------------------------------- | ---------------------------------------------------- |
+| `APPLE_CERTIFICATE` + `..._PASSWORD`   | Developer ID certificate (base64 `.p12`) for macOS   |
+| `WINDOWS_CERTIFICATE` + `..._PASSWORD` | Authenticode certificate (base64 `.pfx`) for Windows |
+
+Both cost money a template cannot prepay — an Apple Developer account and a
+code-signing certificate — so the two "Import … certificate" steps are guarded by
+`if: env.<SECRET> != ''` (`release-v2.yml:279` and `release-v2.yml:296`), and a
+release without them still builds, publishes and self-updates. The absence is a
+legitimate default, so it is not allowed to be a quiet one: `finalize` appends a
+**Code signing** section to the draft release notes and to the job summary
+saying which bundles are signed. Whoever installs the artifact reads the same
+sentence whoever forked the repository wrote.
+
+**Importing a certificate is not signing with it.** The bundler decides from
+`src-tauri/tauri.conf.json`, not from the workflow's environment:
+
+- `bundle.macOS.signingIdentity` ships as `"-"`, which means ad-hoc. Replace it with
+  your identity name — `Developer ID Application: Example Ltd (ABCDE12345)` — or the
+  imported certificate is never used.
+- `bundle.windows.certificateThumbprint` ships as `null`. `signtool` runs only when it
+  holds a thumbprint. The workflow exports `WINDOWS_CERTIFICATE_THUMBPRINT` into the
+  environment and nothing reads it.
+
+So a fork that adds both secrets and forgets these two fields still ships an
+ad-hoc macOS bundle and an unsigned `.msi`, with every check green. That is the
+same shape as a `.github/CODEOWNERS` that names somebody who is not a
+collaborator: configured in appearance, enforcing nothing. Verify the artifact
+rather than the pipeline:
+
+```bash
+codesign -dv --verbose=2 Tauri-Desktop-Software-Template.app 2>&1 | grep -i signature
+spctl -a -vv Tauri-Desktop-Software-Template.app   # an ad-hoc signature is rejected
+# Windows: right-click the .msi → Properties → Digital Signatures; the tab is
+# simply absent when nothing signed it.
+```
+
+Notarization is a further step beyond a Developer ID signature and this
+workflow does not perform it; without it a macOS download kept in
+`~/Downloads` still needs the quarantine attribute cleared.
+
+**Updater signing is a different system.** `latest.json` and the `.sig` files come
+from `TAURI_PRIVATE_KEY`, so auto-update verification works on an unsigned bundle
+exactly as well as on a signed one. Neither of the two certificate pairs affects
+it, and adding them does not rotate the key.
+
 ## Release Process
 
 ### Release is two commands, not one
