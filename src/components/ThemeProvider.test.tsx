@@ -20,17 +20,20 @@ vi.mock('@/queries/preferences', () => ({
 }))
 
 // Helper component to read the context value.
-// onValue receives ThemeProviderState (never null — createContext provides a default).
+// onValue sees `ThemeProviderState | null`: outside a ThemeProvider the context
+// has no value at all, which is exactly what use-theme turns into an error.
 function ContextReader({
   onValue,
 }: {
-  onValue: (value: ThemeProviderState) => void
+  onValue: (value: ThemeProviderState | null) => void
 }) {
   return (
     <ThemeProviderContext.Consumer>
       {value => {
         onValue(value)
-        return <div data-testid="consumer">theme: {value.theme}</div>
+        return (
+          <div data-testid="consumer">theme: {value?.theme ?? 'unmounted'}</div>
+        )
       }}
     </ThemeProviderContext.Consumer>
   )

@@ -69,24 +69,24 @@ describe('useTheme', () => {
     })
   })
 
-  describe('边界用例 — 默认上下文', () => {
-    it('returns the default context state when no provider is present', () => {
-      // createContext was initialised with a default value (not undefined),
-      // so using the hook without a provider returns that default and does
-      // NOT throw.
-      const { result } = renderHook(() => useTheme())
-      expect(result.current.theme).toBe('system')
-      expect(typeof result.current.setTheme).toBe('function')
-    })
-  })
-
-  describe('异常用例 — context 为 undefined 时抛错', () => {
+  describe('异常用例 — 缺少 Provider', () => {
     beforeEach(() => {
       // Suppress the expected console.error noise from React when a hook throws
       vi.spyOn(console, 'error').mockImplementation(() => undefined)
     })
 
-    it('throws "useTheme must be used within a ThemeProvider" when context is undefined', () => {
+    it('没有 ThemeProvider 时抛错，而不是回退到一个改不动的默认主题', () => {
+      // This used to assert the opposite: the context was seeded with
+      // `{ theme: 'system', setTheme: () => null }`, so a consumer outside the
+      // provider saw a working theme and every setTheme call vanished.
+      expect(() => renderHook(() => useTheme())).toThrow(
+        'useTheme must be used within a ThemeProvider'
+      )
+    })
+
+    it('Provider 显式传入 undefined 时也抛错', () => {
+      // React treats an `undefined` provider value as "use the default", and the
+      // default is null — so the guard still fires instead of half-working.
       expect(() =>
         renderHook(() => useTheme(), {
           wrapper: makeWrapper(undefined as unknown as ThemeProviderState),
