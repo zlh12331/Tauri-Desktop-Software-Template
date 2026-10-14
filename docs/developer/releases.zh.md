@@ -66,17 +66,21 @@ npm run tauri -- signer generate -w ~/.tauri/myapp.key
 缺省合理，就不许沉默：`finalize` 会把一节 **Code signing** 追加进草稿发布说明与作业
 摘要，写明每个包签没签。装包的人读到的那句话，和 fork 的人写下的必须是同一句。
 
-**导入了证书不等于用上了证书。** 决定签名的是 `src-tauri/tauri.conf.json`，而不是
-作业的环境变量：
+**导入了证书不等于用上了证书。** 决定签名的是 `src-tauri/tauri.conf.json` 里的
+`bundle.macOS.signingIdentity`（出厂 `"-"`，即 ad-hoc）与
+`bundle.windows.certificateThumbprint`（出厂 `null`），而这两项都不从环境读取。这个缺口
+曾经是静默的：工作流导出 `WINDOWS_CERTIFICATE_THUMBPRINT` 与 `APPLE_CERTIFICATE_IMPORTED`，
+没有任何东西读它们，于是买了证书的 fork 照样发出未签名的包，而所有检查全绿。
 
-- `bundle.macOS.signingIdentity` 出厂是 `"-"`，即 ad-hoc 签名。要改成你自己的身份名
-  （`Developer ID Application: Example Ltd (ABCDE12345)`），否则导入的证书永远不会被用上。
-- `bundle.windows.certificateThumbprint` 出厂是 `null`。只有它填了指纹，`signtool`
-  才会执行。工作流把 `WINDOWS_CERTIFICATE_THUMBPRINT` 导出到环境里，而没有东西读它。
+`scripts/configure-code-signing.mjs` 就是那根接线，它跑在导入步骤与构建之间：
 
-于是"两个 secret 都加了、这两个字段忘了改"的 fork，产出依旧是一个 ad-hoc 的 macOS 包
-和一个未签名的 `.msi`，而所有检查全绿。这和 `.github/CODEOWNERS` 指向一个不是协作者的
-账号是同一种病：看起来配置好了，实际什么都不生效。要验就验产物，别验流水线：
+- 证书在、身份或指纹找得到 → 写入对应配置字段，日志把两处改动都念出来
+  （`"-" → "Developer ID Application: …"`）；
+- 证书在、却没有可用的身份或指纹 → **发布直接失败**。半途签名正是这个设计拒绝存在的结果，
+  因为它在一串绿灯里与成功毫无区别；
+- 没有证书 → 配置文件一个字节都不改，这是模板诚实的缺省，并由发布说明把它说出来。
+
+即便如此也请验产物而不是验流水线——这个习惯比任何工作流都活得久：
 
 ```bash
 codesign -dv --verbose=2 Tauri-Desktop-Software-Template.app 2>&1 | grep -i signature
@@ -84,8 +88,9 @@ spctl -a -vv Tauri-Desktop-Software-Template.app   # ad-hoc 签名会被拒绝
 # Windows：右键 .msi → 属性 → 数字签名；没签过就没有这个页签。
 ```
 
-Notarization（公证）是 Developer ID 签名之外的又一步，本工作流不做。缺它时，放在
-`~/Downloads` 里的 macOS 安装包仍需先清除隔离属性才打得开。
+身份本身取自导入步骤建的那把钥匙串，由 `security find-identity -v -p codesigning` 读出
+第一个 codesigning 身份的名字。Notarization（公证）是 Developer ID 签名之外的又一步，
+本工作流不做，因此放在 `~/Downloads` 里的 macOS 安装包仍需先清除隔离属性才打得开。
 
 **更新签名是另一套系统。** `latest.json` 与 `.sig` 由 `TAURI_PRIVATE_KEY` 生成，所以
 未签名的包照样能校验自动更新。上面两组证书都不影响它，加上它们也不等于轮换密钥。

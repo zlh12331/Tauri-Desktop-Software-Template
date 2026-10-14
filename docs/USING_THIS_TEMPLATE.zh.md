@@ -48,22 +48,22 @@ npm run tauri:dev
 | 远端的分支保护                     | 必需检查必须与 `.github/workflows/ci.yml` 里的 job 名逐字一致                                       |
 | `AGENTS.md` / `README.md`          | 应用名称与描述文案                                                                                  |
 
-### 三处"错了也不报错"的设置
+### 两处"错了也不报错"的设置
 
-`.github/CODEOWNERS`、远端的 ruleset、操作系统代码签名，是这份清单里出错时不产生任何错误的三个条目。
+`.github/CODEOWNERS` 与远端的 ruleset 是这份清单里出错时不产生任何错误的两个条目。
 
 **CODEOWNERS** 发货时指向 `@zlh12331`，即上游维护者。在 fork 里这意味着每个 PR 都会去请一个不是你仓库协作者的人评审。GitHub 不会警告你：无法解析的 owner 就是永不被请求，于是这个文件看起来配好了，实际什么都不约束。更早的版本发货的是占位符 `@your-org/maintainers`，以同样安静的方式失效。把账号换成你自己的，或者在没有第二评审人时直接删掉这个文件。
 
 **分支保护** 在相反方向上是同一种形状。`protect-main` 规则集按字面 job 名列出必需检查（`Code Quality`、`E2E Tests`、`Workflow Lint (actionlint)`，以及构建矩阵那几项）。只改了 `ci.yml` 里的 job 名或删了 job 而不同步改云端，那条检查就永不 report——这不会让 PR 变红，而是让它永远 pending、没有任何可读的信号。所以任何对 `ci.yml` 中 `name:` 的改动，都必须在同一次操作里配套修改云端。
 
-**操作系统代码签名** 在两个方向上同时静默失效。加上 `APPLE_CERTIFICATE` 与
-`WINDOWS_CERTIFICATE` 并不会签任何东西，因为决定签名的是
+**操作系统代码签名曾经是这清单上的第三条。** bundler 只认
 `bundle.macOS.signingIdentity`（出厂 `"-"`，即 ad-hoc）与
-`bundle.windows.certificateThumbprint`（出厂 `null`），而工作流从不设置它们。不加是
-合理且预期的；以为流水线已经签好了才是问题。所以 `release-v2.yml` 的 `finalize`
-作业会把真实姿态写进每次发布自己的发布说明，而
-[发布流程 → 操作系统代码签名](developer/releases.zh.md#4-操作系统代码签名可选故意缺省但不许静默)
-列出了你还必须改的那两个配置字段。
+`bundle.windows.certificateThumbprint`（出厂 `null`），而工作流一度把证书信息导出成
+没人读的环境变量名——于是加上 `APPLE_CERTIFICATE` 与 `WINDOWS_CERTIFICATE` 什么也没签，
+所有检查却全绿。现在 `scripts/configure-code-signing.mjs` 是两者之间的那根接线，
+证书取不到可用身份时它会让发布失败，而不是发出一个半途签名的包。不配证书依旧合理且
+预期之内；`finalize` 会把真实姿态写进每次发布自己的发布说明。参见
+[发布流程 → 操作系统代码签名](developer/releases.zh.md#4-操作系统代码签名可选故意缺省但不许静默)。
 
 ### 没有占位符字符串——先读这一段
 
