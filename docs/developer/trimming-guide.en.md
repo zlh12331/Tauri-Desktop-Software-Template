@@ -90,10 +90,12 @@ resident hidden window.
    the `window-state` plugin's `denylist`. If nothing else needs a
    non-restorable window, the denylist becomes empty — keep the plugin, drop the
    list.
-3. `types.rs`: `DEFAULT_QUICK_PANE_SHORTCUT` and the
-   `AppPreferences.quick_pane_shortcut` field. Removing a preference field is a
-   contract change: `save_preferences` validation and `GeneralPane.tsx` both
-   reference it.
+3. `types.rs`: `DEFAULT_QUICK_PANE_SHORTCUT`, the
+   `AppPreferences.quick_pane_shortcut` field, and the
+   `PreferencePatch::QuickPaneShortcut` variant (its `validate()` and `field()`
+   arms name the same field). Removing a preference field is a contract change:
+   `apply_patches_to_path` in `commands/preferences.rs`, the builders in
+   `src/lib/preference-patches.ts`, and `GeneralPane.tsx` all reference it.
 4. Frontend: `quick-pane.html`, `src/quick-pane-main.tsx`, `src/quick-pane.css`,
    `src/components/quick-pane/`, the `quick-pane-submit` listener in
    `useMainWindowEventListeners.ts`, the shortcut picker in `GeneralPane.tsx`, and

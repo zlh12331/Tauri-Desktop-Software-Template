@@ -29,7 +29,9 @@ error, because both are truthy-ish objects.
 
 ```typescript
 // Rust IPC: check .status, then read .error.message
-const result = await commands.savePreferences(prefs)
+const result = await commands.applyPreferencePatches([
+  { Theme: { value: 'dark' } },
+])
 if (result.status === 'error') {
   toast.error(result.error.message) // not `result.error` — that is an object
 }
@@ -112,8 +114,10 @@ with named-field variants like `DataTooLarge { max_bytes: u32 }`.
 
 ```typescript
 // ✅ GOOD: Handle errors inline with user feedback
-const handleSave = async (prefs: AppPreferences) => {
-  const result = await commands.savePreferences(prefs)
+const handleSave = async () => {
+  const result = await commands.applyPreferencePatches([
+    { Theme: { value: 'dark' } },
+  ])
   if (result.status === 'error') {
     toast.error('Save failed', { description: result.error.message })
     return
@@ -130,17 +134,18 @@ having the mutation function throw, which is what `src/queries/preferences.ts` d
 ```typescript
 // ✅ GOOD: Report to the user, then throw so the mutation state carries it
 return useMutation({
-  mutationFn: async (preferences: AppPreferences) => {
-    const result = await commands.savePreferences(preferences)
+  mutationFn: async (patches: PreferencePatch[]) => {
+    const result = await commands.applyPreferencePatches(patches)
     if (result.status === 'error') {
-      logger.error('Failed to save preferences', { error: result.error })
+      logger.error('Failed to patch preferences', { error: result.error })
       toast.error(t('toast.error.preferencesSaveFailed'), {
         description: result.error.message,
       })
       throw new Error(result.error.message)
     }
+    return result.data // the merged document Rust wrote, not the caller's guess
   },
-  onSuccess: (_, preferences) =>
+  onSuccess: preferences =>
     queryClient.setQueryData(['preferences'], preferences),
 })
 ```
@@ -182,9 +187,11 @@ pub async fn load_file(path: &str) -> Result<String, String> {
 
 ```typescript
 // ✅ GOOD: Separate user feedback from technical logging
-const result = await commands.savePreferences(prefs)
+const result = await commands.applyPreferencePatches([
+  { Theme: { value: 'dark' } },
+])
 if (result.status === 'error') {
-  logger.error('Failed to save preferences', { error: result.error }) // Technical
+  logger.error('Failed to patch preferences', { error: result.error }) // Technical
   toast.error('Could not save your settings', {
     description: result.error.message, // User-facing
   })
@@ -225,7 +232,7 @@ what the user was doing:
 
 ```typescript
 // ✅ What the project does today (src/queries/preferences.ts)
-const result = await commands.savePreferences(preferences)
+const result = await commands.applyPreferencePatches(patches)
 if (result.status === 'error') {
   toast.error(i18n.t('toast.error.preferencesSaveFailed'), {
     description: result.error.message,
@@ -234,9 +241,12 @@ if (result.status === 'error') {
 }
 ```
 
-Queries, by contrast, should not toast — `usePreferences()` falls back to defaults so
-the UI keeps rendering. If a global handler is ever added, `query-client.ts` is the
-place, and must avoid doubling up with the call-site toasts above.
+Queries, by contrast, should not toast for failures the user cannot act on —
+`usePreferences()` falls back to defaults so the UI keeps rendering. It makes one
+exception: a preferences file that exists but cannot be parsed is data damage, and
+staying silent about it would reset every setting without telling anyone. If a
+global handler is ever added, `query-client.ts` is the place, and must avoid
+doubling up with the call-site toasts above.
 
 ## React Error Boundaries
 
@@ -256,7 +266,7 @@ For multi-step operations, rollback on failure:
 
 ```typescript
 // ✅ GOOD: Roll the cache back when the persist step fails
-const changeTheme = async (theme: string) => {
+const changeTheme = async (theme: 'light' | 'dark' | 'system') => {
   const previousPreferences = queryClient.getQueryData<AppPreferences>(
     preferencesQueryKeys.preferences()
   )
@@ -267,8 +277,8 @@ const changeTheme = async (theme: string) => {
   })
 
   try {
-    // useSavePreferences() already unwraps AppError, toasts, and re-throws.
-    await savePreferences.mutateAsync({ ...previousPreferences, theme })
+    // usePatchPreferences() already unwraps AppError, toasts, and re-throws.
+    await patchPreferences.mutateAsync([preferencePatches.theme(theme)])
   } catch {
     queryClient.setQueryData(
       preferencesQueryKeys.preferences(),
@@ -278,9 +288,10 @@ const changeTheme = async (theme: string) => {
 }
 ```
 
-Keep the catch block to the undo only. [`useSavePreferences()`](../../src/queries/preferences.ts)
+Keep the catch block to the undo only. [`usePatchPreferences()`](../../src/queries/preferences.ts)
 is the single place that turns an `AppError` into a toast, so a second toast here
-would report one failure twice.
+would report one failure twice. It also writes the cache from the document Rust
+returns, so a rolled-back optimistic value never survives a successful save.
 
 ## Quick Reference
 

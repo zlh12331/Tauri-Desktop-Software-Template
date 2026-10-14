@@ -28,7 +28,9 @@ type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E }
 
 ```typescript
 // Rust IPC：先看 .status，再读 .error.message
-const result = await commands.savePreferences(prefs)
+const result = await commands.applyPreferencePatches([
+  { Theme: { value: 'dark' } },
+])
 if (result.status === 'error') {
   toast.error(result.error.message) // 不能直接传 result.error，那是个对象
 }
@@ -106,8 +108,10 @@ type AppError =
 
 ```typescript
 // ✅ 好：内联处理错误并提供用户反馈
-const handleSave = async (prefs: AppPreferences) => {
-  const result = await commands.savePreferences(prefs)
+const handleSave = async () => {
+  const result = await commands.applyPreferencePatches([
+    { Theme: { value: 'dark' } },
+  ])
   if (result.status === 'error') {
     toast.error('保存失败', { description: result.error.message })
     return
@@ -124,17 +128,18 @@ mutation 函数自己抛出，`src/queries/preferences.ts` 就是这么做的：
 ```typescript
 // ✅ 好：先提示用户，再抛出，让 mutation 状态携带错误
 return useMutation({
-  mutationFn: async (preferences: AppPreferences) => {
-    const result = await commands.savePreferences(preferences)
+  mutationFn: async (patches: PreferencePatch[]) => {
+    const result = await commands.applyPreferencePatches(patches)
     if (result.status === 'error') {
-      logger.error('Failed to save preferences', { error: result.error })
+      logger.error('Failed to patch preferences', { error: result.error })
       toast.error(t('toast.error.preferencesSaveFailed'), {
         description: result.error.message,
       })
       throw new Error(result.error.message)
     }
+    return result.data // Rust 写回的合并文档，而不是调用方的猜测
   },
-  onSuccess: (_, preferences) =>
+  onSuccess: preferences =>
     queryClient.setQueryData(['preferences'], preferences),
 })
 ```
@@ -176,9 +181,11 @@ pub async fn load_file(path: &str) -> Result<String, String> {
 
 ```typescript
 // ✅ 好：将用户反馈与技术日志分离
-const result = await commands.savePreferences(prefs)
+const result = await commands.applyPreferencePatches([
+  { Theme: { value: 'dark' } },
+])
 if (result.status === 'error') {
-  logger.error('Failed to save preferences', { error: result.error }) // 技术
+  logger.error('Failed to patch preferences', { error: result.error }) // 技术
   toast.error('无法保存你的设置', {
     description: result.error.message, // 面向用户
   })
@@ -218,7 +225,7 @@ const { data } = useQuery({
 
 ```typescript
 // ✅ 项目当前的做法（src/queries/preferences.ts）
-const result = await commands.savePreferences(preferences)
+const result = await commands.applyPreferencePatches(patches)
 if (result.status === 'error') {
   toast.error(i18n.t('toast.error.preferencesSaveFailed'), {
     description: result.error.message,
@@ -227,9 +234,10 @@ if (result.status === 'error') {
 }
 ```
 
-相对地，查询不应该弹 toast——`usePreferences()` 会回退到默认值，让界面照常渲染。
-如果将来要加全局处理器，位置就在 `query-client.ts`，并且必须避免与上面这种调用处
-toast 重复弹出。
+相对地，查询不为用户无法处置的失败弹 toast——`usePreferences()` 会回退到默认值，让
+界面照常渲染。它只有一处例外：偏好设置文件存在却解析失败属于数据损坏，此时保持
+沉默等于在谁都不知情的情况下把所有设置清零。如果将来要加全局处理器，位置就在
+`query-client.ts`，并且必须避免与上面这种调用处 toast 重复弹出。
 
 ## React 错误边界
 
@@ -249,7 +257,7 @@ toast 重复弹出。
 
 ```typescript
 // ✅ 好：持久化失败时回滚缓存
-const changeTheme = async (theme: string) => {
+const changeTheme = async (theme: 'light' | 'dark' | 'system') => {
   const previousPreferences = queryClient.getQueryData<AppPreferences>(
     preferencesQueryKeys.preferences()
   )
@@ -260,8 +268,8 @@ const changeTheme = async (theme: string) => {
   })
 
   try {
-    // useSavePreferences() 已经解包 AppError、弹出 toast 并重新抛出。
-    await savePreferences.mutateAsync({ ...previousPreferences, theme })
+    // usePatchPreferences() 已经解包 AppError、弹出 toast 并重新抛出。
+    await patchPreferences.mutateAsync([preferencePatches.theme(theme)])
   } catch {
     queryClient.setQueryData(
       preferencesQueryKeys.preferences(),
@@ -271,8 +279,9 @@ const changeTheme = async (theme: string) => {
 }
 ```
 
-catch 块里只做「撤销」这一件事。[`useSavePreferences()`](../../src/queries/preferences.ts)
+catch 块里只做「撤销」这一件事。[`usePatchPreferences()`](../../src/queries/preferences.ts)
 是唯一把 `AppError` 转成 toast 的地方，这里再弹一次会让同一个失败被报告两遍。
+它还会用 Rust 返回的文档刷新缓存，所以一次成功的保存不会留下被回滚过的乐观值。
 
 ## 快速参考
 
