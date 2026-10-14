@@ -69,6 +69,7 @@
     "serde",
     "sgconfig",
     "shadcn",
+    "shellcheck",
     "signtool",
     "smartscreen",
     "smol",

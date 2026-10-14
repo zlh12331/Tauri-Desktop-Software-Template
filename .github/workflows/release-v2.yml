@@ -407,6 +407,9 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
         run: |
+          # shellcheck disable=SC2016
+          # The markdown backticks below are literal field names for the release
+          # notes; shellcheck reads them as intended command substitution.
           set -euo pipefail
           note="$RUNNER_TEMP/sign-posture.md"
           {
