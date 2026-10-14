@@ -29,6 +29,7 @@ npm run check:all
 - **Bug 报告**：使用 Bug 报告模板
 - **功能请求**：使用功能请求模板
 - **安全问题**：参见 [SECURITY.md](SECURITY.zh.md)
+- **行为准则**：参见 [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md)（仅提供英文版）
 
 ### 合并请求
 
