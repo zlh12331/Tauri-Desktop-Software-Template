@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ShortcutPicker } from '../ShortcutPicker'
 import { SettingsField, SettingsSection } from '../shared/SettingsComponents'
-import { usePreferences, useSavePreferences } from '@/queries/preferences'
+import { preferencePatches } from '@/lib/preference-patches'
+import { usePatchPreferences, usePreferences } from '@/queries/preferences'
 import { commands } from '@/lib/tauri-bindings'
 import { logger } from '@/lib/logger'
 import {
@@ -19,15 +20,16 @@ import {
 export function GeneralPane() {
   const { t } = useTranslation()
   // Example local state - these are NOT persisted to disk
-  // To add persistent preferences:
-  // 1. Add the field to AppPreferences in both Rust and TypeScript
-  // 2. Use usePreferencesManager() and updatePreferences()
+  // To persist a preference: add the field to AppPreferences and a matching
+  // variant to PreferencePatch in src-tauri/src/types.rs, add a builder to
+  // src/lib/preference-patches.ts, run npm run rust:bindings, then write it with
+  // usePatchPreferences. Never send a whole AppPreferences to change one field.
   const [exampleText, setExampleText] = useState('Example value')
   const [exampleToggle, setExampleToggle] = useState(true)
 
   // Load preferences for keyboard shortcuts
   const { data: preferences } = usePreferences()
-  const savePreferences = useSavePreferences()
+  const patchPreferences = usePatchPreferences()
 
   // Get the default shortcut from the backend
   const { data: defaultShortcut } = useQuery({
@@ -59,10 +61,9 @@ export function GeneralPane() {
 
     // If registration succeeded, try to save the preference
     try {
-      await savePreferences.mutateAsync({
-        ...preferences,
-        quick_pane_shortcut: newShortcut,
-      })
+      await patchPreferences.mutateAsync([
+        preferencePatches.quickPaneShortcut(newShortcut),
+      ])
     } catch {
       // Save failed - roll back the backend registration
       logger.warn('Save failed, rolling back shortcut registration', {
@@ -134,7 +135,7 @@ export function GeneralPane() {
             // Fallback matches DEFAULT_QUICK_PANE_SHORTCUT in src-tauri/src/lib.rs
             defaultValue={defaultShortcut ?? 'CommandOrControl+Shift+.'}
             onChange={handleShortcutChange}
-            disabled={!preferences || savePreferences.isPending}
+            disabled={!preferences || patchPreferences.isPending}
           />
         </SettingsField>
       </SettingsSection>

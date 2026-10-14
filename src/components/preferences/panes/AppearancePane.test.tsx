@@ -57,12 +57,14 @@ vi.mock('@/hooks/use-theme', () => ({
   }),
 }))
 
-// Mock preferences service
+// Mock preferences service — the pane builds patches with the real
+// `@/lib/preference-patches`, so the payloads asserted below are the ones the
+// backend understands.
 const mockUsePreferences = vi.fn()
 const mockMutate = vi.fn()
 vi.mock('@/queries/preferences', () => ({
   usePreferences: () => mockUsePreferences(),
-  useSavePreferences: () => ({
+  usePatchPreferences: () => ({
     mutate: (...args: unknown[]) => mockMutate(...(args as [never])),
     isPending: false,
   }),
@@ -163,7 +165,7 @@ describe('AppearancePane', () => {
       expect(screen.getByRole('option', { name: '中文' })).toBeInTheDocument()
     })
 
-    it('选择英语语言调用 i18n.changeLanguage("en") 并保存偏好', async () => {
+    it('选择英语语言调用 i18n.changeLanguage("en") 并只写入 language 字段', async () => {
       const user = userEvent.setup()
       renderWithClient(<AppearancePane />)
       const triggers = screen.getAllByRole('combobox')
@@ -176,10 +178,7 @@ describe('AppearancePane', () => {
         expect(mockChangeLanguage).toHaveBeenCalledWith('en')
       })
       await waitFor(() => {
-        expect(mockMutate).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          language: 'en',
-        })
+        expect(mockMutate).toHaveBeenCalledWith([{ Language: { value: 'en' } }])
       })
     })
 
@@ -204,10 +203,9 @@ describe('AppearancePane', () => {
         expect(mockChangeLanguage).toHaveBeenCalledWith('en')
       })
       await waitFor(() => {
-        expect(mockMutate).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          language: null,
-        })
+        // `value: null` is an instruction ("follow the system locale"), not an
+        // absent field — a whole-document write could not tell the two apart.
+        expect(mockMutate).toHaveBeenCalledWith([{ Language: { value: null } }])
       })
     })
 
@@ -236,7 +234,7 @@ describe('AppearancePane', () => {
       ).toBeInTheDocument()
     })
 
-    it('选择 dark 主题调用 setTheme("dark") 并保存偏好', async () => {
+    it('选择 dark 主题调用 setTheme("dark") 并只写入 theme 字段', async () => {
       const user = userEvent.setup()
       renderWithClient(<AppearancePane />)
       const triggers = screen.getAllByRole('combobox')
@@ -246,16 +244,13 @@ describe('AppearancePane', () => {
 
       expect(mockSetTheme).toHaveBeenCalledWith('dark')
       await waitFor(() => {
-        expect(mockMutate).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          theme: 'dark',
-        })
+        expect(mockMutate).toHaveBeenCalledWith([{ Theme: { value: 'dark' } }])
       })
     })
   })
 
   describe('边界用例', () => {
-    it('preferences 为 undefined 时不调用 mutate (主题切换)', async () => {
+    it('preferences 缓存为空时主题切换仍写入 theme 字段', async () => {
       const user = userEvent.setup()
       mockUsePreferences.mockReturnValue({ data: undefined })
       renderWithClient(<AppearancePane />)
@@ -266,8 +261,9 @@ describe('AppearancePane', () => {
 
       // setTheme is still called for instant feedback
       expect(mockSetTheme).toHaveBeenCalledWith('dark')
-      // But mutate is NOT called because preferences is undefined
-      expect(mockMutate).not.toHaveBeenCalled()
+      // The patch names only its own field, so there is nothing to merge with and
+      // no reason to wait for a cached document before persisting.
+      expect(mockMutate).toHaveBeenCalledWith([{ Theme: { value: 'dark' } }])
     })
 
     it('系统 locale 包含未知语言时回退到 "en"', async () => {
@@ -313,7 +309,7 @@ describe('AppearancePane', () => {
       })
     })
 
-    it('savePreferences.isPending 默认为 false 时选择器可用', () => {
+    it('patchPreferences.isPending 默认为 false 时选择器可用', () => {
       // 默认 mock 返回 isPending: false,选择器应可用
       renderWithClient(<AppearancePane />)
       const triggers = screen.getAllByRole('combobox')

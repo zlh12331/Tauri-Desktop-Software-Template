@@ -98,6 +98,15 @@ vi.mock('@/lib/tauri-bindings', () => ({
       },
     }),
     savePreferences: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    applyPreferencePatches: vi.fn().mockResolvedValue({
+      status: 'ok',
+      data: {
+        theme: 'system',
+        quick_pane_shortcut: null,
+        language: null,
+        crash_reporting_consent: null,
+      },
+    }),
     sendNativeNotification: vi
       .fn()
       .mockResolvedValue({ status: 'ok', data: null }),

@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from '@/hooks/use-theme'
 import { SettingsField, SettingsSection } from '../shared/SettingsComponents'
-import { usePreferences, useSavePreferences } from '@/queries/preferences'
+import { preferencePatches } from '@/lib/preference-patches'
+import { usePatchPreferences, usePreferences } from '@/queries/preferences'
 import { availableLanguages, loadLanguageAsync } from '@/i18n'
 import { logger } from '@/lib/logger'
 
@@ -24,16 +25,15 @@ export function AppearancePane() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme } = useTheme()
   const { data: preferences } = usePreferences()
-  const savePreferences = useSavePreferences()
+  const patchPreferences = usePatchPreferences()
 
   const handleThemeChange = (value: 'light' | 'dark' | 'system') => {
     // Update the theme provider immediately for instant UI feedback
     setTheme(value)
 
-    // Persist the theme preference to disk, preserving other preferences
-    if (preferences) {
-      savePreferences.mutate({ ...preferences, theme: value })
-    }
+    // Persist only the theme; the backend merges it into whatever is on disk now,
+    // so this write cannot revert a field another pane changed in the meantime.
+    patchPreferences.mutate([preferencePatches.theme(value)])
   }
 
   const handleLanguageChange = async (value: string) => {
@@ -61,10 +61,9 @@ export function AppearancePane() {
       return
     }
 
-    // Persist the language preference to disk
-    if (preferences) {
-      savePreferences.mutate({ ...preferences, language })
-    }
+    // Persist the language choice — `null` here means "follow the system locale",
+    // which is a value the user picked, not an absent field.
+    patchPreferences.mutate([preferencePatches.language(language)])
   }
 
   // Determine the current language value for the select
@@ -80,7 +79,7 @@ export function AppearancePane() {
           <Select
             value={currentLanguageValue}
             onValueChange={handleLanguageChange}
-            disabled={savePreferences.isPending}
+            disabled={patchPreferences.isPending}
           >
             <SelectTrigger aria-label={t('preferences.appearance.language')}>
               <SelectValue />
@@ -107,7 +106,7 @@ export function AppearancePane() {
           <Select
             value={theme}
             onValueChange={handleThemeChange}
-            disabled={savePreferences.isPending}
+            disabled={patchPreferences.isPending}
           >
             <SelectTrigger aria-label={t('preferences.appearance.colorTheme')}>
               <SelectValue

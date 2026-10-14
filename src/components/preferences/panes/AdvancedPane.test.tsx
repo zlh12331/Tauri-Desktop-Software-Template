@@ -44,13 +44,13 @@ vi.mock('@/lib/logger', () => ({
 
 // Mock tauri bindings
 const mockLoadPreferences = vi.fn()
-const mockSavePreferences = vi.fn()
+const mockApplyPreferencePatches = vi.fn()
 vi.mock('@/lib/tauri-bindings', () => ({
   commands: {
     loadPreferences: (...args: unknown[]) =>
       mockLoadPreferences(...(args as [])),
-    savePreferences: (...args: unknown[]) =>
-      mockSavePreferences(...(args as [never])),
+    applyPreferencePatches: (...args: unknown[]) =>
+      mockApplyPreferencePatches(...(args as [never])),
   },
 }))
 
@@ -87,7 +87,10 @@ describe('AdvancedPane', () => {
       status: 'ok',
       data: defaultPrefs,
     })
-    mockSavePreferences.mockResolvedValue({ status: 'ok', data: null })
+    mockApplyPreferencePatches.mockResolvedValue({
+      status: 'ok',
+      data: defaultPrefs,
+    })
   })
 
   describe('正向用例 — 渲染', () => {
@@ -140,7 +143,7 @@ describe('AdvancedPane', () => {
       expect(screen.getAllByText('common.enabled').length).toBeGreaterThan(0)
     })
 
-    it('切换崩溃上报开关(启用)调用 setSentryConsent(true) 和 savePreferences', async () => {
+    it('切换崩溃上报开关(启用)调用 setSentryConsent(true) 并只写入同意字段', async () => {
       renderWithClient(<AdvancedPane />)
 
       await waitFor(() => {
@@ -153,10 +156,9 @@ describe('AdvancedPane', () => {
       clickSwitch(crashToggle)
 
       await waitFor(() => {
-        expect(mockSavePreferences).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          crash_reporting_consent: true,
-        })
+        expect(mockApplyPreferencePatches).toHaveBeenCalledWith([
+          { CrashReportingConsent: { value: true } },
+        ])
       })
       expect(mockSetSentryConsent).toHaveBeenCalledWith(true)
       expect(mockToastSuccess).toHaveBeenCalledWith(
@@ -188,10 +190,9 @@ describe('AdvancedPane', () => {
       clickSwitch(crashToggle)
 
       await waitFor(() => {
-        expect(mockSavePreferences).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          crash_reporting_consent: false,
-        })
+        expect(mockApplyPreferencePatches).toHaveBeenCalledWith([
+          { CrashReportingConsent: { value: false } },
+        ])
       })
       expect(mockSetSentryConsent).toHaveBeenCalledWith(false)
       expect(mockToastInfo).toHaveBeenCalledWith(
@@ -247,8 +248,8 @@ describe('AdvancedPane', () => {
       expect(crashToggle).toHaveAttribute('data-state', 'unchecked')
     })
 
-    it('切换崩溃上报时 savePreferences 抛错显示错误 toast', async () => {
-      mockSavePreferences.mockRejectedValue(new Error('save failed'))
+    it('切换崩溃上报时 applyPreferencePatches 抛错显示错误 toast', async () => {
+      mockApplyPreferencePatches.mockRejectedValue(new Error('save failed'))
 
       renderWithClient(<AdvancedPane />)
 
@@ -266,6 +267,34 @@ describe('AdvancedPane', () => {
           'preferences.advanced.crashReporting.toggleError'
         )
       })
+    })
+
+    it('同意写入返回 error 状态时开关不翻转且不打开 Sentry gate', async () => {
+      mockApplyPreferencePatches.mockResolvedValue({
+        status: 'error',
+        error: { kind: 'Io', message: 'disk full' },
+      })
+
+      renderWithClient(<AdvancedPane />)
+
+      await waitFor(() => {
+        expect(mockLoadPreferences).toHaveBeenCalled()
+      })
+
+      const crashToggle = document.getElementById(
+        'crash-reporting-toggle'
+      ) as HTMLElement
+      clickSwitch(crashToggle)
+
+      await waitFor(() => {
+        expect(mockToastError).toHaveBeenCalledWith(
+          'preferences.advanced.crashReporting.toggleError'
+        )
+      })
+      // Consent never reached the backend, so the gate must stay closed and the
+      // UI must keep showing the stored value instead of the attempted one.
+      expect(mockSetSentryConsent).not.toHaveBeenCalled()
+      expect(crashToggle).toHaveAttribute('data-state', 'unchecked')
     })
   })
 })

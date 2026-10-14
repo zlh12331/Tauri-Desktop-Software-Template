@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import type { ReactNode } from 'react'
 import { renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { preferencePatches } from '@/lib/preference-patches'
 
 // Mock sonner toast
 const mockToast = {
@@ -25,16 +26,16 @@ vi.mock('@/lib/logger', () => ({ logger: mockLogger }))
 // Mock tauri-bindings — overrides the global mock registered in src/test/setup.ts.
 // Real @tanstack/react-query is kept so the hooks actually run their lifecycle.
 const mockLoadPreferences = vi.fn()
-const mockSavePreferences = vi.fn()
+const mockApplyPatches = vi.fn()
 vi.mock('@/lib/tauri-bindings', () => ({
   commands: {
     loadPreferences: mockLoadPreferences,
-    savePreferences: mockSavePreferences,
+    applyPreferencePatches: mockApplyPatches,
   },
 }))
 
 // Import the module under test AFTER mocks are hoisted
-const { usePreferences, useSavePreferences, preferencesQueryKeys } =
+const { usePreferences, usePatchPreferences, preferencesQueryKeys } =
   await import('@/queries/preferences')
 
 interface WrapperProps {
@@ -95,7 +96,6 @@ describe('usePreferences', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockLoadPreferences.mockReset()
-    mockSavePreferences.mockReset()
   })
 
   describe('正向用例', () => {
@@ -176,122 +176,137 @@ describe('usePreferences', () => {
   })
 })
 
-describe('useSavePreferences', () => {
+describe('usePatchPreferences', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockLoadPreferences.mockReset()
-    mockSavePreferences.mockReset()
+    mockApplyPatches.mockReset()
   })
+
+  const merged = { ...defaultPreferences, theme: 'dark' }
 
   describe('正向用例', () => {
-    it('saves preferences, updates cache and shows success toast on ok status', async () => {
-      mockSavePreferences.mockResolvedValue({ status: 'ok', data: null })
-      const prefs = { ...defaultPreferences, theme: 'dark' }
+    it('sends only the named field and caches what the backend returns', async () => {
+      mockApplyPatches.mockResolvedValue({ status: 'ok', data: merged })
 
       const { Wrapper, queryClient } = createWrapper()
-      const { result } = renderHook(() => useSavePreferences(), {
+      const { result } = renderHook(() => usePatchPreferences(), {
         wrapper: Wrapper,
       })
 
-      await result.current.mutateAsync(prefs)
+      await result.current.mutateAsync([preferencePatches.theme('dark')])
 
-      expect(mockSavePreferences).toHaveBeenCalledWith(prefs)
-      expect(mockSavePreferences).toHaveBeenCalledTimes(1)
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Saving preferences to backend',
-        { preferences: prefs }
-      )
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        'Preferences saved successfully'
-      )
-      expect(mockLogger.info).toHaveBeenCalledWith('Preferences cache updated')
+      // One patch, not a whole document built from a possibly stale cache.
+      expect(mockApplyPatches).toHaveBeenCalledWith([
+        { Theme: { value: 'dark' } },
+      ])
       expect(mockToast.success).toHaveBeenCalledWith('Preferences saved')
-      // onSuccess should have written the new prefs into the query cache
       expect(
         queryClient.getQueryData(preferencesQueryKeys.preferences())
-      ).toEqual(prefs)
+      ).toEqual(merged)
       expect(mockToast.error).not.toHaveBeenCalled()
     })
-  })
 
-  describe('边界用例 — minimal payload', () => {
-    it('passes a fully-null preferences object to the backend unchanged', async () => {
-      mockSavePreferences.mockResolvedValue({ status: 'ok', data: null })
-      const minimal = {
-        theme: 'light',
-        quick_pane_shortcut: null,
-        language: null,
-        crash_reporting_consent: null,
-      }
+    it('keeps an explicit null as a value, not as an absent field', async () => {
+      // "Follow the system locale" is a choice the user makes; if the builder
+      // dropped it, choosing it would silently do nothing.
+      mockApplyPatches.mockResolvedValue({ status: 'ok', data: merged })
 
       const { Wrapper } = createWrapper()
-      const { result } = renderHook(() => useSavePreferences(), {
+      const { result } = renderHook(() => usePatchPreferences(), {
         wrapper: Wrapper,
       })
 
-      await result.current.mutateAsync(minimal)
+      await result.current.mutateAsync([preferencePatches.language(null)])
 
-      expect(mockSavePreferences).toHaveBeenCalledWith(minimal)
-      expect(mockSavePreferences).toHaveBeenCalledTimes(1)
+      expect(mockApplyPatches).toHaveBeenCalledWith([
+        { Language: { value: null } },
+      ])
     })
   })
 
   describe('异常用例', () => {
-    it('throws and shows error toast when backend reports error status', async () => {
-      mockSavePreferences.mockResolvedValue({
+    it('throws and reports the backend message on error status', async () => {
+      mockApplyPatches.mockResolvedValue({
         status: 'error',
-        error: { kind: 'Io', message: 'disk full' },
+        error: {
+          kind: 'Serialization',
+          message: 'Failed to parse preferences',
+        },
       })
-      const prefs = { ...defaultPreferences }
 
-      const { Wrapper } = createWrapper()
-      const { result } = renderHook(() => useSavePreferences(), {
+      const { Wrapper, queryClient } = createWrapper()
+      queryClient.setQueryData(preferencesQueryKeys.preferences(), merged)
+      const { result } = renderHook(() => usePatchPreferences(), {
         wrapper: Wrapper,
       })
 
-      await expect(result.current.mutateAsync(prefs)).rejects.toThrow(
-        'disk full'
-      )
+      await expect(
+        result.current.mutateAsync([preferencePatches.theme('light')])
+      ).rejects.toThrow('Failed to parse preferences')
 
-      expect(mockSavePreferences).toHaveBeenCalledWith(prefs)
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to save preferences',
-        { error: { kind: 'Io', message: 'disk full' }, preferences: prefs }
-      )
       expect(mockToast.error).toHaveBeenCalledWith(
         'Failed to save preferences',
-        { description: 'disk full' }
+        { description: 'Failed to parse preferences' }
       )
       expect(mockToast.success).not.toHaveBeenCalled()
+      // A failed write must leave the cache as it was, not pretend the field moved.
+      expect(
+        queryClient.getQueryData(preferencesQueryKeys.preferences())
+      ).toEqual(merged)
+    })
+  })
+})
 
-      await waitFor(() => expect(result.current.isError).toBe(true))
+describe('usePreferences on a corrupt file', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockLoadPreferences.mockReset()
+  })
+
+  it('says so out loud instead of quietly resetting the user', async () => {
+    mockLoadPreferences.mockResolvedValue({
+      status: 'error',
+      error: { kind: 'Serialization', message: 'Failed to parse preferences' },
     })
 
-    it('mutation fails (no error toast) when savePreferences rejects', async () => {
-      mockSavePreferences.mockRejectedValue(new Error('network failure'))
-      const prefs = { ...defaultPreferences }
-
-      const { Wrapper } = createWrapper()
-      const { result } = renderHook(() => useSavePreferences(), {
-        wrapper: Wrapper,
-      })
-
-      await expect(result.current.mutateAsync(prefs)).rejects.toThrow(
-        'network failure'
-      )
-
-      expect(mockSavePreferences).toHaveBeenCalledWith(prefs)
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Saving preferences to backend',
-        { preferences: prefs }
-      )
-      // Rejection happens before the error-status branch, so neither
-      // logger.error nor toast.error should fire.
-      expect(mockLogger.error).not.toHaveBeenCalled()
-      expect(mockToast.error).not.toHaveBeenCalled()
-      expect(mockToast.success).not.toHaveBeenCalled()
-
-      await waitFor(() => expect(result.current.isError).toBe(true))
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(() => usePreferences(), {
+      wrapper: Wrapper,
     })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toEqual(defaultPreferences)
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      'Preferences file could not be parsed, using defaults',
+      {
+        error: {
+          kind: 'Serialization',
+          message: 'Failed to parse preferences',
+        },
+      }
+    )
+    expect(mockToast.error).toHaveBeenCalledWith(
+      'Preferences file could not be read, so defaults are in use'
+    )
+  })
+
+  it('stays quiet on a missing file, which is just a first run', async () => {
+    mockLoadPreferences.mockResolvedValue({
+      status: 'error',
+      error: { kind: 'Io', message: 'Failed to read preferences file' },
+    })
+
+    const { Wrapper } = createWrapper()
+    const { result } = renderHook(() => usePreferences(), {
+      wrapper: Wrapper,
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toEqual(defaultPreferences)
+    expect(mockToast.error).not.toHaveBeenCalled()
+    expect(mockLogger.warn).toHaveBeenCalled()
   })
 })

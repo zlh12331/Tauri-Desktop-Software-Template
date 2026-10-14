@@ -13,15 +13,17 @@ import {
 import { SettingsField, SettingsSection } from '../shared/SettingsComponents'
 import { ApiConfigForm } from './ApiConfigForm'
 import { commands } from '@/lib/tauri-bindings'
+import { preferencePatches } from '@/lib/preference-patches'
 import { isSentryEnabled, setSentryConsent } from '@/lib/sentry'
 import { logger } from '@/lib/logger'
 
 export function AdvancedPane() {
   const { t } = useTranslation()
   // Example local state - these are NOT persisted to disk
-  // To add persistent preferences:
-  // 1. Add the field to AppPreferences in both Rust and TypeScript
-  // 2. Use usePreferencesManager() and updatePreferences()
+  // To persist a preference: add the field to AppPreferences and a matching
+  // variant to PreferencePatch in src-tauri/src/types.rs, add a builder to
+  // src/lib/preference-patches.ts, run npm run rust:bindings, then write it with
+  // usePatchPreferences. Never send a whole AppPreferences to change one field.
   const [exampleAdvancedToggle, setExampleAdvancedToggle] = useState(false)
   const [exampleDropdown, setExampleDropdown] = useState('option1')
   const [crashReportingEnabled, setCrashReportingEnabled] = useState(false)
@@ -43,12 +45,13 @@ export function AdvancedPane() {
 
   const handleCrashReportingToggle = async (enabled: boolean) => {
     try {
-      const loadResult = await commands.loadPreferences()
-      if (loadResult.status === 'ok') {
-        await commands.savePreferences({
-          ...loadResult.data,
-          crash_reporting_consent: enabled,
-        })
+      // One field, one instruction: a whole-document rewrite here would revert
+      // anything another writer changed in the meantime.
+      const consentResult = await commands.applyPreferencePatches([
+        preferencePatches.crashReportingConsent(enabled),
+      ])
+      if (consentResult.status === 'error') {
+        throw new Error(consentResult.error.message)
       }
       setCrashReportingEnabled(enabled)
       if (enabled) {

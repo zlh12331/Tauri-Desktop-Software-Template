@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { commands } from '@/lib/tauri-bindings'
+import { preferencePatches } from '@/lib/preference-patches'
 import { isSentryEnabled, setSentryConsent } from '@/lib/sentry'
 import {
   useCrashReportStore,
@@ -53,13 +54,14 @@ export function CrashReportDialog() {
   const handleAllow = async () => {
     setHandling(true)
     try {
-      // Save consent preference
-      const loadResult = await commands.loadPreferences()
-      if (loadResult.status === 'ok') {
-        await commands.savePreferences({
-          ...loadResult.data,
-          crash_reporting_consent: true,
-        })
+      // A patch, not a read-rewrite of the whole document: the old form could
+      // revert another pane's field, and on a failed read it persisted nothing
+      // while still reporting success.
+      const consentResult = await commands.applyPreferencePatches([
+        preferencePatches.crashReportingConsent(true),
+      ])
+      if (consentResult.status === 'error') {
+        throw new Error(consentResult.error.message)
       }
 
       // Open Sentry's consent gate — events start sending
@@ -90,13 +92,14 @@ export function CrashReportDialog() {
   const handleDeny = async () => {
     setHandling(true)
     try {
-      // Save consent preference
-      const loadResult = await commands.loadPreferences()
-      if (loadResult.status === 'ok') {
-        await commands.savePreferences({
-          ...loadResult.data,
-          crash_reporting_consent: false,
-        })
+      // A patch, not a read-rewrite of the whole document: the old form could
+      // revert another pane's field, and on a failed read it persisted nothing
+      // while still reporting success.
+      const consentResult = await commands.applyPreferencePatches([
+        preferencePatches.crashReportingConsent(false),
+      ])
+      if (consentResult.status === 'error') {
+        throw new Error(consentResult.error.message)
       }
 
       // Delete crash file

@@ -153,6 +153,7 @@
   "toast.error.fullscreenEnterFailed": "Failed to enter fullscreen: {{message}}",
   "toast.error.fullscreenExitFailed": "Failed to exit fullscreen: {{message}}",
   "toast.error.generic": "Something went wrong",
+  "toast.error.preferencesCorrupted": "Preferences file could not be read, so defaults are in use",
   "toast.error.preferencesSaveFailed": "Failed to save preferences",
   "toast.error.shortcutFailed": "Failed to register shortcut",
   "toast.error.shortcutRestoreDescription": "The shortcut may be out of sync. Please restart the app or try again.",
