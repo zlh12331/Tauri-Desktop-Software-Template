@@ -111,7 +111,7 @@ chore(deps): upgrade tauri to 2.11.5
 | `npm run lint`         | ESLint (0 warnings allowed)         |
 | `npm run ast:lint`     | ast-grep architecture rules         |
 | `npm run format:check` | Prettier format check               |
-| `npm run test:run`     | Vitest unit tests (1032 tests)      |
+| `npm run test:run`     | Vitest unit tests (1039 tests)      |
 | `npm run e2e`          | Playwright E2E tests (98 scenarios) |
 | `npm run knip`         | Dead code detection                 |
 | `npm run jscpd`        | Code duplication detection          |
@@ -122,7 +122,7 @@ chore(deps): upgrade tauri to 2.11.5
 | ----------------------------- | ------------------------- |
 | `cargo fmt --check`           | Rust formatting check     |
 | `cargo clippy -- -D warnings` | Rust linting (0 warnings) |
-| `cargo test`                  | Rust tests (432 tests)    |
+| `cargo test`                  | Rust tests (436 tests)    |
 
 ### All-in-one
 
@@ -139,7 +139,7 @@ This project uses a three-layer testing strategy:
 
 ### Frontend Unit Tests (Vitest)
 
-- 1032 tests across 59 test files
+- 1039 tests across 59 test files
 - Testing Library + jsdom environment
 - Tauri APIs mocked in `src/test/setup.ts`
 - Custom render helper in `src/test/test-utils.tsx` (wraps QueryClient + i18n + ThemeProvider)

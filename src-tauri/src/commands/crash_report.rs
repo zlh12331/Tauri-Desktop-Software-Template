@@ -30,6 +30,28 @@ use crate::utils::paths::{ensure_dir_exists, get_app_data_file_path, get_app_dat
 /// `init_consent_from_preferences`.
 pub static CONSENT_STATE: AtomicU8 = AtomicU8::new(0);
 
+/// Consent gate and redaction for the structured-log pipeline.
+///
+/// `before_send` only sees events. With sentry's `logs` feature the `log` bridge
+/// ships every `log::info!` through a separate path, so a configured DSN alone
+/// would send application logs — several of which carry absolute file paths — to
+/// Sentry without ever consulting consent. This is the same asymmetry the
+/// frontend's `beforeSendLog` closes on that side.
+///
+/// Bodies are scrubbed with the pattern list that already protects the log file,
+/// and attributes whose key is known to be sensitive are dropped rather than
+/// truncated: there is no useful partial form of a token.
+pub fn gate_and_redact_log(mut log: sentry::protocol::Log) -> Option<sentry::protocol::Log> {
+    if CONSENT_STATE.load(Ordering::Relaxed) != 1 {
+        return None;
+    }
+
+    log.body = crate::utils::redact::redact_sensitive(&log.body);
+    log.attributes
+        .retain(|key, _| !crate::utils::redact::is_sensitive_key(key));
+    Some(log)
+}
+
 /// Gets the path to the crash report file in the app data directory.
 ///
 /// Only resolves the path — does **not** create the directory. Callers that
@@ -1124,5 +1146,95 @@ mod tests {
         // remove_file on a directory should fail on most platforms
         // (on Windows it may succeed if the dir is empty, which is also acceptable)
         let _ = result;
+    }
+
+    // =========================================================================
+    // gate_and_redact_log — 日志不在 before_send 的路上
+    // =========================================================================
+
+    fn sample_log(body: &str, attributes: &[(&str, &str)]) -> sentry::protocol::Log {
+        let mut log = sentry::protocol::Log {
+            level: sentry::protocol::LogLevel::Info,
+            body: body.to_string(),
+            trace_id: None,
+            timestamp: SystemTime::UNIX_EPOCH,
+            severity_number: None,
+            attributes: Default::default(),
+        };
+        // Filled through the field itself so the map type never has to be named here.
+        for (key, value) in attributes {
+            log.attributes.insert(
+                (*key).to_string(),
+                sentry::protocol::LogAttribute::from(*value),
+            );
+        }
+        log
+    }
+
+    #[tokio::test]
+    async fn log_is_dropped_until_consent_is_granted() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        let log = sample_log("saved preferences", &[]);
+
+        // 0 = never asked. A DSN alone must not turn "not asked" into "sending".
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+        assert!(gate_and_redact_log(log).is_none());
+
+        // 2 = explicitly denied.
+        CONSENT_STATE.store(2, Ordering::Relaxed);
+        assert!(gate_and_redact_log(sample_log("saved", &[])).is_none());
+
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn granted_log_body_is_scrubbed_before_it_leaves() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(1, Ordering::Relaxed);
+
+        let out = gate_and_redact_log(sample_log("loaded api_key=sk-live-123 for panel", &[]))
+            .expect("granted consent should let the log through");
+
+        assert!(!out.body.contains("sk-live-123"), "body: {}", out.body);
+        assert!(out.body.contains("api_key=***"), "body: {}", out.body);
+
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn sensitive_attributes_are_dropped_not_truncated() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(1, Ordering::Relaxed);
+
+        let out = gate_and_redact_log(sample_log(
+            "request failed",
+            &[("token", "abc123"), ("route", "/preferences")],
+        ))
+        .expect("granted consent should let the log through");
+
+        assert!(
+            !out.attributes.contains_key("token"),
+            "a token has no useful partial form, so it goes"
+        );
+        assert!(
+            out.attributes.contains_key("route"),
+            "an ordinary attribute must survive"
+        );
+
+        CONSENT_STATE.store(0, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn ordinary_log_passes_through_unchanged() {
+        let _guard = CONSENT_TEST_MUTEX.lock().await;
+        CONSENT_STATE.store(1, Ordering::Relaxed);
+
+        let out = gate_and_redact_log(sample_log("quick pane dismissed", &[("target", "pane")]))
+            .expect("granted consent should let the log through");
+
+        assert_eq!(out.body, "quick pane dismissed");
+        assert_eq!(out.attributes.len(), 1);
+
+        CONSENT_STATE.store(0, Ordering::Relaxed);
     }
 }
