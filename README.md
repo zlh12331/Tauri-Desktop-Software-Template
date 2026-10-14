@@ -235,9 +235,10 @@ See [docs/developer/tauri-commands.en.md](docs/developer/tauri-commands.en.md) f
 All documentation is available in English and Chinese:
 
 - **[Using This Template](docs/USING_THIS_TEMPLATE.en.md)** — setup and workflow guide
-- **[Developer Docs](docs/developer/README.en.md)** — 26 documents covering architecture, patterns, and guides
+- **[Developer Docs](docs/developer/README.en.md)** — architecture, patterns, and guides, each in English and Chinese
 - **[User Guide](docs/userguide/userguide.en.md)** — end-user documentation
 - **[Contributing](docs/CONTRIBUTING.en.md)** — contribution guidelines
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** — community standards (English only)
 - **[Security Policy](docs/SECURITY.en.md)** — security measures and vulnerability reporting
 
 ## Contributing
@@ -257,7 +258,7 @@ docs(readme): update installation instructions
 This template is designed to work well with AI coding agents:
 
 - **AGENTS.md** — project rules and architecture patterns for AI agents
-- **docs/developer/** — 26 documents explaining the _why_ of patterns, not just the _how_
+- **docs/developer/** — bilingual guides explaining the _why_ of patterns, not just the _how_
 - **Predictable structure** — clear directory boundaries enforced by ast-grep
 - **Quality gates** — `npm run check:all` catches issues before they reach production
 
