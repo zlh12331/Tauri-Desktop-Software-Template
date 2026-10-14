@@ -69,21 +69,26 @@ legitimate default, so it is not allowed to be a quiet one: `finalize` appends a
 saying which bundles are signed. Whoever installs the artifact reads the same
 sentence whoever forked the repository wrote.
 
-**Importing a certificate is not signing with it.** The bundler decides from
-`src-tauri/tauri.conf.json`, not from the workflow's environment:
+**Importing a certificate is not signing with it.** `tauri-bundler` decides from
+`src-tauri/tauri.conf.json` — `bundle.macOS.signingIdentity` (shipped `"-"`, ad-hoc)
+and `bundle.windows.certificateThumbprint` (shipped `null`) — and reads neither from
+the environment. That gap used to be silent: the workflow exported
+`WINDOWS_CERTIFICATE_THUMBPRINT` and `APPLE_CERTIFICATE_IMPORTED`, nothing consumed
+them, and a fork that bought certificates still shipped unsigned bundles with every
+check green.
 
-- `bundle.macOS.signingIdentity` ships as `"-"`, which means ad-hoc. Replace it with
-  your identity name — `Developer ID Application: Example Ltd (ABCDE12345)` — or the
-  imported certificate is never used.
-- `bundle.windows.certificateThumbprint` ships as `null`. `signtool` runs only when it
-  holds a thumbprint. The workflow exports `WINDOWS_CERTIFICATE_THUMBPRINT` into the
-  environment and nothing reads it.
+`scripts/configure-code-signing.mjs` is the wire. It runs between the import steps
+and the build:
 
-So a fork that adds both secrets and forgets these two fields still ships an
-ad-hoc macOS bundle and an unsigned `.msi`, with every check green. That is the
-same shape as a `.github/CODEOWNERS` that names somebody who is not a
-collaborator: configured in appearance, enforcing nothing. Verify the artifact
-rather than the pipeline:
+- certificate present and identity/thumbprint found → the matching config field is
+  written, and the log names both moves (`"-" → "Developer ID Application: …"`);
+- certificate present but nothing usable found → **the release fails**. Half-signed
+  is the outcome this design refuses to allow, because it is indistinguishable from
+  success in a green pipeline;
+- no certificate → the config is not touched by a single byte, which is the honest
+  template default and is declared in the release notes.
+
+Verify the artifact rather than the pipeline anyway — that habit survives any workflow:
 
 ```bash
 codesign -dv --verbose=2 Tauri-Desktop-Software-Template.app 2>&1 | grep -i signature
@@ -92,9 +97,11 @@ spctl -a -vv Tauri-Desktop-Software-Template.app   # an ad-hoc signature is reje
 # simply absent when nothing signed it.
 ```
 
-Notarization is a further step beyond a Developer ID signature and this
-workflow does not perform it; without it a macOS download kept in
-`~/Downloads` still needs the quarantine attribute cleared.
+The identity itself comes from the keychain the import step creates, via
+`security find-identity -v -p codesigning`; the workflow takes the first codesigning
+identity's name. Notarization is a further step beyond a Developer ID signature and
+this workflow does not perform it, so a macOS download kept in `~/Downloads` still
+needs the quarantine attribute cleared.
 
 **Updater signing is a different system.** `latest.json` and the `.sig` files come
 from `TAURI_PRIVATE_KEY`, so auto-update verification works on an unsigned bundle
