@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Runtime};
 
 use crate::error::AppError;
-use crate::types::{AppPreferences, CrashReportData};
+use crate::types::{AppPreferences, CrashReportData, PreferencePatch};
 use crate::utils::paths::{ensure_dir_exists, get_app_data_file_path, get_app_data_file_path_sync};
 
 /// Global consent state for Sentry event submission (Rust side).
@@ -62,54 +62,18 @@ fn escape_json_string(s: &str) -> String {
 
 /// Pure helper: persists the consent value to the preferences file at `path`.
 ///
-/// Reads the current preferences (or uses defaults if the file doesn't exist),
-/// updates `crash_reporting_consent`, and writes back atomically. This ensures
-/// the consent state survives restarts even if the frontend doesn't call
-/// `save_preferences`.
+/// Delegates to the shared patch writer rather than keeping its own read-modify-write:
+/// two independent implementations of "read the whole document, change one field,
+/// write it back" is how a consent update could drop the user's theme, and the older
+/// version here tolerated a parse failure by starting from defaults — which quietly
+/// rebuilt the file from nothing and destroyed every other setting in it.
 ///
 /// Exposed for integration testing without an `AppHandle`.
 pub fn persist_consent_to_path(path: &Path, consent: Option<bool>) -> Result<(), AppError> {
-    // Read current preferences or use defaults
-    let mut prefs = if path.exists() {
-        let contents = fs::read_to_string(path).map_err(|e| {
-            AppError::io(format!(
-                "Failed to read preferences for consent persist: {e}"
-            ))
-        })?;
-        serde_json::from_str::<AppPreferences>(&contents).unwrap_or_else(|e| {
-            log::warn!(
-                "Preferences file corrupted during consent persist, preserving consent only: {e}"
-            );
-            // Don't overwrite other fields with defaults — just use defaults as base
-            AppPreferences::default()
-        })
-    } else {
-        AppPreferences::default()
-    };
-
-    prefs.crash_reporting_consent = consent;
-
-    // Write back using atomic write (temp file + rename)
-    let json = serde_json::to_string_pretty(&prefs).map_err(|e| {
-        AppError::serialization(format!(
-            "Failed to serialize preferences for consent persist: {e}"
-        ))
-    })?;
-    let temp_path = path.with_extension("tmp");
-
-    fs::write(&temp_path, &json).map_err(|e| {
-        AppError::io(format!(
-            "Failed to write preferences for consent persist: {e}"
-        ))
-    })?;
-
-    if let Err(rename_err) = fs::rename(&temp_path, path) {
-        let _ = fs::remove_file(&temp_path);
-        return Err(AppError::io(format!(
-            "Failed to finalize preferences for consent persist: {rename_err}"
-        )));
-    }
-
+    crate::commands::preferences::apply_patches_to_path(
+        path,
+        &[PreferencePatch::CrashReportingConsent { value: consent }],
+    )?;
     log::info!("Consent persisted to preferences file");
     Ok(())
 }
@@ -862,17 +826,21 @@ mod tests {
     }
 
     #[test]
-    fn persist_consent_handles_corrupted_existing_file() {
+    fn persist_consent_refuses_to_overwrite_an_unreadable_file() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("preferences.json");
         std::fs::write(&path, "not valid json").unwrap();
 
-        // Should fall back to defaults and still persist the consent.
-        persist_consent_to_path(&path, Some(true)).unwrap();
+        // The previous behaviour — log a warning, rebuild from defaults, rename over
+        // the original — saved one field by destroying every other setting the user
+        // still had in the file, and deleted the only evidence of the corruption.
+        persist_consent_to_path(&path, Some(true)).unwrap_err();
 
-        let contents = std::fs::read_to_string(&path).unwrap();
-        let prefs: AppPreferences = serde_json::from_str(&contents).unwrap();
-        assert_eq!(prefs.crash_reporting_consent, Some(true));
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "not valid json",
+            "a refused write must leave the unreadable file in place to be repaired"
+        );
     }
 
     // =========================================================================
@@ -1012,14 +980,22 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn persist_consent_fails_when_directory_does_not_exist() {
+    fn persist_consent_creates_a_missing_parent_directory_like_every_other_writer() {
         let dir = TempDir::new().unwrap();
-        // Drop the temp dir so the path no longer exists
+        // Drop the temp dir so the parent path no longer exists
         let path = dir.path().join("nonexistent_dir").join("preferences.json");
         drop(dir);
 
-        let result = persist_consent_to_path(&path, Some(true));
-        assert!(result.is_err());
+        // This used to assert a failure, because the consent writer did not create
+        // the directory while `save_preferences` and `load_preferences` both did —
+        // two policies for one file, and consent was the odd one out. Delegating to
+        // the shared patch writer unified them, so the contract now is: a missing
+        // app-data directory is created, not reported as an error.
+        persist_consent_to_path(&path, Some(true)).unwrap();
+
+        let prefs: AppPreferences =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(prefs.crash_reporting_consent, Some(true));
     }
 
     #[test]
@@ -1075,19 +1051,19 @@ mod tests {
     }
 
     #[test]
-    fn persist_consent_preserves_consent_field_after_other_corruption() {
+    fn persist_consent_refuses_a_file_with_an_unusable_field_type() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("preferences.json");
 
-        // Write a file with valid consent but corrupted other fields
+        // Half-readable is not half-savable: `theme: 123` fails the whole document,
+        // and rebuilding from defaults would drop `language` and the shortcut while
+        // pretending only consent was written.
         std::fs::write(&path, r#"{"crash_reporting_consent":true,"theme":123}"#).unwrap();
+        let original = std::fs::read_to_string(&path).unwrap();
 
-        persist_consent_to_path(&path, Some(false)).unwrap();
+        persist_consent_to_path(&path, Some(false)).unwrap_err();
 
-        let prefs: AppPreferences =
-            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        // Consent should be updated to false
-        assert_eq!(prefs.crash_reporting_consent, Some(false));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), original);
     }
 
     // =========================================================================

@@ -57,6 +57,69 @@ impl Default for AppPreferences {
     }
 }
 
+/// One field-level change to the persisted preferences.
+///
+/// Writing a patch list rather than a whole document is what keeps two writers from
+/// erasing each other: a field absent from the list is not touched. `save_preferences`
+/// still replaces the document, and using it to change one setting means overwriting
+/// every other setting with whatever the caller's cache happened to hold.
+///
+/// The `Option` inside a variant is a value, not a sentinel:
+/// `Language { value: None }` means "follow the system locale", which is something a
+/// user can deliberately choose. A single-level `Option` patch could not express
+/// "leave it alone" and "set it back to system" as different instructions, and the
+/// second would silently do nothing.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub enum PreferencePatch {
+    /// `light`, `dark` or `system`. Validated before anything reaches the disk.
+    Theme { value: String },
+    /// Global shortcut string (e.g. `CommandOrControl+Shift+.`), or `None` for the default.
+    QuickPaneShortcut { value: Option<String> },
+    /// Language tag (`en`, `zh`), or `None` to follow the system locale.
+    Language { value: Option<String> },
+    /// Crash-reporting consent, or `None` for "not asked yet".
+    CrashReportingConsent { value: Option<bool> },
+}
+
+impl PreferencePatch {
+    /// Check a patch before applying it, so a rejected batch never reaches the file.
+    pub fn validate(&self) -> Result<(), AppError> {
+        match self {
+            Self::Theme { value } => validate_theme(value),
+            Self::QuickPaneShortcut { .. }
+            | Self::Language { .. }
+            | Self::CrashReportingConsent { .. } => Ok(()),
+        }
+    }
+
+    /// The field name for logs. The match is exhaustive, so a new variant has to be
+    /// labelled here too and the label cannot silently lag the enum.
+    pub fn field(&self) -> &'static str {
+        match self {
+            Self::Theme { .. } => "theme",
+            Self::QuickPaneShortcut { .. } => "quick_pane_shortcut",
+            Self::Language { .. } => "language",
+            Self::CrashReportingConsent { .. } => "crash_reporting_consent",
+        }
+    }
+}
+
+impl AppPreferences {
+    /// Fold one already-validated patch into the document, in memory.
+    pub fn apply(&mut self, patch: &PreferencePatch) {
+        match patch {
+            PreferencePatch::Theme { value } => self.theme = value.clone(),
+            PreferencePatch::QuickPaneShortcut { value } => {
+                self.quick_pane_shortcut = value.clone();
+            }
+            PreferencePatch::Language { value } => self.language = value.clone(),
+            PreferencePatch::CrashReportingConsent { value } => {
+                self.crash_reporting_consent = *value;
+            }
+        }
+    }
+}
+
 // ============================================================================
 // Crash Reporting
 // ============================================================================

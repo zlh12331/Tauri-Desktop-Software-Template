@@ -3,15 +3,52 @@
 //! Handles loading and saving user preferences to disk.
 
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use tauri::{AppHandle, Runtime};
 
 use crate::error::AppError;
-use crate::types::{AppPreferences, validate_string_input, validate_theme};
+use crate::types::{AppPreferences, PreferencePatch, validate_string_input, validate_theme};
 use crate::utils::paths::{ensure_dir_exists, get_app_data_file_path};
 
 /// Gets the path to the preferences file.
 fn get_preferences_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, AppError> {
     get_app_data_file_path(app, "preferences.json")
+}
+
+/// Serialises read-modify-write cycles on the preferences file.
+///
+/// The atomic rename below protects the *file*; it does nothing for the *document*.
+/// Two writers can each read, each merge against their own snapshot, and each rename
+/// successfully — and the second write still erases the first. That is the shape of
+/// the bug this lock exists for: the theme pane and the crash-reporting consent both
+/// rewrite the whole document, and whichever read last won.
+///
+/// Held only across blocking file work inside `spawn_blocking`. Poisoning means some
+/// writer panicked mid-update; the file on disk is whatever the last successful
+/// rename left, which is a usable state, so the lock is recovered rather than
+/// propagated — a poisoned mutex must not permanently cost the user their settings.
+fn preferences_lock() -> MutexGuard<'static, ()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// The staging path for an atomic write, unique per call.
+///
+/// A fixed `preferences.tmp` would be shared by every writer, so the lock above is
+/// what makes it safe — and a leftover file from a killed process would otherwise
+/// make the next write fail on a name it expects to own. Uniqueness keeps that
+/// collision out of the design instead of out of the schedule.
+fn staging_path(path: &Path) -> PathBuf {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let pid = std::process::id();
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "preferences.json".to_string());
+    path.with_file_name(format!("{name}.{pid}.{seq}.tmp"))
 }
 
 /// Load the saved quick pane shortcut from preferences, returning None on any failure.
@@ -117,6 +154,9 @@ pub async fn save_preferences_impl<R: Runtime>(
     log::debug!("Saving preferences to disk: {preferences:?}");
     let prefs_path = get_preferences_path(&app)?;
     tauri::async_runtime::spawn_blocking(move || {
+        // A whole-document write competes with every patch write on the same file,
+        // so it takes the same lock rather than relying on its rename being atomic.
+        let _guard = preferences_lock();
         if let Some(parent) = prefs_path.parent() {
             ensure_dir_exists(parent)?;
         }
@@ -143,7 +183,7 @@ pub fn save_preferences_to_path(path: &Path, preferences: &AppPreferences) -> Re
     })?;
 
     // Write to a temporary file first, then rename (atomic operation)
-    let temp_path = path.with_extension("tmp");
+    let temp_path = staging_path(path);
 
     std::fs::write(&temp_path, json_content).map_err(|e| {
         log::error!("Failed to write preferences file: {e}");
@@ -163,6 +203,68 @@ pub fn save_preferences_to_path(path: &Path, preferences: &AppPreferences) -> Re
 
     log::info!("Successfully saved preferences to {path:?}");
     Ok(())
+}
+
+/// Read, merge and write the preferences document as one serialised step.
+///
+/// The returned document is what is now on disk, and it is what a caller's cache
+/// must be set from. Caching what the caller *meant* to write is how one pane's
+/// stale snapshot turns into another pane's lost setting.
+///
+/// A document that cannot be parsed is never overwritten: the write fails and the
+/// unreadable file stays put. A corrupted preferences file is a bug the user can
+/// only report if it still exists.
+pub fn apply_patches_to_path(
+    path: &Path,
+    patches: &[PreferencePatch],
+) -> Result<AppPreferences, AppError> {
+    // Validate the whole batch first, so a rejected patch cannot leave the file
+    // half-updated by an earlier patch in the same call.
+    for patch in patches {
+        patch.validate()?;
+    }
+
+    let _guard = preferences_lock();
+
+    if let Some(parent) = path.parent() {
+        ensure_dir_exists(parent)?;
+    }
+    let mut preferences = load_preferences_from_path(path)?;
+    for patch in patches {
+        preferences.apply(patch);
+    }
+    save_preferences_to_path(path, &preferences)?;
+
+    let fields: Vec<&str> = patches.iter().map(PreferencePatch::field).collect();
+    log::info!("Applied {fields:?} to preferences");
+    Ok(preferences)
+}
+
+/// Applies field-level patches to the stored preferences and returns the result.
+///
+/// Generic implementation — testable with any `Runtime` (including `MockRuntime`).
+pub async fn apply_preference_patches_impl<R: Runtime>(
+    app: AppHandle<R>,
+    patches: Vec<PreferencePatch>,
+) -> Result<AppPreferences, AppError> {
+    log::debug!("Applying {patches:?} to preferences");
+    let prefs_path = get_preferences_path(&app)?;
+    tauri::async_runtime::spawn_blocking(move || apply_patches_to_path(&prefs_path, &patches))
+        .await
+        .map_err(|e| AppError::task_join(format!("Task join error: {e}")))?
+}
+
+/// Applies field-level patches to the stored preferences and returns the result.
+///
+/// This is the write path for single settings: each patch names one field, and a
+/// field it does not mention is left as it was.
+#[tauri::command]
+#[specta::specta]
+pub async fn apply_preference_patches(
+    app: AppHandle,
+    patches: Vec<PreferencePatch>,
+) -> Result<AppPreferences, AppError> {
+    apply_preference_patches_impl(app, patches).await
 }
 
 #[cfg(test)]
@@ -631,8 +733,17 @@ mod tests {
 
         let _ = save_preferences_to_path(&path, &prefs);
 
-        // No temp file should exist in the dir
-        assert!(!dir.path().join("missing").join("preferences.tmp").exists());
+        // Staging names are unique per call, so "the fixed name is absent" would
+        // pass without proving anything. Check for any staging leftover at all.
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "a failed write left staging files behind: {leftovers:?}"
+        );
     }
 
     // =========================================================================
@@ -738,5 +849,199 @@ mod tests {
                 prefs.crash_reporting_consent
             );
         }
+    }
+
+    // =========================================================================
+    // apply_patches_to_path — 字段级合并，写者不互覆
+    // =========================================================================
+
+    #[test]
+    fn patch_touches_only_the_named_field() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        save_preferences_to_path(
+            &path,
+            &AppPreferences {
+                theme: "dark".to_string(),
+                quick_pane_shortcut: Some("Cmd+K".to_string()),
+                language: Some("zh".to_string()),
+                crash_reporting_consent: Some(true),
+            },
+        )
+        .unwrap();
+
+        let merged = apply_patches_to_path(
+            &path,
+            &[PreferencePatch::Theme {
+                value: "light".into(),
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(merged.theme, "light");
+        assert_eq!(merged.quick_pane_shortcut.as_deref(), Some("Cmd+K"));
+        assert_eq!(merged.language.as_deref(), Some("zh"));
+        assert_eq!(merged.crash_reporting_consent, Some(true));
+    }
+
+    #[test]
+    fn absent_field_and_explicit_null_are_different_instructions() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        save_preferences_to_path(
+            &path,
+            &AppPreferences {
+                theme: "dark".to_string(),
+                quick_pane_shortcut: Some("Cmd+K".to_string()),
+                language: Some("zh".to_string()),
+                crash_reporting_consent: Some(true),
+            },
+        )
+        .unwrap();
+
+        // "Follow the system locale" is a choice the user makes, so it has to be
+        // expressible; the shortcut the user set must survive being unmentioned.
+        let merged =
+            apply_patches_to_path(&path, &[PreferencePatch::Language { value: None }]).unwrap();
+
+        assert_eq!(merged.language, None);
+        assert_eq!(merged.quick_pane_shortcut.as_deref(), Some("Cmd+K"));
+    }
+
+    #[test]
+    fn one_invalid_patch_aborts_the_whole_batch() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        let before = AppPreferences {
+            theme: "dark".to_string(),
+            quick_pane_shortcut: None,
+            language: Some("zh".to_string()),
+            crash_reporting_consent: None,
+        };
+        save_preferences_to_path(&path, &before).unwrap();
+
+        let err = apply_patches_to_path(
+            &path,
+            &[
+                PreferencePatch::Language {
+                    value: Some("en".into()),
+                },
+                PreferencePatch::Theme {
+                    value: "purple".into(),
+                },
+            ],
+        )
+        .expect_err("an invalid theme must not be accepted");
+        assert!(err.to_string().contains("Invalid theme"));
+
+        // The valid patch in the same batch must not have landed either.
+        let loaded = load_preferences_from_path(&path).unwrap();
+        assert_eq!(loaded.language.as_deref(), Some("zh"));
+        assert_eq!(loaded.theme, "dark");
+    }
+
+    #[test]
+    fn concurrent_patches_from_two_writers_both_survive() {
+        // The regression this exists for: each writer used to read the whole
+        // document, change its own field, and write the whole document back. Both
+        // renames succeeded and the last writer's stale snapshot decided the other
+        // field — a lost update with no error anywhere.
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        save_preferences_to_path(&path, &AppPreferences::default()).unwrap();
+
+        let first = {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                apply_patches_to_path(
+                    &path,
+                    &[PreferencePatch::Theme {
+                        value: "dark".into(),
+                    }],
+                )
+            })
+        };
+        let second = {
+            let path = path.clone();
+            std::thread::spawn(move || {
+                apply_patches_to_path(
+                    &path,
+                    &[PreferencePatch::CrashReportingConsent { value: Some(true) }],
+                )
+            })
+        };
+
+        first.join().unwrap().unwrap();
+        second.join().unwrap().unwrap();
+
+        let loaded = load_preferences_from_path(&path).unwrap();
+        assert_eq!(loaded.theme, "dark");
+        assert_eq!(loaded.crash_reporting_consent, Some(true));
+    }
+
+    #[test]
+    fn patch_on_a_missing_file_starts_from_defaults() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("nested").join("preferences.json");
+
+        let merged = apply_patches_to_path(
+            &path,
+            &[PreferencePatch::Language {
+                value: Some("en".into()),
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(merged.theme, "system", "untouched fields keep defaults");
+        assert_eq!(merged.language.as_deref(), Some("en"));
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn patch_never_overwrites_a_document_it_cannot_read() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+        std::fs::write(&path, "not valid json").unwrap();
+
+        apply_patches_to_path(
+            &path,
+            &[PreferencePatch::Theme {
+                value: "dark".into(),
+            }],
+        )
+        .expect_err("an unreadable file must not be rebuilt from defaults");
+
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "not valid json",
+            "the corrupt file is the user's only evidence and the only repairable copy"
+        );
+    }
+
+    #[test]
+    fn staging_files_are_unique_per_call_and_left_behind_nothing() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("preferences.json");
+
+        let a = staging_path(&path);
+        let b = staging_path(&path);
+        assert_ne!(a, b, "two writers must not stage to the same name");
+
+        apply_patches_to_path(
+            &path,
+            &[PreferencePatch::Theme {
+                value: "dark".into(),
+            }],
+        )
+        .unwrap();
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "successful writes clean up staging files"
+        );
     }
 }
