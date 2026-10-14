@@ -55,7 +55,7 @@ The app launches as a desktop window (frontend dev server runs at `http://localh
 | **UX**          | Command palette (`Cmd+K`), cross-platform title bar, system tray, global shortcuts, deep links    |
 | **Platform**    | macOS NSPanel + vibrancy, Windows frameless window, Linux native decorations                      |
 | **Engineering** | 15+ quality gates, three-layer Rust testing, E2E with axe accessibility audits, cargo-deny        |
-| **AI-ready**    | `AGENTS.md` rules, 26 developer docs explaining the _why_ behind every pattern                    |
+| **AI-ready**    | `AGENTS.md` rules, 10 bilingual developer guides explaining the _why_ behind every pattern        |
 
 ## Feature Deep Dive
 
@@ -86,7 +86,7 @@ Platform detection is cached at module level (`usePlatform()`). Per-platform Tau
 
 ### Developer Experience
 
-- **Command palette** — `Cmd+K` searchable launcher backed by a centralized command registry (14 commands across navigation, window, notification, and app groups)
+- **Command palette** — `Cmd+K` searchable launcher backed by a centralized command registry (15 commands across navigation, window, notification, and app groups)
 - **Preferences system** — 3 panes (General, Appearance, Advanced) with atomic writes via temp-file + rename
 - **Theme system** — light/dark/system, applied before first paint (inline FOUC-prevention script), synced across windows via Tauri events
 - **i18n** — lazy-loaded language packs (en, zh), RTL support, OS locale auto-detection
@@ -95,7 +95,7 @@ Platform detection is cached at module level (`usePlatform()`). Per-platform Tau
 
 - **15+ quality gates** in `npm run check:all`: TypeScript strict mode (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`), ESLint (zero warnings), ast-grep rules, React Compiler, Prettier, Rust fmt/clippy, Vitest, cargo test
 - **Three-layer Rust testing** — pure functions (`*_from_path`/`*_to_path`) with `TempDir` isolation, `MockRuntime` for `AppHandle` mocking, integration tests for end-to-end flows
-- **E2E with accessibility** — 16 Playwright scenarios including `@axe-core/playwright` WCAG 2.1 AA audits
+- **E2E with accessibility** — 98 Playwright scenarios across 17 spec files, including `@axe-core/playwright` WCAG 2.1 AA audits
 - **cargo-deny** — license whitelist (14 allowed, GPL/AGPL rejected), vulnerability scanning, git dependency revision pinning
 
 ## Tech Stack
@@ -125,7 +125,7 @@ my-app/
     - ui/                    shadcn/ui component library
   - hooks/                   10 custom React hooks
   - lib/                     Pure logic (no React coupling)
-    - commands/              Command registry system (14 commands)
+    - commands/              Command registry system (15 commands)
     - schemas/               Zod validation schemas
     - sentry.ts              Sentry SDK init + consent gate
     - redact.ts              Sensitive data redaction
@@ -140,9 +140,9 @@ my-app/
   - src/types.rs             Shared types with validation
   - src/bindings.rs          tauri-specta TypeScript binding generation
   - capabilities/            3 capability files (default, desktop, quick-pane)
-  - tests/                   3 integration test files
-- e2e/                       16 Playwright E2E test files
-- docs/                      Bilingual documentation (en + zh, 64 files)
+  - tests/                   6 integration test files
+- e2e/                       17 Playwright E2E test files
+- docs/                      Bilingual documentation (en + zh, 32 files)
 - locales/                   i18n translations (en, zh)
 ```
 
@@ -171,11 +171,14 @@ Rust and React communicate through Tauri events for loose coupling. Theme change
 
 ### Architecture Enforcement (ast-grep)
 
-Three AST rules are enforced in CI:
+6 AST rules are enforced in CI:
 
 - `hooks-in-hooks-dir.yml` — no React hooks defined in `lib/` (directory boundary)
 - `no-store-in-lib.yml` — no store subscriptions in `lib/` (only `getState()` for pure logic)
 - `no-destructure.yml` — no Zustand destructuring (prevents render cascades)
+- `no-console.yml` — no `console.*` in `src/` (use `@/lib/logger`)
+- `no-ts-ignore.yml` — use `@ts-expect-error`, which fails when unused, not `@ts-ignore`
+- `no-direct-invoke.yml` — no raw `invoke()` outside the generated `bindings.ts`
 
 ## Development
 

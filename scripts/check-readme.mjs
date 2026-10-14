@@ -1,20 +1,31 @@
 #!/usr/bin/env node
 /**
- * Test-count guard.
+ * README and CONTRIBUTING number guard.
  *
  * README.md, README.zh.md, CONTRIBUTING.md and docs/CONTRIBUTING.{en,zh}.md
- * hard-code suite sizes. This script keeps them honest against reality:
+ * hard-code counts. This script keeps them honest against reality:
  *
  *   node scripts/check-readme.mjs --frontend <n> --rust <n> --e2e <n>
  *
- * Test counts come from the run CI measured (measured, never derived), while test
- * *file* counts are counted from the tree here. Every captured number must equal the
- * expected value, so a stale count fails even when the prose still matches the
- * pattern. `--update` rewrites them.
+ * Two kinds of number, deliberately handled differently:
+ *
+ * - Structural counts (developer guides, docs files, ast-grep rules, registry
+ *   commands, quality gates, integration test files, capability files) are
+ *   measured from the tree by `scripts/lib/readme-counts.mjs`. Nobody copies them,
+ *   so they cannot go stale while looking plausible.
+ * - Suite *case* counts come from CI, from the run that just executed them. They
+ *   stay arguments because only a run knows them — a listing does not agree with
+ *   the run here (measured: `vitest list` prints 1037 ids for a 1039-test run).
+ *
+ * Every captured number must equal its expected value, so a stale count fails even
+ * when the prose still matches the pattern; a pattern that no longer matches at all
+ * fails too, because prose that moved means the guard went blind. `--update`
+ * rewrites them.
  */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { measureCounts } from './lib/readme-counts.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -36,6 +47,16 @@ const unitTestFiles = String(
 const e2eSpecFiles = String(
   readdirSync(join(root, 'e2e')).filter(file => file.endsWith('.spec.ts'))
     .length
+)
+
+// Structural claims — doc counts, rule counts, registry size — are measured from
+// the tree here, so a README number cannot drift from the thing it counts. The
+// suite *case* counts below stay arguments: only a test run knows those.
+const measured = Object.fromEntries(
+  Object.entries(measureCounts(root)).map(([key, value]) => [
+    key,
+    String(value),
+  ])
 )
 
 function arg(name) {
@@ -104,6 +125,78 @@ const docs = [
         expected: [e2e],
         replacement: `Playwright E2E tests (${e2e} scenarios)`,
       },
+      {
+        label: 'developer guide count',
+        re: /(\d+) bilingual developer guides/,
+        expected: [measured.developerDocs],
+        replacement: `${measured.developerDocs} bilingual developer guides`,
+      },
+      {
+        label: 'quality gates (engineering row)',
+        re: /(\d+)\+ quality gates, three-layer/,
+        expected: [measured.qualityGates],
+        replacement: `${measured.qualityGates}+ quality gates, three-layer`,
+      },
+      {
+        label: 'quality gates (feature list)',
+        re: /\*\*(\d+)\+ quality gates\*\* in `npm run check:all`/,
+        expected: [measured.qualityGates],
+        replacement: `**${measured.qualityGates}+ quality gates** in \`npm run check:all\``,
+      },
+      {
+        label: 'quality gates (command table)',
+        re: /Run all ([\d,]+)\+ quality gates/,
+        expected: [measured.qualityGates],
+        replacement: `Run all ${measured.qualityGates}+ quality gates`,
+      },
+      {
+        label: 'registry commands (feature list)',
+        re: /command registry \((\d+) commands across/,
+        expected: [measured.registryCommands],
+        replacement: `command registry (${measured.registryCommands} commands across`,
+      },
+      {
+        label: 'registry commands (structure tree)',
+        re: /Command registry system \((\d+) commands\)/,
+        expected: [measured.registryCommands],
+        replacement: `Command registry system (${measured.registryCommands} commands)`,
+      },
+      {
+        label: 'e2e scenarios and specs (feature list)',
+        re: /(\d+) Playwright scenarios across (\d+) spec files/,
+        expected: [e2e, String(e2eSpecFiles)],
+        replacement: `${e2e} Playwright scenarios across ${e2eSpecFiles} spec files`,
+      },
+      {
+        label: 'e2e spec files (structure tree)',
+        re: /(\d+) Playwright E2E test files/,
+        expected: [String(e2eSpecFiles)],
+        replacement: `${e2eSpecFiles} Playwright E2E test files`,
+      },
+      {
+        label: 'rust integration test files',
+        re: /(\d+) integration test files/,
+        expected: [measured.rustIntegrationTests],
+        replacement: `${measured.rustIntegrationTests} integration test files`,
+      },
+      {
+        label: 'capability files',
+        re: /(\d+) capability files/,
+        expected: [measured.capabilityFiles],
+        replacement: `${measured.capabilityFiles} capability files`,
+      },
+      {
+        label: 'docs file count',
+        re: /Bilingual documentation \(en \+ zh, (\d+) files\)/,
+        expected: [measured.docsMarkdownFiles],
+        replacement: `Bilingual documentation (en + zh, ${measured.docsMarkdownFiles} files)`,
+      },
+      {
+        label: 'ast rule count',
+        re: /(\d+) AST rules are enforced in CI/,
+        expected: [measured.astRules],
+        replacement: `${measured.astRules} AST rules are enforced in CI`,
+      },
     ],
   },
   {
@@ -138,6 +231,72 @@ const docs = [
         re: /Playwright E2E 测试（([\d,]+) 个场景）/,
         expected: [e2e],
         replacement: `Playwright E2E 测试（${e2e} 个场景）`,
+      },
+      {
+        label: 'registry commands (feature list)',
+        re: /由统一命令注册表驱动（(\d+) 个命令/,
+        expected: [measured.registryCommands],
+        replacement: `由统一命令注册表驱动（${measured.registryCommands} 个命令`,
+      },
+      {
+        label: 'registry commands (structure tree)',
+        re: /命令注册表系统（(\d+) 个命令）/,
+        expected: [measured.registryCommands],
+        replacement: `命令注册表系统（${measured.registryCommands} 个命令）`,
+      },
+      {
+        label: 'e2e scenarios and specs (feature list)',
+        re: /(\d+) 个 Playwright 场景、(\d+) 个测试文件/,
+        expected: [e2e, String(e2eSpecFiles)],
+        replacement: `${e2e} 个 Playwright 场景、${e2eSpecFiles} 个测试文件`,
+      },
+      {
+        label: 'e2e spec files (structure tree)',
+        re: /(\d+) 个 Playwright E2E 测试文件/,
+        expected: [String(e2eSpecFiles)],
+        replacement: `${e2eSpecFiles} 个 Playwright E2E 测试文件`,
+      },
+      {
+        label: 'rust integration test files',
+        re: /(\d+) 个集成测试文件/,
+        expected: [measured.rustIntegrationTests],
+        replacement: `${measured.rustIntegrationTests} 个集成测试文件`,
+      },
+      {
+        label: 'capability files',
+        re: /(\d+) 个能力配置文件/,
+        expected: [measured.capabilityFiles],
+        replacement: `${measured.capabilityFiles} 个能力配置文件`,
+      },
+      {
+        label: 'docs file count',
+        re: /双语文档（en \+ zh，(\d+) 个文件）/,
+        expected: [measured.docsMarkdownFiles],
+        replacement: `双语文档（en + zh，${measured.docsMarkdownFiles} 个文件）`,
+      },
+      {
+        label: 'ast rule count',
+        re: /(\d+) 条 AST 规则在 CI 中强制执行/,
+        expected: [measured.astRules],
+        replacement: `${measured.astRules} 条 AST 规则在 CI 中强制执行`,
+      },
+      {
+        label: 'quality gates (engineering row)',
+        re: /(\d+)\+ 质量门禁、三层/,
+        expected: [measured.qualityGates],
+        replacement: `${measured.qualityGates}+ 质量门禁、三层`,
+      },
+      {
+        label: 'quality gates (feature list)',
+        re: /\*\*(\d+)\+ 质量门禁\*\* 集成在/,
+        expected: [measured.qualityGates],
+        replacement: `**${measured.qualityGates}+ 质量门禁** 集成在`,
+      },
+      {
+        label: 'quality gates (command table)',
+        re: /运行全部 ([\d,]+)\+ 质量门禁/,
+        expected: [measured.qualityGates],
+        replacement: `运行全部 ${measured.qualityGates}+ 质量门禁`,
       },
     ],
   },
