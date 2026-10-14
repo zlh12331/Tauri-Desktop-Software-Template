@@ -112,6 +112,18 @@ directory, and `code` for syntax rules such as `no-store-subscription-in-lib`.
 Fixtures are generated into `node_modules/.cache` and deleted afterwards, so a
 deliberate anti-pattern never exists in the working tree.
 
+**A contract proves behaviour; only a coverage sweep proves scope.**
+`scripts/ast-grep-store-coverage.test.mjs` plants the same anti-pattern once per
+store discovered from `src/store/`, reading each rule's own matcher rather than
+duplicating it. It exists because `no-destructure-zustand` hardcoded
+`useUIStore(...)`: its contract pair stayed green while three of the four stores
+were unguarded and `AGENTS.md` promised "no Zustand destructuring" without
+qualification. The sweep goes red when a rule is silent for any store, when a
+store hook falls outside the matcher (`useSettings`, with no `Store` suffix, is
+invisible to both rules no matter how they are written), and when a rule widens
+until it reports compliant code — selector calls and `getState()` destructuring
+must stay clean, or passing the sweep would just mean over-matching.
+
 ### React Compiler
 
 Handles memoization automatically at build time. You do **not** need to manually add:

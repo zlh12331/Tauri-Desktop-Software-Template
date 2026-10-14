@@ -85,5 +85,7 @@ E2E 固定单 worker。Playwright 默认的并行度在一台按需编译模块�
   `scripts/run-gate-tests.mjs` 负责发现它们，找不到任何用例就退出 1，所以改个名字
   没法悄悄把套件清空。
 - 架构规则由 ast-grep 契约套件覆盖（`scripts/lib/ast-grep-contracts.mjs`）：新增一条
-  规则却没有反例与正例 fixture，`npm run test:scripts` 就会红。详见
+  规则却没有反例与正例 fixture，`npm run test:scripts` 就会红。两条 store 规则另有覆盖面
+  扫描（`scripts/ast-grep-store-coverage.test.mjs`）：它按 `src/store/` 里的每个 store
+  逐个植入同一种反例——契约证明规则会咬，覆盖面证明它咬得住自己宣称的全部。详见
   [静态分析](static-analysis.zh.md)。
