@@ -77,8 +77,11 @@ node scripts/check-bundle.mjs    # 按你的应用重设体积预算
 2. `lib.rs` 中删 `init_quick_pane`（setup 内）、解析快速面板加速键的那段全局快捷键
    注册，以及 window-state 插件 `denylist` 里的 `"quick-pane"` 项。若再没有需要
    "不恢复状态"的窗口，denylist 就变空——插件留着，列表删掉。
-3. `types.rs`：`DEFAULT_QUICK_PANE_SHORTCUT` 与 `AppPreferences.quick_pane_shortcut`
-   字段。删偏好字段是契约变更：`save_preferences` 的校验与 `GeneralPane.tsx` 都引用它。
+3. `types.rs`：`DEFAULT_QUICK_PANE_SHORTCUT`、`AppPreferences.quick_pane_shortcut`
+   字段，以及 `PreferencePatch::QuickPaneShortcut` 变体（它的 `validate()` 与
+   `field()` 分支同样点名这个字段）。删偏好字段是契约变更：
+   `commands/preferences.rs` 里的 `apply_patches_to_path`、
+   `src/lib/preference-patches.ts` 的构造器与 `GeneralPane.tsx` 都引用它。
 4. 前端：`quick-pane.html`、`src/quick-pane-main.tsx`、`src/quick-pane.css`、
    `src/components/quick-pane/`、`useMainWindowEventListeners.ts` 里的
    `quick-pane-submit` 监听、`GeneralPane.tsx` 的加速键选择器、`e2e/quick-pane-event.spec.ts`。

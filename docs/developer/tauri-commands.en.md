@@ -44,14 +44,16 @@ See [error-handling.md](./error-handling.en.md) for comprehensive error handling
 Handle both cases:
 
 ```typescript
-const result = await commands.savePreferences({ theme: 'dark' })
+const result = await commands.applyPreferencePatches([
+  { Theme: { value: 'dark' } },
+])
 
 if (result.status === 'error') {
   toast.error('Failed to save', { description: result.error.message })
   return
 }
 
-// result.data is available here
+// result.data is the merged document, already validated and written
 toast.success('Saved!')
 ```
 
@@ -79,24 +81,33 @@ const preferences = result.data // narrowed to AppPreferences
 **TanStack Query example** — this is what `src/queries/preferences.ts` does:
 
 ```typescript
-export function useSavePreferences() {
+export function usePatchPreferences() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (preferences: AppPreferences) => {
-      const result = await commands.savePreferences(preferences)
+    mutationFn: async (patches: PreferencePatch[]) => {
+      const result = await commands.applyPreferencePatches(patches)
       if (result.status === 'error') {
         toast.error('Could not save preferences', {
           description: result.error.message,
         })
         throw new Error(result.error.message)
       }
+      return result.data
     },
-    onSuccess: (_, preferences) =>
+    onSuccess: preferences =>
       queryClient.setQueryData(['preferences'], preferences),
   })
 }
 ```
+
+Preferences go through `applyPreferencePatches` rather than `savePreferences`
+because the latter rewrites the whole document: a caller holding a stale copy
+silently reverts whatever a different writer saved in the meantime. A patch names
+one field, so `[{ Language: { value: null } }]` means "follow the system locale"
+instead of "whatever I last read". Build them with `preferencePatches` from
+`src/lib/preference-patches.ts`, and refresh the cache from the merged document
+the command returns — not from the value you sent.
 
 Queries take the other branch: `usePreferences()` turns any backend error into a
 logged warning plus default values, so the window still renders. See
@@ -108,8 +119,8 @@ rather than widening the thrown value — `new Error()` carries only the message
 **Event handler example** (explicit error handling):
 
 ```typescript
-const handleSave = async () => {
-  const result = await commands.savePreferences(preferences)
+const handleSave = async (patches: PreferencePatch[]) => {
+  const result = await commands.applyPreferencePatches(patches)
   if (result.status === 'error') {
     toast.error('Failed to save', { description: result.error.message })
     return
@@ -201,10 +212,10 @@ src-tauri/src/
 ├── lib.rs              # App setup, plugin registration, run() entry
 ├── bindings.rs         # tauri-specta command registration + TS export
 ├── error.rs            # AppError enum (10 variants, serde `kind` tag)
-├── types.rs            # Shared types: AppPreferences, CrashReportData, RecoveryError
+├── types.rs            # Shared types: AppPreferences, PreferencePatch, CrashReportData, RecoveryError
 ├── commands/           # Command handlers by domain
 │   ├── mod.rs
-│   ├── preferences.rs  # greet, loadPreferences, savePreferences
+│   ├── preferences.rs  # greet, loadPreferences, savePreferences, applyPreferencePatches
 │   ├── notifications.rs # sendNativeNotification
 │   ├── recovery.rs     # saveEmergencyData, loadEmergencyData, cleanupOldRecoveryFiles
 │   ├── quick_pane.rs   # showQuickPane, dismissQuickPane, toggleQuickPane, shortcut cmds
@@ -218,6 +229,7 @@ src-tauri/src/
 
 src/lib/
 ├── bindings.ts         # Generated (DO NOT EDIT)
+├── preference-patches.ts # Builders for PreferencePatch wire shapes
 └── tauri-bindings.ts   # Re-exports with project conventions
 ```
 
@@ -264,6 +276,10 @@ vi.mock('@/lib/tauri-bindings', () => ({
       .fn()
       .mockResolvedValue({ status: 'ok', data: { theme: 'system' } }),
     savePreferences: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    applyPreferencePatches: vi.fn().mockResolvedValue({
+      status: 'ok',
+      data: { theme: 'system' },
+    }),
     // ... other commands
   },
 }))
@@ -273,11 +289,12 @@ vi.mock('@/lib/tauri-bindings', () => ({
 
 ### Preferences
 
-| Command           | Parameters                    | Returns                            | Description           |
-| ----------------- | ----------------------------- | ---------------------------------- | --------------------- |
-| `greet`           | `name: string`                | `Result<string, AppError>`         | Demo greeting command |
-| `loadPreferences` | none                          | `Result<AppPreferences, AppError>` | Load app preferences  |
-| `savePreferences` | `preferences: AppPreferences` | `Result<null, AppError>`           | Save app preferences  |
+| Command                  | Parameters                    | Returns                            | Description                                     |
+| ------------------------ | ----------------------------- | ---------------------------------- | ----------------------------------------------- |
+| `greet`                  | `name: string`                | `Result<string, AppError>`         | Demo greeting command                           |
+| `loadPreferences`        | none                          | `Result<AppPreferences, AppError>` | Load app preferences                            |
+| `savePreferences`        | `preferences: AppPreferences` | `Result<null, AppError>`           | Rewrite the whole document (prefer patches)     |
+| `applyPreferencePatches` | `patches: PreferencePatch[]`  | `Result<AppPreferences, AppError>` | Change only the named fields; returns the merge |
 
 ### Notifications
 

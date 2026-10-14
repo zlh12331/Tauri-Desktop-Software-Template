@@ -42,7 +42,11 @@ const { data, isLoading, error } = useQuery({
 Throwing is what routes an `AppError` into the query's error state. The shipped
 [`usePreferences()`](../../src/queries/preferences.ts) deliberately does _not_ throw:
 a missing preferences file is normal on first launch, so it logs a warning and
-returns defaults.
+returns defaults. A file that exists but cannot be parsed is not normal — that
+path logs an error and toasts, because silently replacing it with defaults would
+look like the user's settings had reset themselves. Writes go through
+`usePatchPreferences()` and name one field at a time; see
+[tauri-commands.md](./tauri-commands.en.md) → Preferences.
 
 See [error-handling.md](./error-handling.en.md) for retry configuration and error display patterns.
 

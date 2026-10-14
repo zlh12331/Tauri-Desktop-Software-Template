@@ -2,7 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
 import i18n from '@/i18n/config'
-import { commands, type AppPreferences } from '@/lib/tauri-bindings'
+import {
+  commands,
+  type AppPreferences,
+  type PreferencePatch,
+} from '@/lib/tauri-bindings'
 
 // Query keys for preferences
 export const preferencesQueryKeys = {
@@ -19,10 +23,19 @@ export function usePreferences() {
       const result = await commands.loadPreferences()
 
       if (result.status === 'error') {
-        // Return defaults if preferences file doesn't exist yet
-        logger.warn('Failed to load preferences, using defaults', {
-          error: result.error,
-        })
+        // A missing file is a first run; a file that cannot be parsed is data
+        // damage, and treating the two alike is how a corrupt preferences.json
+        // silently resets the whole app to defaults with nothing said to anyone.
+        if (result.error.kind === 'Serialization') {
+          logger.error('Preferences file could not be parsed, using defaults', {
+            error: result.error,
+          })
+          toast.error(i18n.t('toast.error.preferencesCorrupted'))
+        } else {
+          logger.warn('Failed to load preferences, using defaults', {
+            error: result.error,
+          })
+        }
         return {
           theme: 'system',
           quick_pane_shortcut: null,
@@ -41,18 +54,24 @@ export function usePreferences() {
   })
 }
 
-export function useSavePreferences() {
+/**
+ * Applies field-level patches and refreshes the cache from what Rust reports.
+ *
+ * The cache is set from the response rather than from the caller's guess, because
+ * the caller is exactly the party that may be holding a stale document.
+ */
+export function usePatchPreferences() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (preferences: AppPreferences) => {
-      logger.debug('Saving preferences to backend', { preferences })
-      const result = await commands.savePreferences(preferences)
+    mutationFn: async (patches: PreferencePatch[]): Promise<AppPreferences> => {
+      logger.debug('Patching preferences', { patches })
+      const result = await commands.applyPreferencePatches(patches)
 
       if (result.status === 'error') {
-        logger.error('Failed to save preferences', {
+        logger.error('Failed to patch preferences', {
           error: result.error,
-          preferences,
+          patches,
         })
         toast.error(i18n.t('toast.error.preferencesSaveFailed'), {
           description: result.error.message,
@@ -60,12 +79,13 @@ export function useSavePreferences() {
         throw new Error(result.error.message)
       }
 
-      logger.info('Preferences saved successfully')
+      logger.info('Preferences patched successfully', {
+        preferences: result.data,
+      })
+      return result.data
     },
-    onSuccess: (_, preferences) => {
-      // Update the cache with the new preferences
+    onSuccess: preferences => {
       queryClient.setQueryData(preferencesQueryKeys.preferences(), preferences)
-      logger.info('Preferences cache updated')
       toast.success(i18n.t('toast.success.preferencesSaved'))
     },
   })

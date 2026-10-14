@@ -153,6 +153,7 @@
   "toast.error.fullscreenEnterFailed": "进入全屏失败：{{message}}",
   "toast.error.fullscreenExitFailed": "退出全屏失败：{{message}}",
   "toast.error.generic": "出错了",
+  "toast.error.preferencesCorrupted": "无法读取偏好设置文件，已改用默认设置",
   "toast.error.preferencesSaveFailed": "保存偏好设置失败",
   "toast.error.shortcutFailed": "注册快捷键失败",
   "toast.error.shortcutRestoreDescription": "快捷键可能不同步。请重启应用或重试。",

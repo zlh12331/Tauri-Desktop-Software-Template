@@ -47,6 +47,23 @@ export const tauriMockScript = `
         resolve(null);
         return;
       }
+      if (cmd === 'apply_preference_patches') {
+        // Mirrors the Rust patch semantics: each entry names one field and only
+        // that field is touched; the merged document is handed back so the
+        // frontend can refresh its cache from the authority, not from its guess.
+        var patches = args.patches || [];
+        for (var i = 0; i < patches.length; i++) {
+          for (var variant in patches[i]) {
+            if (!Object.prototype.hasOwnProperty.call(patches[i], variant)) continue;
+            var field = variant
+              .charAt(0).toLowerCase() + variant.slice(1)
+              .replace(/[A-Z]/g, function (c) { return '_' + c.toLowerCase(); });
+            mockPreferences[field] = patches[i][variant].value;
+          }
+        }
+        resolve(JSON.parse(JSON.stringify(mockPreferences)));
+        return;
+      }
       if (cmd === 'greet') {
         resolve('Hello, ' + args.name + '!');
         return;

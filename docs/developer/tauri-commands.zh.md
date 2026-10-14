@@ -44,14 +44,16 @@ type Result<T, E> = { status: 'ok'; data: T } | { status: 'error'; error: E }
 处理两种情况：
 
 ```typescript
-const result = await commands.savePreferences({ theme: 'dark' })
+const result = await commands.applyPreferencePatches([
+  { Theme: { value: 'dark' } },
+])
 
 if (result.status === 'error') {
   toast.error('保存失败', { description: result.error.message })
   return
 }
 
-// result.data 在此处可用
+// result.data 是已校验、已写盘的合并文档
 toast.success('已保存！')
 ```
 
@@ -79,24 +81,31 @@ const preferences = result.data // 已收窄为 AppPreferences
 **TanStack Query 示例**——`src/queries/preferences.ts` 就是这么写的：
 
 ```typescript
-export function useSavePreferences() {
+export function usePatchPreferences() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (preferences: AppPreferences) => {
-      const result = await commands.savePreferences(preferences)
+    mutationFn: async (patches: PreferencePatch[]) => {
+      const result = await commands.applyPreferencePatches(patches)
       if (result.status === 'error') {
         toast.error('Could not save preferences', {
           description: result.error.message,
         })
         throw new Error(result.error.message)
       }
+      return result.data
     },
-    onSuccess: (_, preferences) =>
+    onSuccess: preferences =>
       queryClient.setQueryData(['preferences'], preferences),
   })
 }
 ```
+
+偏好设置走 `applyPreferencePatches` 而不是 `savePreferences`，因为后者会整篇重写文档：
+拿着旧副本的调用方会悄悄把别的写入者刚存的值退回去。补丁只点名一个字段，所以
+`[{ Language: { value: null } }]` 的意思是「跟随系统语言」，而不是「我上次读到了什么」。
+用 `src/lib/preference-patches.ts` 里的 `preferencePatches` 构造补丁，并用命令返回的
+合并文档刷新缓存——不要用你发出去的那个值。
 
 查询走另一条分支：`usePreferences()` 会把任何后端错误转成一条 warn 日志加默认值，
 保证窗口照样渲染，参见 [error-handling.md](./error-handling.zh.md) 的模式 3。
@@ -107,8 +116,8 @@ export function useSavePreferences() {
 **事件处理器示例**（显式错误处理）：
 
 ```typescript
-const handleSave = async () => {
-  const result = await commands.savePreferences(preferences)
+const handleSave = async (patches: PreferencePatch[]) => {
+  const result = await commands.applyPreferencePatches(patches)
   if (result.status === 'error') {
     toast.error('保存失败', { description: result.error.message })
     return
@@ -199,10 +208,10 @@ src-tauri/src/
 ├── lib.rs              # 应用设置、插件注册、run() 入口
 ├── bindings.rs         # tauri-specta 命令注册 + TS 导出
 ├── error.rs            # AppError 枚举（10 个变体，serde `kind` 标签）
-├── types.rs            # 共享类型：AppPreferences, CrashReportData, RecoveryError
+├── types.rs            # 共享类型：AppPreferences, PreferencePatch, CrashReportData, RecoveryError
 ├── commands/           # 按领域划分的命令处理器
 │   ├── mod.rs
-│   ├── preferences.rs  # greet, loadPreferences, savePreferences
+│   ├── preferences.rs  # greet, loadPreferences, savePreferences, applyPreferencePatches
 │   ├── notifications.rs # sendNativeNotification
 │   ├── recovery.rs     # saveEmergencyData, loadEmergencyData, cleanupOldRecoveryFiles
 │   ├── quick_pane.rs   # showQuickPane, dismissQuickPane, toggleQuickPane, shortcut cmds
@@ -216,6 +225,7 @@ src-tauri/src/
 
 src/lib/
 ├── bindings.ts         # 生成的（请勿编辑）
+├── preference-patches.ts # PreferencePatch 线格式构造器
 └── tauri-bindings.ts   # 带项目约定的重新导出
 ```
 
@@ -261,6 +271,10 @@ vi.mock('@/lib/tauri-bindings', () => ({
       .fn()
       .mockResolvedValue({ status: 'ok', data: { theme: 'system' } }),
     savePreferences: vi.fn().mockResolvedValue({ status: 'ok', data: null }),
+    applyPreferencePatches: vi.fn().mockResolvedValue({
+      status: 'ok',
+      data: { theme: 'system' },
+    }),
     // ... 其他命令
   },
 }))
@@ -270,11 +284,12 @@ vi.mock('@/lib/tauri-bindings', () => ({
 
 ### 偏好设置
 
-| 命令              | 参数                          | 返回值                             | 描述             |
-| ----------------- | ----------------------------- | ---------------------------------- | ---------------- |
-| `greet`           | `name: string`                | `Result<string, AppError>`         | 演示问候命令     |
-| `loadPreferences` | 无                            | `Result<AppPreferences, AppError>` | 加载应用偏好设置 |
-| `savePreferences` | `preferences: AppPreferences` | `Result<null, AppError>`           | 保存应用偏好设置 |
+| 命令                     | 参数                          | 返回值                             | 描述                                 |
+| ------------------------ | ----------------------------- | ---------------------------------- | ------------------------------------ |
+| `greet`                  | `name: string`                | `Result<string, AppError>`         | 演示问候命令                         |
+| `loadPreferences`        | 无                            | `Result<AppPreferences, AppError>` | 加载应用偏好设置                     |
+| `savePreferences`        | `preferences: AppPreferences` | `Result<null, AppError>`           | 整篇重写文档（优先用补丁）           |
+| `applyPreferencePatches` | `patches: PreferencePatch[]`  | `Result<AppPreferences, AppError>` | 只改动被点名的字段，返回合并后的文档 |
 
 ### 通知
 

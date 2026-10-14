@@ -34,15 +34,12 @@ vi.mock('@/lib/logger', () => ({
 }))
 
 // Mock tauri bindings
-const mockLoadPreferences = vi.fn()
-const mockSavePreferences = vi.fn()
+const mockApplyPreferencePatches = vi.fn()
 const mockDeleteCrashReport = vi.fn()
 vi.mock('@/lib/tauri-bindings', () => ({
   commands: {
-    loadPreferences: (...args: unknown[]) =>
-      mockLoadPreferences(...(args as [])),
-    savePreferences: (...args: unknown[]) =>
-      mockSavePreferences(...(args as [never])),
+    applyPreferencePatches: (...args: unknown[]) =>
+      mockApplyPreferencePatches(...(args as [never])),
     deleteCrashReport: (...args: unknown[]) =>
       mockDeleteCrashReport(...(args as [])),
   },
@@ -130,11 +127,10 @@ describe('CrashReportDialog', () => {
       pendingCrashReport: null,
     })
     mockIsSentryEnabled.mockReturnValue(true)
-    mockLoadPreferences.mockResolvedValue({
+    mockApplyPreferencePatches.mockResolvedValue({
       status: 'ok',
       data: defaultPrefs,
     })
-    mockSavePreferences.mockResolvedValue({ status: 'ok', data: null })
     mockDeleteCrashReport.mockResolvedValue({ status: 'ok', data: null })
   })
 
@@ -177,7 +173,7 @@ describe('CrashReportDialog', () => {
   })
 
   describe('正向用例 — 用户交互', () => {
-    it('点击 "Send Report" 保存同意并打开 Sentry consent gate', async () => {
+    it('点击 "Send Report" 只写入同意字段并打开 Sentry consent gate', async () => {
       const user = userEvent.setup()
       useCrashReportStore.setState({ pendingCrashReport: crashFixture })
       render(<CrashReportDialog />)
@@ -185,10 +181,9 @@ describe('CrashReportDialog', () => {
       await user.click(screen.getByText('crashReport.sendReport'))
 
       await waitFor(() => {
-        expect(mockSavePreferences).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          crash_reporting_consent: true,
-        })
+        expect(mockApplyPreferencePatches).toHaveBeenCalledWith([
+          { CrashReportingConsent: { value: true } },
+        ])
       })
       expect(mockSetSentryConsent).toHaveBeenCalledWith(true)
     })
@@ -238,7 +233,7 @@ describe('CrashReportDialog', () => {
       })
     })
 
-    it('点击 "Don\'t Send" 保存拒绝同意并删除崩溃文件', async () => {
+    it('点击 "Don\'t Send" 只写入拒绝同意的字段并删除崩溃文件', async () => {
       const user = userEvent.setup()
       useCrashReportStore.setState({ pendingCrashReport: crashFixture })
       render(<CrashReportDialog />)
@@ -246,10 +241,9 @@ describe('CrashReportDialog', () => {
       await user.click(screen.getByText('crashReport.doNotSend'))
 
       await waitFor(() => {
-        expect(mockSavePreferences).toHaveBeenCalledWith({
-          ...defaultPrefs,
-          crash_reporting_consent: false,
-        })
+        expect(mockApplyPreferencePatches).toHaveBeenCalledWith([
+          { CrashReportingConsent: { value: false } },
+        ])
       })
       expect(mockDeleteCrashReport).toHaveBeenCalledTimes(1)
     })
@@ -315,11 +309,9 @@ describe('CrashReportDialog', () => {
 
     it('处理中时禁用按钮且不允许关闭对话框', async () => {
       const user = userEvent.setup()
-      // Make loadPreferences slow to keep "handling" state true
-      mockLoadPreferences.mockReturnValue(
-        new Promise(resolve =>
-          setTimeout(() => resolve({ status: 'ok', data: defaultPrefs }), 5000)
-        )
+      // Keep the consent write pending so "handling" stays true
+      mockApplyPreferencePatches.mockReturnValue(
+        new Promise<never>(() => undefined)
       )
       render(<CrashReportDialog />)
 
@@ -346,11 +338,9 @@ describe('CrashReportDialog', () => {
 
     it('处理中时 onOpenChange(false) 被忽略（不关闭）', async () => {
       const user = userEvent.setup()
-      // Keep loadPreferences pending so "handling" stays true
-      mockLoadPreferences.mockReturnValue(
-        new Promise<{ status: 'ok'; data: typeof defaultPrefs }>(
-          () => undefined
-        )
+      // Keep the consent write pending so "handling" stays true
+      mockApplyPreferencePatches.mockReturnValue(
+        new Promise<never>(() => undefined)
       )
       render(<CrashReportDialog />)
 
@@ -372,9 +362,9 @@ describe('CrashReportDialog', () => {
   })
 
   describe('异常用例', () => {
-    it('loadPreferences 抛错时显示错误 toast', async () => {
+    it('同意写入抛错时显示错误 toast 且不打开 Sentry consent gate', async () => {
       const user = userEvent.setup()
-      mockLoadPreferences.mockRejectedValue(new Error('disk fail'))
+      mockApplyPreferencePatches.mockRejectedValue(new Error('disk fail'))
       render(<CrashReportDialog />)
 
       await user.click(screen.getByText('crashReport.sendReport'))
@@ -382,11 +372,12 @@ describe('CrashReportDialog', () => {
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith('crashReport.consentError')
       })
+      expect(mockSetSentryConsent).not.toHaveBeenCalled()
     })
 
-    it('savePreferences 抛错时显示错误 toast', async () => {
+    it('拒绝写入抛错时显示错误 toast', async () => {
       const user = userEvent.setup()
-      mockSavePreferences.mockRejectedValue(new Error('save fail'))
+      mockApplyPreferencePatches.mockRejectedValue(new Error('save fail'))
       render(<CrashReportDialog />)
 
       await user.click(screen.getByText('crashReport.doNotSend'))
@@ -408,28 +399,10 @@ describe('CrashReportDialog', () => {
       })
     })
 
-    it('loadPreferences 返回 error 状态时不调用 savePreferences', async () => {
-      const user = userEvent.setup()
-      mockLoadPreferences.mockResolvedValue({
-        status: 'error',
-        error: { kind: 'Io', message: 'corrupt' },
-      })
-      render(<CrashReportDialog />)
-
-      await user.click(screen.getByText('crashReport.doNotSend'))
-
-      // Wait a tick for any async work
-      await waitFor(() => {
-        expect(mockDeleteCrashReport).toHaveBeenCalled()
-      })
-      // savePreferences should NOT be called because loadPreferences failed
-      expect(mockSavePreferences).not.toHaveBeenCalled()
-    })
-
-    it('handleAllow 时 loadPreferences 返回 error 仍继续发送流程但不保存', async () => {
+    it('同意写入返回 error 状态时不发送崩溃报告', async () => {
       const user = userEvent.setup()
       useCrashReportStore.setState({ pendingCrashReport: crashFixture })
-      mockLoadPreferences.mockResolvedValue({
+      mockApplyPreferencePatches.mockResolvedValue({
         status: 'error',
         error: { kind: 'Io', message: 'corrupt' },
       })
@@ -437,18 +410,31 @@ describe('CrashReportDialog', () => {
 
       await user.click(screen.getByText('crashReport.sendReport'))
 
-      // Consent gate still opens and the crash is still sent
       await waitFor(() => {
-        expect(mockSetSentryConsent).toHaveBeenCalledWith(true)
+        expect(mockToastError).toHaveBeenCalledWith('crashReport.consentError')
       })
-      expect(mockCaptureMessage).toHaveBeenCalledWith(
-        'Rust panic: panicked at src/main.rs:42',
-        'fatal'
-      )
-      expect(mockSavePreferences).not.toHaveBeenCalled()
+      // Consent never reached disk, so nothing may be uploaded under its cover.
+      expect(mockSetSentryConsent).not.toHaveBeenCalled()
+      expect(mockCaptureMessage).not.toHaveBeenCalled()
+    })
+
+    it('同意写入返回 error 状态时保留崩溃文件并允许重试', async () => {
+      const user = userEvent.setup()
+      mockApplyPreferencePatches.mockResolvedValue({
+        status: 'error',
+        error: { kind: 'Io', message: 'corrupt' },
+      })
+      render(<CrashReportDialog />)
+
+      await user.click(screen.getByText('crashReport.doNotSend'))
+
       await waitFor(() => {
-        expect(mockDeleteCrashReport).toHaveBeenCalledTimes(1)
+        expect(mockToastError).toHaveBeenCalledWith('crashReport.consentError')
       })
+      // The decision was not recorded; destroying the crash file would throw away
+      // both the consent record and the evidence the user was asked about.
+      expect(mockDeleteCrashReport).not.toHaveBeenCalled()
+      expect(useCrashReportStore.getState().crashReportDialogOpen).toBe(true)
     })
   })
 })

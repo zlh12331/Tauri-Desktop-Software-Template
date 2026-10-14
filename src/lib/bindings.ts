@@ -21,6 +21,13 @@ export const commands = {
 	 */
 	savePreferences: (preferences: AppPreferences) => typedError<null, AppError>(__TAURI_INVOKE("save_preferences", { preferences })),
 	/**
+	 *  Applies field-level patches to the stored preferences and returns the result.
+	 * 
+	 *  This is the write path for single settings: each patch names one field, and a
+	 *  field it does not mention is left as it was.
+	 */
+	applyPreferencePatches: (patches: PreferencePatch[]) => typedError<AppPreferences, AppError>(__TAURI_INVOKE("apply_preference_patches", { patches })),
+	/**
 	 *  Sends a native system notification.
 	 *  On mobile platforms, returns an error as notifications are not yet supported.
 	 */
@@ -179,6 +186,38 @@ export type CrashReportData = {
 	/**  Application version when the crash occurred */
 	app_version: string,
 };
+
+/**
+ *  One field-level change to the persisted preferences.
+ * 
+ *  Writing a patch list rather than a whole document is what keeps two writers from
+ *  erasing each other: a field absent from the list is not touched. `save_preferences`
+ *  still replaces the document, and using it to change one setting means overwriting
+ *  every other setting with whatever the caller's cache happened to hold.
+ * 
+ *  The `Option` inside a variant is a value, not a sentinel:
+ *  `Language { value: None }` means "follow the system locale", which is something a
+ *  user can deliberately choose. A single-level `Option` patch could not express
+ *  "leave it alone" and "set it back to system" as different instructions, and the
+ *  second would silently do nothing.
+ */
+export type PreferencePatch = 
+/**  `light`, `dark` or `system`. Validated before anything reaches the disk. */
+({ Theme: {
+	value: string,
+} }) & { CrashReportingConsent?: never; Language?: never; QuickPaneShortcut?: never } | 
+/**  Global shortcut string (e.g. `CommandOrControl+Shift+.`), or `None` for the default. */
+({ QuickPaneShortcut: {
+	value: string | null,
+} }) & { CrashReportingConsent?: never; Language?: never; Theme?: never } | 
+/**  Language tag (`en`, `zh`), or `None` to follow the system locale. */
+({ Language: {
+	value: string | null,
+} }) & { CrashReportingConsent?: never; QuickPaneShortcut?: never; Theme?: never } | 
+/**  Crash-reporting consent, or `None` for "not asked yet". */
+({ CrashReportingConsent: {
+	value: boolean | null,
+} }) & { Language?: never; QuickPaneShortcut?: never; Theme?: never };
 
 /**
  *  Error types for recovery operations (typed for frontend matching).

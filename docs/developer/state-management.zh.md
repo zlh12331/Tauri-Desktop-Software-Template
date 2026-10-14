@@ -41,7 +41,10 @@ const { data, isLoading, error } = useQuery({
 这样的辅助函数，而直接把信封返回会让 `error` 永远为 `null`。抛出 `Error` 才能让
 `AppError` 进入查询的错误状态。随模板发货的
 [`usePreferences()`](../../src/queries/preferences.ts) 刻意不抛错：首次启动时偏好设置
-文件本来就不存在，属于正常情况，所以它只记录一条警告并返回默认值。
+文件本来就不存在，属于正常情况，所以它只记录一条警告并返回默认值。文件存在却解析
+失败则是另一回事——那条路径会记录 error 并弹出 toast，因为悄悄换成默认值看起来就
+像是用户自己的设置莫名其妙清零了。写入走 `usePatchPreferences()`，一次只点名一个
+字段，见 [tauri-commands.md](./tauri-commands.zh.md) 的「偏好设置」。
 
 有关重试配置和错误显示模式，请参阅 [error-handling.md](./error-handling.zh.md)。
 

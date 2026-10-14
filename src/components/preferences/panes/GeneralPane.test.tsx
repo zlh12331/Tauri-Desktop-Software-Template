@@ -46,13 +46,14 @@ vi.mock('@/lib/tauri-bindings', () => ({
   },
 }))
 
-// Mock preferences service
+// Mock preferences service — `preferencePatches` comes from the real
+// `@/lib/preference-patches`, so asserted payloads are the wire shapes.
 const mockUsePreferences = vi.fn()
 const mockMutateAsync = vi.fn()
 const mockMutate = vi.fn()
 vi.mock('@/queries/preferences', () => ({
   usePreferences: () => mockUsePreferences(),
-  useSavePreferences: () => ({
+  usePatchPreferences: () => ({
     mutateAsync: (...args: unknown[]) => mockMutateAsync(...(args as [never])),
     mutate: (...args: unknown[]) => mockMutate(...(args as [never])),
     isPending: false,
@@ -359,7 +360,7 @@ describe('GeneralPane', () => {
       })
     }
 
-    it('捕获新快捷键时调用 updateQuickPaneShortcut 并保存偏好', async () => {
+    it('捕获新快捷键时调用 updateQuickPaneShortcut 并只写入该字段', async () => {
       mockUsePreferences.mockReturnValue({
         data: prefsWithShortcut,
         isLoading: false,
@@ -377,10 +378,9 @@ describe('GeneralPane', () => {
         )
       })
       await waitFor(() => {
-        expect(mockMutateAsync).toHaveBeenCalledWith({
-          ...prefsWithShortcut,
-          quick_pane_shortcut: 'CommandOrControl+Shift+P',
-        })
+        expect(mockMutateAsync).toHaveBeenCalledWith([
+          { QuickPaneShortcut: { value: 'CommandOrControl+Shift+P' } },
+        ])
       })
       expect(mockToastError).not.toHaveBeenCalled()
     })
