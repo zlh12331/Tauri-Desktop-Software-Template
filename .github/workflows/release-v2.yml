@@ -305,7 +305,26 @@ jobs:
           security unlock-keychain -p "tauri-keychain" build.keychain
           security import "$certPath" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "tauri-keychain" build.keychain
-          echo "APPLE_CERTIFICATE_IMPORTED=true" >> "$GITHUB_ENV"
+          # The bundler signs by identity *name*, so export the name and not a flag nobody
+          # reads. `find-identity` prints:   1) <sha1> "Developer ID Application: X (TEAM)"
+          identity=$(security find-identity -v -p codesigning build.keychain \
+            | sed -n 's/.*"\(.*\)".*/\1/p' \
+            | head -1)
+          if [ -z "$identity" ]; then
+            echo "::error::APPLE_CERTIFICATE was imported but holds no codesigning identity"
+            exit 1
+          fi
+          echo "TAURI_MACOS_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+      # tauri-bundler 只读 tauri.conf.json 里的 bundle.macOS.signingIdentity 与
+      # bundle.windows.certificateThumbprint，不读上面导出的环境变量。这一步就是那根
+      # 缺失的接线：证书在场就把身份写进配置，不在场就一个字都不改。身份或指纹取不到
+      # 时脚本直接失败，因为"配了证书却悄悄发出 ad-hoc 包"比发布失败糟糕得多。
+      - name: Wire the certificate into the bundler config
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+        run: node scripts/configure-code-signing.mjs
 
       # 直接调 tauri CLI 构建（非 tauri-action）。传入 updater 私钥用于生成
       # .sig 签名文件与各平台自己的 latest.json。macOS 无证书时会走 ad-hoc 签名。
@@ -419,12 +438,12 @@ jobs:
             echo '## Code signing'
             echo ''
             if [ -n "$APPLE_CERTIFICATE" ]; then
-              echo "- macOS: certificate imported. Note the bundler signs using \`bundle.macOS.signingIdentity\`, which this template pins to \`-\` (ad-hoc); set it to your Developer ID identity or the import changes nothing."
+              echo "- macOS: signed with the Developer ID identity wired into \`bundle.macOS.signingIdentity\` by \`scripts/configure-code-signing.mjs\`. A certificate that yields no usable identity fails the release instead of quietly shipping ad-hoc."
             else
               echo "- macOS: **ad-hoc signed** — no \`APPLE_CERTIFICATE\` secret. Gatekeeper blocks the first launch (\"cannot be opened because the developer cannot be verified\"); users need right-click then Open."
             fi
             if [ -n "$WINDOWS_CERTIFICATE" ]; then
-              echo "- Windows: certificate imported into the local machine store. The bundler only runs signtool when \`bundle.windows.certificateThumbprint\` is set, which this template leaves null — verify the file properties before shipping."
+              echo "- Windows: Authenticode-signed using the thumbprint wired into \`bundle.windows.certificateThumbprint\` by the same script; a certificate without a thumbprint fails the release."
             else
               echo "- Windows: **not Authenticode-signed** — no \`WINDOWS_CERTIFICATE\` secret. SmartScreen shows \"unknown publisher\" and requires More info then Run anyway."
             fi
