@@ -9,18 +9,26 @@ vi.mock('motion/react', () => ({
   motion: { form: 'form' },
 }))
 
-// Mock @tauri-apps/api/event — capture the theme listener callback
+// Mock @tauri-apps/api/event — capture the theme and language listeners, and count
+// the unlisten calls per event so cleanup is attributable.
 const mockEmit = vi.fn()
-const mockUnlistenEvent = vi.fn()
 let themeListener: ((event: { payload: { theme: string } }) => void) | undefined
+let languageListener:
+  ((event: { payload: { language: string } }) => void) | undefined
+const unlistenByEvent = new Map<string, ReturnType<typeof vi.fn>>()
 vi.mock('@tauri-apps/api/event', () => ({
   emit: (...args: unknown[]) => mockEmit(...(args as [never])),
-  listen: (
-    _event: string,
-    handler: (e: { payload: { theme: string } }) => void
-  ) => {
-    themeListener = handler
-    return Promise.resolve(mockUnlistenEvent)
+  listen: (event: string, handler: (e: { payload: never }) => void) => {
+    if (event === 'theme-changed') {
+      themeListener = handler as (e: { payload: { theme: string } }) => void
+    } else if (event === 'language-changed') {
+      languageListener = handler as (e: {
+        payload: { language: string }
+      }) => void
+    }
+    const off = vi.fn()
+    unlistenByEvent.set(event, off)
+    return Promise.resolve(off)
   },
 }))
 
@@ -39,11 +47,24 @@ vi.mock('@tauri-apps/api/window', () => ({
 
 // Mock tauri bindings
 const mockDismissQuickPane = vi.fn()
+const mockLoadPreferences = vi.fn()
 vi.mock('@/lib/tauri-bindings', () => ({
   commands: {
     dismissQuickPane: (...args: unknown[]) =>
       mockDismissQuickPane(...(args as [])),
+    loadPreferences: (...args: unknown[]) =>
+      mockLoadPreferences(...(args as [])),
   },
+}))
+
+// Mock the language initialiser — the pane's job is to call it with the saved
+// preference on mount and again whenever the main window announces a change;
+// what initializeLanguage itself does is covered in i18n/language-init.test.ts.
+const mockInitializeLanguage = vi.fn()
+vi.mock('@/i18n', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  initializeLanguage: (...args: unknown[]) =>
+    mockInitializeLanguage(...(args as [string | null])),
 }))
 
 // Mock logger
@@ -71,6 +92,12 @@ vi.mock('@/i18n/config', () => ({
 beforeEach(() => {
   vi.clearAllMocks()
   mockDismissQuickPane.mockResolvedValue({ status: 'ok' })
+  mockLoadPreferences.mockResolvedValue({
+    status: 'ok',
+    data: { theme: 'system', language: null },
+  })
+  mockInitializeLanguage.mockResolvedValue(undefined)
+  unlistenByEvent.clear()
   localStorage.clear()
 })
 
@@ -112,7 +139,75 @@ describe('QuickPaneApp', () => {
       const { unmount } = render(<QuickPaneApp />)
       unmount()
       await flush()
-      expect(mockUnlistenEvent).toHaveBeenCalledTimes(1)
+      expect(unlistenByEvent.get('theme-changed')).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('language-changed listener', () => {
+    // The pane renders from its own i18n instance, and only `en` is bundled
+    // synchronously. Before this effect it never asked for another language, so
+    // a Chinese-speaking user got an English placeholder forever.
+    it('挂载时按保存的语言偏好初始化面板语言', async () => {
+      mockLoadPreferences.mockResolvedValue({
+        status: 'ok',
+        data: { theme: 'system', language: 'zh' },
+      })
+
+      await act(async () => {
+        render(<QuickPaneApp />)
+      })
+
+      expect(mockInitializeLanguage).toHaveBeenCalledWith('zh')
+    })
+
+    it('读取偏好失败时退回系统检测（null）', async () => {
+      mockLoadPreferences.mockResolvedValue({
+        status: 'error',
+        error: { kind: 'Io', message: 'no file' },
+      })
+
+      await act(async () => {
+        render(<QuickPaneApp />)
+      })
+
+      expect(mockInitializeLanguage).toHaveBeenCalledWith(null)
+    })
+
+    it('收到主窗口的语言切换时重新初始化', async () => {
+      await act(async () => {
+        render(<QuickPaneApp />)
+      })
+      mockInitializeLanguage.mockClear()
+
+      await act(async () => {
+        languageListener?.({ payload: { language: 'zh' } })
+      })
+
+      expect(mockInitializeLanguage).toHaveBeenCalledWith('zh')
+    })
+
+    it('语言初始化失败时记录 warn 而不抛出', async () => {
+      mockInitializeLanguage.mockRejectedValue(new Error('bundle missing'))
+
+      await act(async () => {
+        render(<QuickPaneApp />)
+      })
+
+      await waitFor(() => {
+        expect(logger.warn).toHaveBeenCalledWith(
+          'Quick pane failed to apply language',
+          { error: expect.any(Error), language: null }
+        )
+      })
+    })
+
+    it('卸载时移除语言监听器', async () => {
+      const { unmount } = render(<QuickPaneApp />)
+      await flush()
+
+      act(() => unmount())
+
+      expect(unlistenByEvent.get('language-changed')).toHaveBeenCalledTimes(1)
     })
   })
 

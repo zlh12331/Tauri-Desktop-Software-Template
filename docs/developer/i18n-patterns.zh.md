@@ -331,6 +331,32 @@ const currentLanguage = i18n.language
 await i18n.changeLanguage('zh')
 ```
 
+## 跨窗口的语言
+
+每个 webview 都有自己的 i18next 实例。快捷面板是独立窗口，所以在主窗口里调用
+`i18n.changeLanguage()` 对它毫无作用——而同步加载的只有 `en`，于是一个从不请求其它语言的
+面板，对任何用户都只会是英文。
+
+两件事让它保持正确：
+
+- **挂载时**面板读取保存的语言偏好并调用 `initializeLanguage(language)`：懒加载对应语料，
+  偏好为 `null` 时退回系统 locale 检测。
+- **切换时**主窗口 emit `language-changed`，携带的是**实际生效**的语言（不是偏好里的
+  `system`），面板收到后重新执行 `initializeLanguage`。监听器在卸载时取消，做法与既有的
+  `theme-changed` 一致。
+
+```typescript
+// 主窗口：切换成功之后
+void emit('language-changed', { language: resolvedLanguage })
+
+// 快捷面板
+unlisten = await listen<{ language: string }>('language-changed', event => {
+  void initializeLanguage(event.payload.language)
+})
+```
+
+emit 要放在语言真的切换成功之后，而不是之前：失败的切换不该宣布一个应用并未显示的语言。
+
 ## RTL 测试
 
 测试 RTL 布局：

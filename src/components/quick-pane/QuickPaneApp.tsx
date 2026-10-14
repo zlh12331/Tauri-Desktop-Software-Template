@@ -4,6 +4,7 @@ import { emit, listen } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { commands } from '@/lib/tauri-bindings'
 import i18n from '@/i18n/config'
+import { initializeLanguage } from '@/i18n'
 import { logger } from '@/lib/logger'
 import { scaleFadeVariants, gentleSpring } from '@/lib/animations'
 import { isValidTheme, readStoredTheme } from '@/lib/theme'
@@ -48,6 +49,45 @@ export default function QuickPaneApp() {
 
     return () => {
       unlistenPromise.then(fn => fn())
+    }
+  }, [])
+
+  // Language, synced the way theme already is: start from the saved preference,
+  // then follow the main window. Without the first half the pane is English for
+  // every user, because only `en` is bundled synchronously and nothing here ever
+  // asked for another resource.
+  useEffect(() => {
+    let disposed = false
+    let unlistenLanguage: (() => void) | undefined
+
+    const applyLanguage = async (language: string | null) => {
+      try {
+        await initializeLanguage(language)
+      } catch (error) {
+        logger.warn('Quick pane failed to apply language', {
+          error,
+          language,
+        })
+      }
+    }
+
+    void (async () => {
+      const result = await commands.loadPreferences()
+      if (disposed) return
+      await applyLanguage(result.status === 'ok' ? result.data.language : null)
+
+      unlistenLanguage = await listen<{ language: string }>(
+        'language-changed',
+        event => {
+          void applyLanguage(event.payload.language)
+        }
+      )
+      if (disposed) unlistenLanguage()
+    })()
+
+    return () => {
+      disposed = true
+      unlistenLanguage?.()
     }
   }, [])
 

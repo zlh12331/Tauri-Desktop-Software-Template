@@ -48,6 +48,13 @@ vi.mock('@tauri-apps/plugin-os', () => ({
   locale: (...args: unknown[]) => mockLocale(...(args as [])),
 }))
 
+// Mock the event bus — the pane must announce the resolved language, because the
+// quick pane has its own i18n instance and stays in the old language otherwise.
+const mockEmit = vi.fn()
+vi.mock('@tauri-apps/api/event', () => ({
+  emit: (...args: unknown[]) => mockEmit(...(args as [never, never])),
+}))
+
 // Mock theme hook
 const mockSetTheme = vi.fn()
 vi.mock('@/hooks/use-theme', () => ({
@@ -180,6 +187,11 @@ describe('AppearancePane', () => {
       await waitFor(() => {
         expect(mockMutate).toHaveBeenCalledWith([{ Language: { value: 'en' } }])
       })
+      await waitFor(() => {
+        expect(mockEmit).toHaveBeenCalledWith('language-changed', {
+          language: 'en',
+        })
+      })
     })
 
     it('选择 "System" 语言调用 locale() 检测系统语言', async () => {
@@ -286,6 +298,13 @@ describe('AppearancePane', () => {
       await waitFor(() => {
         expect(mockChangeLanguage).toHaveBeenCalledWith('en')
       })
+      // The announcement carries the language actually applied, not the preference
+      // "system" — the other window has no locale-detection job.
+      await waitFor(() => {
+        expect(mockEmit).toHaveBeenCalledWith('language-changed', {
+          language: 'en',
+        })
+      })
     })
 
     it('locale() 返回 null 时回退到 "en"', async () => {
@@ -331,6 +350,8 @@ describe('AppearancePane', () => {
         expect(mockToastError).toHaveBeenCalledWith('toast.error.generic')
       })
       expect(mockMutate).not.toHaveBeenCalled()
+      // Nothing was applied, so nothing may be announced to the other window.
+      expect(mockEmit).not.toHaveBeenCalled()
     })
 
     it('locale() 抛错时显示错误 toast', async () => {
