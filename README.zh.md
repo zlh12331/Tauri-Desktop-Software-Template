@@ -55,7 +55,7 @@ npm run tauri:dev
 | **用户体验** | 命令面板（`Cmd+K`）、跨平台标题栏、系统托盘、全局快捷键、深链接                     |
 | **平台能力** | macOS NSPanel + 毛玻璃、Windows 无边框、Linux 原生装饰                              |
 | **工程质量** | 15+ 质量门禁、三层 Rust 测试、axe 无障碍 E2E、cargo-deny                            |
-| **AI 友好**  | `AGENTS.md` 规则、26 篇开发者文档，讲透每个模式背后的"为什么"                       |
+| **AI 友好**  | `AGENTS.md` 规则、中英双语开发者文档，讲透每个模式背后的"为什么"                    |
 
 ## 核心特性详解
 
@@ -235,9 +235,10 @@ Rust 与 React 通过 Tauri 事件松耦合通信。主题变更 emit `theme-cha
 所有文档均提供英文和中文版本：
 
 - **[使用模板](docs/USING_THIS_TEMPLATE.zh.md)** — 设置和工作流指南
-- **[开发者文档](docs/developer/README.zh.md)** — 26 篇文档，涵盖架构、模式和详细指南
+- **[开发者文档](docs/developer/README.zh.md)** — 涵盖架构、模式与详细指南，中英双语各一篇
 - **[用户指南](docs/userguide/userguide.zh.md)** — 终端用户文档
 - **[贡献指南](docs/CONTRIBUTING.zh.md)** — 参与贡献的流程
+- **[行为准则](CODE_OF_CONDUCT.md)** — 社区行为标准（仅提供英文）
 - **[安全策略](docs/SECURITY.zh.md)** — 安全措施和漏洞报告
 
 ## 贡献
@@ -257,7 +258,7 @@ docs(readme): update installation instructions
 本模板专为 AI 编码代理优化：
 
 - **AGENTS.md** — 面向 AI 代理的项目规则和架构模式
-- **docs/developer/** — 26 篇文档解释模式的"为什么"，而非仅仅是"怎么做"
+- **docs/developer/** — 双语开发者文档解释模式的"为什么"，而非仅仅是"怎么做"
 - **可预测的结构** — ast-grep 强制的清晰目录边界
 - **质量门禁** — `npm run check:all` 在问题进入生产前捕获它们
 

@@ -399,6 +399,41 @@ jobs:
             release-out \
             CHANGELOG.md
 
+      # 分发完整性必须自己开口。缺证书是模板合理的缺省，但“合理”不等于“静默”：
+      # 没有这一步，唯一的证据是某个 step 被 skip，而安装者读到的是一堆 ad-hoc 包。
+      # 姿态同时写进发布说明与作业摘要，两者都是人会看的地方。
+      - name: Declare code-signing posture
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+        run: |
+          # Inline markdown code needs literal backticks, and a single-quoted string
+          # carrying them is exactly what shellcheck flags as SC2016 (actionlint fails
+          # the job even at info severity). A file-top `# shellcheck disable=SC2016`
+          # was tried first and did not suppress it, so the strings are double-quoted
+          # with the backticks and inner quotes escaped.
+          set -euo pipefail
+          note="$RUNNER_TEMP/sign-posture.md"
+          {
+            echo ''
+            echo '## Code signing'
+            echo ''
+            if [ -n "$APPLE_CERTIFICATE" ]; then
+              echo "- macOS: certificate imported. Note the bundler signs using \`bundle.macOS.signingIdentity\`, which this template pins to \`-\` (ad-hoc); set it to your Developer ID identity or the import changes nothing."
+            else
+              echo "- macOS: **ad-hoc signed** — no \`APPLE_CERTIFICATE\` secret. Gatekeeper blocks the first launch (\"cannot be opened because the developer cannot be verified\"); users need right-click then Open."
+            fi
+            if [ -n "$WINDOWS_CERTIFICATE" ]; then
+              echo "- Windows: certificate imported into the local machine store. The bundler only runs signtool when \`bundle.windows.certificateThumbprint\` is set, which this template leaves null — verify the file properties before shipping."
+            else
+              echo "- Windows: **not Authenticode-signed** — no \`WINDOWS_CERTIFICATE\` secret. SmartScreen shows \"unknown publisher\" and requires More info then Run anyway."
+            fi
+            echo '- Linux: an AppImage has no OS-level signature to apply.'
+            echo "- Auto-updater: \`latest.json\` and the \`.sig\` files are signed with \`TAURI_PRIVATE_KEY\`. That is a separate system from OS code signing and works either way."
+          } > "$note"
+          cat "$note" >> release-out/release-body.md
+          cat "$note" >> "$GITHUB_STEP_SUMMARY"
+
       - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

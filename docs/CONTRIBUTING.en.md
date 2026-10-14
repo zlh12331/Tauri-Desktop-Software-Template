@@ -29,6 +29,7 @@ npm run check:all
 - **Bug Reports**: Use the bug report template
 - **Feature Requests**: Use the feature request template
 - **Security Issues**: See [SECURITY.md](SECURITY.en.md)
+- **Code of Conduct**: See [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md), English only
 
 ### Pull Requests
 

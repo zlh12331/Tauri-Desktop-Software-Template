@@ -43,14 +43,15 @@ npm run tauri:dev
 | `src-tauri/Cargo.toml`             | `package.name`, `package.description`, `package.authors`                                                       |
 | `.github/workflows/release-v2.yml` | the product name is written literally three times (asset prefix, `finalize` argument, release title)           |
 | `SECURITY.md` (repo root)          | private-advisory URL, which embeds the current owner/repo                                                      |
+| `CODE_OF_CONDUCT.md` (repo root)   | the same private-advisory URL, used for conduct reports too                                                    |
 | `.github/CODEOWNERS`               | the owner handle on every rule — see below                                                                     |
 | the remote's branch protection     | required status checks must match the job names in `.github/workflows/ci.yml`                                  |
 | `AGENTS.md` / `README.md`          | app name and description text                                                                                  |
 
-### Two settings that fail by staying silent
+### Three settings that fail by staying silent
 
-`.github/CODEOWNERS` and the ruleset on the remote are the two entries here that
-produce no error when they are wrong.
+`.github/CODEOWNERS`, the ruleset on the remote, and OS code signing are the three
+entries here that produce no error when they are wrong.
 
 **CODEOWNERS** ships pointing at `@zlh12331`, the upstream maintainer. In a fork
 that means every pull request asks somebody who is not a collaborator on your
@@ -67,6 +68,16 @@ or delete a job in `ci.yml` without updating the ruleset and that check never
 reports — which does not turn the pull request red, it leaves it pending forever
 with nothing to read. Any change to a job's `name:` in `ci.yml` needs a matching
 change on the remote in the same sitting.
+
+**OS code signing** fails silently in both directions at once. Adding
+`APPLE_CERTIFICATE` and `WINDOWS_CERTIFICATE` does not sign anything, because the
+bundler decides from `bundle.macOS.signingIdentity` (shipped as `"-"`, ad-hoc) and
+`bundle.windows.certificateThumbprint` (shipped as `null`), which the workflow
+never sets. Not adding them is fine and expected; believing the pipeline is
+signed is not. `release-v2.yml`'s `finalize` job therefore writes the true posture
+into every release's own notes, and
+[Releases → OS code signing](developer/releases.en.md#4-os-code-signing-optional-absent-on-purpose-and-not-silent)
+says which two config fields you still have to edit.
 
 ### There are no placeholder strings — read this first
 

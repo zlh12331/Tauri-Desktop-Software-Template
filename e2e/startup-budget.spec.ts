@@ -10,15 +10,13 @@ import { test, expect } from './fixtures'
  * a three-platform gate on them would be a two-platform gate wearing a label. The
  * gap is stated in docs/developer/testing rather than left implicit.
  *
- * The numbers below are ratchets, not opinions: each is a measured value plus
- * ~40% headroom, so a real regression trips the budget while runner jitter does
- * not. Baseline measured 2026-10-14 on a Windows dev machine: FCP 204ms,
- * mounted 220ms, DOMContentLoaded 115ms. The limits are still the generous
- * first-pass values until a CI run reports its own — tighten them against the
- * number this test prints, not against this sentence.
+ * The numbers below are ratchets, not opinions. CI measured FCP 208ms / mounted
+ * 222ms / DOMContentLoaded 122ms, and a Windows dev machine measured
+ * FCP 192–288ms / mounted ~220ms, so the limits sit at roughly 4x the CI value:
+ * a real render-blocking regression trips them while runner jitter does not.
  */
-const BUDGET_FIRST_CONTENTFUL_PAINT_MS = 1200
-const BUDGET_REACT_MOUNTED_MS = 2000
+const BUDGET_FIRST_CONTENTFUL_PAINT_MS = 800
+const BUDGET_REACT_MOUNTED_MS = 1200
 
 const PREVIEW_URL = 'http://localhost:4173/'
 
@@ -38,6 +36,19 @@ test.describe('Startup budget (production bundle)', () => {
     await expect(mockPage.getByText('Tauri App')).toBeVisible({
       timeout: 15000,
     })
+    // FCP is recorded when the browser commits a painted frame, which can land
+    // *after* the mount assertion is satisfied: two runs on the same runner class
+    // measured mounted 220/222ms and read FCP as 208ms once and NaN once. Waiting
+    // for the entry makes the gate measure the budget rather than that race, while
+    // a page that never paints still fails — loudly, with the wait's own timeout.
+    await mockPage.waitForFunction(
+      () =>
+        performance
+          .getEntriesByType('paint')
+          .some(entry => entry.name === 'first-contentful-paint'),
+      undefined,
+      { timeout: 10000 }
+    )
 
     const timings = await mockPage.evaluate<StartupTimings>(() => {
       const paint = performance
