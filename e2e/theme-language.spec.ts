@@ -87,6 +87,19 @@ test.describe('Theme and Language Settings', () => {
       () => document.documentElement.className
     )
     expect(className).toContain('dark')
+
+    // The write travels as a field-level patch, so the stored document must show
+    // the new theme with every other field still present — a whole-document
+    // rewrite from a stale cache is what this replaces.
+    const stored = await mockPage.evaluate(() =>
+      window.__testHelpers.getPreferences()
+    )
+    expect(stored).toEqual({
+      theme: 'dark',
+      quick_pane_shortcut: null,
+      language: null,
+      crash_reporting_consent: null,
+    })
   })
 
   test('Selecting Light theme reverts', async ({ mockPage }) => {
