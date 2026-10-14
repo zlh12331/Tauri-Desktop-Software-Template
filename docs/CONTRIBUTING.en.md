@@ -66,8 +66,8 @@ All PRs must pass `npm run check:all`, which chains:
 - `npm run format:check` — Prettier
 - `npm run i18n:check` — catalog drift, missing keys, `{{placeholder}}` alignment
 - `npm run rust:fmt:check`, `npm run rust:clippy`, `npm run rust:machete`
-- `npm run test:run` — Vitest unit tests (1032 tests)
-- `npm run rust:test` — Rust `cargo test` (432 tests)
+- `npm run test:run` — Vitest unit tests (1039 tests)
+- `npm run rust:test` — Rust `cargo test` (436 tests)
 
 Playwright E2E (98 scenarios) is **not** in `check:all`; CI runs it as its own job.
 Locally use `npm run e2e`.

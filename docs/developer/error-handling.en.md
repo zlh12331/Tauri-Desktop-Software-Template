@@ -313,17 +313,22 @@ frontend and the Rust backend.
 
 ### Consent Gate
 
-All Sentry events (errors, logs, traces, replays) pass through a `beforeSend`
-callback that checks the user's consent state. Events are **never sent** without
-explicit user consent.
+There are two upload pipelines, and one callback does not cover the other. Events
+(errors, traces, replays) pass `beforeSend`; structured logs pass `beforeSendLog`.
+Both check the same consent state, and both redact before sending. Gating events
+alone is not enough: in production `src/lib/logger.ts` forwards every log entry to
+`Sentry.logger`, which travels the logs pipeline — so a configured DSN would ship
+log messages and their context objects while `beforeSend` faithfully blocked every
+event.
 
+```text
+Frontend events: beforeSend      checks consentGranted → redact → send / drop
+Frontend logs:   beforeSendLog   checks consentGranted → redact → send / drop
+Rust events:     before_send     checks CONSENT_STATE  → send / drop
+Rust logs:       before_send_log checks CONSENT_STATE  → redact → send / drop
 ```
-Frontend flow:
-  Sentry captures event → beforeSend checks consentGranted → send / drop
 
-Rust flow:
-  Sentry captures event → before_send checks CONSENT_STATE → send / drop
-```
+Nothing is sent without explicit user consent.
 
 Consent is managed by `setSentryConsent()` in `src/lib/sentry.ts`, which also
 syncs the state to the Rust side via the `set_consent` Tauri command. The user

@@ -55,7 +55,7 @@ node scripts/check-bundle.mjs    # 按你的应用重设体积预算
 | 功能 | Rust | 前端 | 其他触点 |
 | - - - | - - - | - - - | - - - |
 | 快速面板 | `commands/quick_pane.rs`（545 行，5 条命令） | `quick-pane.html`、`src/quick-pane-main.tsx`、`src/quick-pane.css`、`components/quick-pane/` | `capabilities/quick-pane.json`、`vite.config.ts:73-78` 第二入口、`hooks/useMainWindowEventListeners.ts`、`preferences/panes/GeneralPane.tsx:36-73`、`locales` 的 `quickPane.*`、`e2e/quick-pane-event.spec.ts`、`types.rs:11` 默认快捷键、`lib.rs` 的 window-state denylist |
-| 崩溃上报 + Sentry | `commands/crash_report.rs`（1,152 行，3 条命令）、`lib.rs` setup 里的 `setup_panic_hook` 调用——**不含** `utils/redact.rs`，它同时被日志格式化使用 | `components/crash-report/`、`hooks/use-crash-reporting.ts`、`store/crash-report-store.ts`、`lib/sentry.ts`、`lib/redact.ts`、`main.tsx:13` 与 `quick-pane-main.tsx:11` 的 `initSentry()`、`App.tsx:79` 调用与 `App.tsx:21` 调试面板、`MainWindow.tsx:15,142` | `preferences/panes/AdvancedPane.tsx` 同意开关、`locales` 的 `crashReport.*`、`e2e/crash-report*.spec.ts`、`src-tauri/tests/crash_report_integration.rs`、npm 与 cargo 两侧 Sentry 依赖 |
+| 崩溃上报 + Sentry | `commands/crash_report.rs`（1,240 行，3 条命令）、`lib.rs` setup 里的 `setup_panic_hook` 调用——**不含** `utils/redact.rs`，它同时被日志格式化使用 | `components/crash-report/`、`hooks/use-crash-reporting.ts`、`store/crash-report-store.ts`、`lib/sentry.ts`、`lib/redact.ts`、`main.tsx:13` 与 `quick-pane-main.tsx:11` 的 `initSentry()`、`App.tsx:79` 调用与 `App.tsx:21` 调试面板、`MainWindow.tsx:15,142` | `preferences/panes/AdvancedPane.tsx` 同意开关、`locales` 的 `crashReport.*`、`e2e/crash-report*.spec.ts`、`src-tauri/tests/crash_report_integration.rs`、npm 与 cargo 两侧 Sentry 依赖 |
 | 托盘 | `commands/tray.rs`（377 行，2 条命令）、`lib.rs` setup 里的 `init_tray` 调用 | 无 | `lib.rs` 里"关窗即隐藏"的 `CloseRequested` 处理、`locales` 的 `menu.*`、`src-tauri/tests/tray_integration.rs` |
 | 恢复文件 | `commands/recovery.rs`（962 行，3 条命令） | `lib/recovery.ts`，被 `components/ErrorBoundary.tsx` 调用 | `locales` 的 `errorBoundary.*`、`types.rs` 的 `RecoveryError` |
 | 自动更新 | `lib.rs` 的插件注册、`desktop.json` capability | `lib/updater.ts`、`hooks/use-auto-updater.ts`、`App.tsx:80`、`lib/menu.ts:169`、`lib/commands/app-commands.ts` | `tauri.conf.json` 的 `plugins.updater` 与 `bundle.createUpdaterArtifacts`、`.github/workflows/release-v2.yml`、`docs/developer/releases.*.md` |
@@ -103,9 +103,11 @@ node scripts/check-bundle.mjs    # 按你的应用重设体积预算
 
 两半相互独立，但要么都拆、要么都留，否则你会发一个"有同意弹窗却没有同意状态"的应用。
 
-- **Rust**：`commands/crash_report.rs`（3 条命令）及其在 `mod.rs` / `bindings.rs`
+- **Rust**：`commands/crash_report.rs`（3 条命令，外加日志通道用到的
+  `gate_and_redact_log` 辅助函数）及其在 `mod.rs` / `bindings.rs`
   的行；`lib.rs` 的 `setup_panic_hook` 与 `init_consent_from_preferences`；
-  Sentry 初始化块内基于 `CONSENT_STATE` 的门控；`types.rs` 的
+  Sentry 初始化块内基于 `CONSENT_STATE` 的门控——一共两道，事件的 `before_send`
+  与结构化日志的 `before_send_log`，只拆前一道日志照样会往外发；`types.rs` 的
   `crash_reporting_consent` 字段。
 - **前端**：`lib/sentry.ts`、`lib/redact.ts`、`hooks/use-crash-reporting.ts`、
   `store/crash-report-store.ts`（第四个也是最后一个 store）、

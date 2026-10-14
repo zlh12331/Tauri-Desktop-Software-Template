@@ -302,15 +302,18 @@ catch 块里只做「撤销」这一件事。[`usePatchPreferences()`](../../src
 
 ### 同意门控
 
-所有 Sentry 事件（错误、日志、追踪、回放）都通过 `beforeSend` 回调进行检查，该回调会检查用户的同意状态。在没有明确用户同意的情况下，事件**绝不会发送**。
+往外发的通道有两条，一个回调管不到另一条。事件（错误、追踪、回放）走 `beforeSend`；结构化日志走 `beforeSendLog`。两者检查同一份同意状态，且发送前都会脱敏。
 
-```
-Frontend flow:
-  Sentry captures event → beforeSend checks consentGranted → send / drop
+只把事件挡住是不够的：生产环境下 `src/lib/logger.ts` 会把每条日志转发给 `Sentry.logger`，而那走的是日志通道——于是配置了 DSN 就等于在 `beforeSend` 老老实实拦下每个事件的同时，把日志正文和它的 context 对象一起发出去了。
 
-Rust flow:
-  Sentry captures event → before_send checks CONSENT_STATE → send / drop
+```text
+前端事件：beforeSend      检查 consentGranted → 脱敏 → 发送 / 丢弃
+前端日志：beforeSendLog   检查 consentGranted → 脱敏 → 发送 / 丢弃
+Rust 事件：before_send     检查 CONSENT_STATE  → 发送 / 丢弃
+Rust 日志：before_send_log 检查 CONSENT_STATE  → 脱敏 → 发送 / 丢弃
 ```
+
+没有用户明确同意，什么都不发。
 
 同意由 `src/lib/sentry.ts` 中的 `setSentryConsent()` 管理，它还会通过 `set_consent` Tauri 命令将状态同步到 Rust 端。用户会在崩溃后的首次启动时被 `CrashReportDialog` 提示。
 
