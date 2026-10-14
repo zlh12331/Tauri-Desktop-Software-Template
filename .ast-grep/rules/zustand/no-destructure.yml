@@ -9,7 +9,22 @@ message: |
 severity: error
 language: Tsx
 rule:
-  pattern: const { $$$PROPS } = useUIStore($$$ARGS)
+  # Matched by shape, not by store name — every store under `src/store/` is in
+  # scope and so is any store added later. An earlier revision hardcoded
+  # `useUIStore(...)`, which left the other three stores unprotected while
+  # AGENTS.md promised "no Zustand destructuring" without qualification: a
+  # `const { open } = useDialogStore()` would have been committed with a green
+  # CI, and the render cascade the rule exists to prevent would have arrived
+  # anyway. `no-store-subscription-in-lib.yml` had already been widened the same
+  # way for the same reason; the two store rules are now shaped identically so
+  # neither can drift back to a single-store scope unnoticed.
+  #
+  # `scripts/ast-grep-store-coverage.test.mjs` reads this regex and plants one
+  # violation per discovered store, so narrowing it turns the gate red.
+  pattern: const { $$$PROPS } = $STORE($$$ARGS)
+constraints:
+  STORE:
+    regex: '^use[A-Za-z0-9_]*Store$'
 note: |
   Destructuring causes render cascades - every store update triggers re-renders
   even if destructured values haven't changed.
