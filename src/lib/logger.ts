@@ -119,8 +119,9 @@ class Logger {
    *
    * `Sentry.logger.{trace,debug,info,warn,error}` are no-ops when the SDK is
    * not initialized or `enableLogs` is disabled, so this is safe to call
-   * unconditionally. Events are only transmitted after the user grants
-   * consent (see `sentry.ts` → `beforeSend` gate).
+   * unconditionally. Nothing leaves the device before consent: events pass
+   * `beforeSend` and these logs pass `beforeSendLog` (see `sentry.ts`), because
+   * the two travel separate pipelines and one gate does not cover the other.
    *
    * An empty attributes object is passed when no context is provided, to
    * satisfy `exactOptionalPropertyTypes` without conditionally branching on

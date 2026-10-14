@@ -276,6 +276,102 @@ describe('sentry — 已配置 DSN', () => {
     })
   })
 
+  describe('正向用例 — beforeSendLog consent gate', () => {
+    // `beforeSend` only guards events. Structured logs travel a separate pipeline
+    // (Sentry JS `enableLogs`), so without `beforeSendLog` a configured DSN ships
+    // `logger.info` output that no user ever consented to.
+    type LogCallback = (log: unknown) => unknown
+
+    function logCallback(): LogCallback {
+      const initCall = mockSentryInit.mock.calls[0]?.[0] as {
+        beforeSendLog: LogCallback
+      }
+      return initCall.beforeSendLog
+    }
+
+    it('配置了 beforeSendLog consent gate 函数', async () => {
+      const { initSentry } = await import('./sentry')
+      initSentry()
+      expect(mockSentryInit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          beforeSendLog: expect.any(Function),
+        })
+      )
+    })
+
+    it('默认未询问 — 日志被丢弃', async () => {
+      const { initSentry } = await import('./sentry')
+      initSentry()
+      expect(logCallback()({ level: 'info', message: 'startup' })).toBeNull()
+    })
+
+    it('setSentryConsent(false) — 日志被丢弃', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(false)
+      expect(logCallback()({ level: 'error', message: 'boom' })).toBeNull()
+    })
+
+    it('同意后日志放行，且正文里的凭据被脱敏', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      expect(
+        logCallback()({
+          level: 'info',
+          message: 'saved with api_key=sk-live-123',
+        })
+      ).toEqual({ level: 'info', message: 'saved with api_key=***' })
+    })
+
+    it('同意后 attributes 的敏感键被替换，其余保持原样', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+      expect(
+        logCallback()({
+          level: 'info',
+          message: 'ok',
+          attributes: { token: 'abc123', route: '/preferences' },
+        })
+      ).toEqual({
+        level: 'info',
+        message: 'ok',
+        attributes: { token: '***', route: '/preferences' },
+      })
+    })
+
+    it('脱敏不改动调用方传入的对象', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+      setSentryConsent(true)
+
+      const original = {
+        level: 'info' as const,
+        message: 'token=plain-secret',
+        attributes: { authorization: 'Bearer xyz' },
+      }
+      logCallback()(original)
+
+      expect(original.attributes.authorization).toBe('Bearer xyz')
+      expect(original.message).toBe('token=plain-secret')
+    })
+
+    it('consent 在 true → null 之间切换后日志重新被丢弃', async () => {
+      const { initSentry, setSentryConsent } = await import('./sentry')
+      initSentry()
+
+      setSentryConsent(true)
+      expect(logCallback()({ level: 'info', message: 'a' })).toEqual({
+        level: 'info',
+        message: 'a',
+      })
+
+      setSentryConsent(null)
+      expect(logCallback()({ level: 'info', message: 'b' })).toBeNull()
+    })
+  })
+
   describe('正向用例 — setSentryConsent 同步到 Rust 端', () => {
     it('setSentryConsent(true) 调用 commands.setConsent(true)', async () => {
       const { initSentry, setSentryConsent } = await import('./sentry')

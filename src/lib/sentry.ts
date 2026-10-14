@@ -72,6 +72,25 @@ export function initSentry(): void {
       return redactSentryEvent(event)
     },
 
+    // Structured logs travel their own pipeline: `beforeSend` never sees them, so
+    // without this gate a configured DSN ships `logger.info(...)` output — request
+    // bodies, file paths, whatever a log line happens to contain — to Sentry while
+    // the user has never been asked, and the redaction that covers events and the
+    // log *file* covers none of it.
+    beforeSendLog(log) {
+      if (consentGranted !== true) {
+        return null
+      }
+      const redacted: typeof log = {
+        ...log,
+        message: redactString(log.message) as typeof log.message,
+      }
+      if (log.attributes) {
+        redacted.attributes = redactObject(log.attributes)
+      }
+      return redacted
+    },
+
     integrations: [
       // Performance tracing: auto-capture Web Vitals (LCP/FCP/INP/CLS)
       Sentry.browserTracingIntegration(),
