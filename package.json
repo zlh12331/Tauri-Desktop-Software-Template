@@ -45,7 +45,7 @@
     "test:scripts": "node scripts/run-gate-tests.mjs",
     "bundle:check": "node scripts/check-bundle.mjs",
     "version:check": "node scripts/check-version.mjs",
-    "readme:check": "node scripts/check-readme.mjs --frontend 1039 --rust 436 --e2e 98",
+    "readme:check": "node scripts/check-readme.mjs --frontend 1034 --rust 436 --e2e 98",
     "e2e": "playwright test",
     "e2e:startup": "npm run build && playwright test -c playwright.startup.config.ts",
     "e2e:ui": "playwright test --ui",

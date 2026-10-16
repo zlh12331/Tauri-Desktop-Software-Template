@@ -66,7 +66,7 @@ npm run check:all
 - `npm run format:check` —— Prettier
 - `npm run i18n:check` —— 词条抽取漂移、缺失键、`{{placeholder}}` 对齐
 - `npm run rust:fmt:check`、`npm run rust:clippy`、`npm run rust:machete`
-- `npm run test:run` —— Vitest 单元测试（1039 个测试）
+- `npm run test:run` —— Vitest 单元测试（1034 个测试）
 - `npm run rust:test` —— Rust `cargo test`（436 个测试）
 
 Playwright E2E（98 个场景）**不在** `check:all` 里，CI 有独立作业执行；本地用

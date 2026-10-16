@@ -355,6 +355,36 @@ const currentLanguage = i18n.language
 await i18n.changeLanguage('zh')
 ```
 
+## Language Across Windows
+
+Each webview owns its own i18next instance. The quick pane is a separate window, so
+`i18n.changeLanguage()` in the main window does nothing there — and because only
+`en` is bundled synchronously, a pane that never asks for another language stays
+English for every user.
+
+Two things keep it honest:
+
+- **On mount** the pane reads the saved preference and calls
+  `initializeLanguage(language)`, which lazy-loads the bundle and falls back to
+  system locale detection when the preference is `null`.
+- **On change** the main window emits `language-changed` with the language it
+  actually applied (not the preference value `system`), and the pane re-runs
+  `initializeLanguage`. The listener is removed on unmount, the same way the
+  existing `theme-changed` listener is.
+
+```typescript
+// main window, after the switch succeeded
+void emit('language-changed', { language: resolvedLanguage })
+
+// quick pane
+unlisten = await listen<{ language: string }>('language-changed', event => {
+  void initializeLanguage(event.payload.language)
+})
+```
+
+Emit after the language is applied, not before: a failed switch must not announce a
+language the app is not showing.
+
 ## Testing with RTL
 
 To test RTL layout:

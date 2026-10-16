@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { locale } from '@tauri-apps/plugin-os'
+import { emit } from '@tauri-apps/api/event'
 import { toast } from 'sonner'
 import {
   Select,
@@ -38,6 +39,7 @@ export function AppearancePane() {
 
   const handleLanguageChange = async (value: string) => {
     const language = value === 'system' ? null : value
+    let resolvedLanguage = 'en'
 
     try {
       // Load the language bundle first (lazy-loaded via dynamic import)
@@ -45,21 +47,26 @@ export function AppearancePane() {
       if (language) {
         await loadLanguageAsync(language)
         await i18n.changeLanguage(language)
+        resolvedLanguage = language
       } else {
         // System language selected - detect and apply system locale
         const systemLocale = await locale()
         const langCode = systemLocale?.split('-')[0]?.toLowerCase() ?? 'en'
-        const targetLang = availableLanguages.includes(langCode)
+        resolvedLanguage = availableLanguages.includes(langCode)
           ? langCode
           : 'en'
-        await loadLanguageAsync(targetLang)
-        await i18n.changeLanguage(targetLang)
+        await loadLanguageAsync(resolvedLanguage)
+        await i18n.changeLanguage(resolvedLanguage)
       }
     } catch (error) {
       logger.error('Failed to change language', { error })
       toast.error(t('toast.error.generic'))
       return
     }
+
+    // Each window has its own i18n instance, so switching here leaves the quick
+    // pane showing its old language until it is told. Same shape as theme-changed.
+    void emit('language-changed', { language: resolvedLanguage })
 
     // Persist the language choice — `null` here means "follow the system locale",
     // which is a value the user picked, not an absent field.
