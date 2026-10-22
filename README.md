@@ -16,7 +16,7 @@ Type-safe IPC, native-feeling UX, and a quality bar that catches regressions bef
 **[English](README.md)** | [中文](README.zh.md)
 
 </div>
-不想维护了，要用模板去看看别的项目
+不想维护了，要用模板去看看别的项目/I don’t want to maintain it anymore; I’ll use the template to check out other projects.
 
 ---
 
